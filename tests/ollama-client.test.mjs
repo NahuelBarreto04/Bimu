@@ -33,3 +33,23 @@ test('acepta detener sin tokens y rechaza final vacío sin cancelación',async()
  assert.equal((await client.stream('id','m',[],()=>{})).stopped,true)
  await assert.rejects(createOllamaClient(async()=>({content:'',stopped:false}),()=>({})).stream('id','m',[],()=>{}),/vacía/)
 })
+test('las herramientas requieren autorización explícita y notifican su actividad',async()=>{
+ let request;const events=[]
+ const client=createOllamaClient(async(command,args)=>{
+  request={command,args}
+  args.onEvent.onmessage({type:'tool',name:'read_file',path:'README.md',status:'running'})
+  args.onEvent.onmessage({type:'tool',name:'run_command',path:'ignored',status:'done'})
+  args.onEvent.onmessage({type:'tool',name:'read_file',path:'README.md',status:'done'})
+  return {content:'Es un proyecto.',stopped:false}
+ },()=>({}))
+ await client.stream('id','model',[],()=>{},e=>events.push(e),true)
+ assert.equal(request.args.useWorkspace,true)
+ assert.deepEqual(events.map(e=>e.status),['running','done'])
+ await client.stream('id2','model',[],()=>{})
+ assert.equal(request.args.useWorkspace,false)
+})
+test('selector y revocación delegan al backend; nunca envían rutas elegidas por el modelo',async()=>{
+ const calls=[];const client=createOllamaClient(async(command,args)=>{calls.push({command,args});return command==='workspace_choose'?{name:'Bimu'}:['tools']})
+ assert.deepEqual(await client.chooseFolder(),{name:'Bimu'});await client.revokeFolder();assert.deepEqual(await client.capabilities('model'),['tools'])
+ assert.deepEqual(calls,[{command:'workspace_choose',args:undefined},{command:'workspace_revoke',args:undefined},{command:'ollama_capabilities',args:{model:'model'}}])
+})

@@ -5,16 +5,18 @@
 - [x] Respuestas de Ollama por fragmentos (streaming).
 - [x] Detener la solicitud activa, incluida la espera inicial del modelo.
 - [x] Conservar respuesta parcial y marcar interrupciones.
-- [ ] Validación de streaming y cancelación reales en Windows.
+- [x] Validación de streaming y cancelación reales en Windows por el usuario.
 
-## Próxima etapa: primeras herramientas
+## Primeras herramientas · implementación v0.11
 
-- [ ] Registro de herramientas con nombre, parámetros tipados, resultado y errores.
-- [ ] Detectar capacidad de tool calling del modelo seleccionado.
-- [ ] Validar las solicitudes del modelo antes de ejecutar.
-- [ ] Primera herramienta: lectura de archivos de una carpeta elegida por el usuario.
-- [ ] Limitar alcance a la carpeta autorizada; no seguir rutas fuera de ella.
-- [ ] Mostrar qué herramienta se está usando y devolver el resultado real al modelo.
+- [x] Registro de herramientas con nombre, parámetros tipados, resultado y errores.
+- [x] Detectar capacidad de tool calling del modelo seleccionado.
+- [x] Validar las solicitudes del modelo antes de ejecutar.
+- [x] Primera herramienta: lectura de archivos de una carpeta elegida por el usuario.
+- [x] Limitar alcance a la carpeta autorizada; no seguir rutas fuera de ella.
+- [x] Mostrar qué herramienta se está usando y devolver el resultado real al modelo.
+
+- [ ] Validar en Windows el selector, las restricciones de rutas y el ciclo real de herramientas con Ollama.
 
 ## Conversaciones
 

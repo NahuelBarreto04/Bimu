@@ -1,4 +1,4 @@
-# Bimu · Beta v0.10
+# Bimu · Beta v0.11
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -66,7 +66,7 @@ La conexión sale de Tauri hacia `http://127.0.0.1:11434`, sin proxy del sistema
 - El borrador y el modelo elegido se guardan localmente. Los mensajes de la sesión no se guardan en disco por Bimu.
 - Presenta la respuesta por fragmentos mientras el modelo genera. El botón Detener cancela la solicitud activa y conserva el texto parcial.
 - Si falla, mantiene el borrador para reintentar. Detecta servidor inaccesible, lista vacía, errores del modelo y respuesta vacía. Tiempo límite de respuesta: 180 segundos; la primera carga del modelo puede demorar.
-- El modelo no tiene acceso a herramientas, archivos, comandos ni integraciones. GitHub, Vercel y n8n siguen pendientes.
+- Sin carpeta compartida, el modelo solo conversa. Con una carpeta compartida y un modelo compatible puede listar y leer texto mediante herramientas. No escribe, no abre aplicaciones ni ejecuta comandos. GitHub, Vercel y n8n siguen pendientes.
 - Bimu se comunica con el servidor Ollama de tu PC. Si elegís un modelo remoto configurado en Ollama, su ejecución depende de la configuración de ese servidor.
 
 ## Vista web
@@ -172,3 +172,32 @@ El streaming mejora el tiempo hasta poder empezar a leer; no aumenta por sí sol
 Pendientes y orden de implementación en [ROADMAP.md](ROADMAP.md), incluyendo micrófono, respuesta hablada y apertura de aplicaciones como Spotify, tanto por voz como por texto. Estas funciones siguen pendientes; esta entrega no activa escucha ni ejecución de acciones.
 
 Verificación: pruebas JS del cliente, streaming, cancelación, fragmentos y estados del chat, más compilación web. Se incluyen pruebas Rust de paquetes NDJSON y UTF-8; no se ejecutaron en el entorno de preparación porque no dispone de Rust. La cancelación y el streaming reales deben validarse en Windows. Podés ejecutar `cargo test --manifest-path src-tauri/Cargo.toml` en Windows para las pruebas nativas.
+
+
+## v0.11 · Primera herramienta: consultar un proyecto
+
+1. En Chat, elegí **Compartir carpeta** y seleccioná el proyecto en el diálogo de Windows.
+2. Elegí un modelo que informe soporte de herramientas (`tools` en `/api/show`). Si no lo admite o la comprobación falla, Bimu lo indica y no permite consultas con archivos. Podés quitar la carpeta para seguir conversando normalmente.
+3. Preguntá, por ejemplo: **“Leé el README y package.json y explicame qué hace este proyecto”** o **“Buscá en src qué componente renderiza la pantalla inicial”**.
+4. En **Consultas de archivos** se muestran las rutas y el estado real de cada lectura/listado.
+5. Para terminar, usá **Quitar**. Primero detené cualquier respuesta en curso. Quitar o cambiar la carpeta limpia la conversación; no borra archivos.
+
+La carpeta se autoriza solo por el selector nativo y durante la sesión actual. No se restaura al reiniciar. La selección permite enviar al modelo elegido los archivos consultados por las herramientas; si ese modelo usa un servicio remoto a través de Ollama, se aplica su configuración.
+
+### Alcance
+
+- Herramientas permitidas: `list_files` y `read_file`, con argumentos validados. El motor puede encadenar varias consultas y conserva streaming/cancelación.
+- Rutas relativas con `/`; se rechazan rutas absolutas, `..`, rutas fuera de la carpeta, enlaces simbólicos y parámetros desconocidos. Se comprueba la autorización antes y después de leer.
+- Se omiten archivos/carpetas ocultos, dependencias, salidas de compilación y nombres/extensiones sensibles conocidos (por ejemplo `.env`, `.git`, `node_modules`, claves `.key`/`.pem`). Este filtro no detecta todo secreto que pueda aparecer dentro de un archivo común.
+- Texto UTF-8 hasta 64 KiB por archivo. No admite binarios, PDF ni documentos de Office.
+- Listados de un nivel, hasta 120 entradas visibles (inspeccionando un máximo de 2000). Puede recorrer subcarpetas con nuevas llamadas.
+- Hasta 8 llamadas y 5 rondas por mensaje; máximo 96 KiB de contenido de archivos enviado al modelo por mensaje. Si se llega al límite, hacé una pregunta más específica.
+- No se agrega todo el proyecto al contexto: el modelo decide qué consultar. La respuesta depende de su capacidad para usar herramientas y citar las rutas que leyó.
+
+### Verificación
+
+Pruebas JS del cliente y del estado de conversación: autorización explícita, eventos de herramientas, rechazo de modelo incompatible, revocación, chat sin archivos y regresión de streaming. Compilación web verificada.
+
+Se agregaron pruebas Rust de rutas, parámetros, texto pequeño y rechazo de binarios/archivos grandes. La compilación y las pruebas Rust y el ciclo real de herramientas deben ejecutarse en Windows, porque el entorno de preparación no tiene Rust. Usá `cargo test --manifest-path src-tauri/Cargo.toml`.
+
+La primera compilación descarga `tauri-plugin-dialog`. No necesitás reinstalar los requisitos de Windows.
