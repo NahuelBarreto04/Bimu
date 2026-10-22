@@ -1,4 +1,4 @@
-# Bimu · Beta v0.7
+# Bimu · Beta v0.8
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -24,7 +24,7 @@ Tauri inicia Vite automáticamente en el puerto 5173; no ejecutes otra copia de 
 ## Notch: tres estados
 
 - **Reposo:** notch pequeño siempre visible, con avatar y colores del tema seleccionado.
-- **Hover:** se amplía a un tamaño intermedio y muestra una invitación a abrirlo. Al salir vuelve al estado pequeño tras 200 ms.
+- **Hover:** se amplía a un tamaño intermedio y muestra una invitación a abrirlo. Al salir vuelve al estado pequeño tras 340 ms si no hay un campo enfocado.
 - **Clic:** abre el menú. El botón ↙ vuelve al notch pequeño. Inicio también se cierra tras 20 segundos sin interacción; las demás pestañas permanecen abiertas.
 
 El avatar del modo compacto forma parte del notch, y el clic y arrastre se manejan desde su superficie completa. No se expande al terminar un arrastre.
@@ -113,3 +113,14 @@ npm run desktop:dev
 ```
 
 Si Git detecta cambios locales que impiden actualizar, revisalos antes de continuar. El código vive en la raíz del repositorio; no necesitás descargar ZIPs.
+
+
+## Cambios de la beta v0.8
+
+- Barra más larga: tamaño M horizontal 330×54 en reposo y 410×86 en hover. Los bordes laterales usan 116×206 y 156×260 para mantener el input usable.
+- Input rápido en el notch: comparte el borrador con Chat y lo guarda localmente. Enter o el icono de enviar abren Chat con el texto escrito. El envío real permanece deshabilitado hasta conectar Ollama.
+- Hover unificado sobre toda la superficie, incluido avatar e input. El canvas no captura eventos en reposo. Escribir mantiene la barra abierta y pasar entre avatar/campo no la contrae.
+- Apertura parcial 260 ms; apertura completa 190 ms; cierre 230 ms, con curva de desaceleración. Se respeta Reducir movimiento.
+- En Tauri se anima la superficie dentro de una ventana transparente temporal y se ajusta la ventana al finalizar. Evita redimensionar la ventana nativa en cada fotograma. El anclaje y el movimiento restringido se conservan.
+
+Verificaciones de esta entrega: `npm test`, `npm run build` y pruebas DOM de hover compartido, transferencia del borrador a Chat y regresión de navegación/tema. La fluidez y el hover nativos quedan pendientes de comprobar en Windows.

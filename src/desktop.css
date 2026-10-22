@@ -83,3 +83,30 @@ html.desktop-preview[data-edge=left] .desktop{position:absolute;top:50%;left:0;t
 html.desktop-preview[data-edge=right] .desktop{position:absolute;top:50%;right:0;transform:translateY(-50%)}
 
 html[data-dragging=true][data-centered=true] .notch-surface{box-shadow:inset 0 0 0 1px rgba(var(--accent),.9),inset 0 1px 0 var(--shine)}
+/* v0.8: the entire notch is one hover region; the avatar never intercepts it. */
+.desktop.compact .canvas-wrap,.desktop.compact .canvas-wrap *{pointer-events:none!important}
+.desktop-root:not(.desktop-preview) .desktop{position:absolute;left:var(--dock-left,0px);top:var(--dock-top,0px);width:var(--notch-width,330px);height:var(--notch-height,54px)}
+.desktop-root .desktop{transition:width var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),height var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),left var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),top var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1);will-change:width,height}
+.desktop .canvas-wrap{transition:left var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),top var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),width var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),height var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1)}
+.desktop .glass-shell{animation:panel-reveal 190ms ease-out}
+.desktop .notch-surface{transition:background .2s,border-color .2s;transform:none!important}
+.desktop.compact .notch-copy{display:none!important}
+.quick-chat{position:absolute;z-index:5;left:63px;right:28px;top:13px;margin:0;color:var(--ink);text-align:left;touch-action:auto}
+.quick-chat>label{display:none;font-size:9px;letter-spacing:.25px;font-weight:500;color:var(--muted);margin-bottom:6px}
+.quick-chat>div{display:flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:12px;background:var(--input);padding:1px 4px 1px 9px;box-shadow:inset 0 1px 0 rgba(var(--card),.035)}
+.quick-chat input{color:var(--ink);font:inherit;font-size:10px;width:100%;min-width:0;border:0;background:transparent;outline:none;padding:4px 0;user-select:text}
+.quick-chat input::placeholder{color:var(--muted);opacity:.8}
+.quick-chat .icon-button{width:22px;height:24px;color:var(--muted)}
+.quick-chat>div:focus-within{border-color:rgba(var(--accent),.65);background:rgba(var(--accent),.08)}
+.quick-chat input:focus-visible{outline:none}
+html[data-notch=peek] .quick-chat{left:90px;top:15px}
+html[data-notch=peek] .quick-chat>label{display:block}
+html[data-edge=left] .quick-chat,html[data-edge=right] .quick-chat{left:8px;right:8px;top:80px}
+html[data-edge=left] .quick-chat>div,html[data-edge=right] .quick-chat>div{flex-direction:column;align-items:stretch;padding:6px;border-radius:11px;gap:7px}
+html[data-edge=left] .quick-chat input,html[data-edge=right] .quick-chat input{font-size:8px;padding:2px 0}
+html[data-edge=left] .quick-chat .icon-button,html[data-edge=right] .quick-chat .icon-button{align-self:flex-end}
+html[data-notch=peek][data-edge=left] .quick-chat,html[data-notch=peek][data-edge=right] .quick-chat{top:108px;left:10px;right:10px}
+html[data-notch=peek][data-edge=left] .quick-chat input,html[data-notch=peek][data-edge=right] .quick-chat input{font-size:10px}
+@keyframes panel-reveal{from{opacity:.6}to{opacity:1}}
+
+.desktop.expanded .canvas-wrap{animation:mascot-arrive 190ms ease-out}

@@ -41,9 +41,19 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   useEffect(()=>{document.documentElement.dataset.view=tab},[tab])
   const dock=useDock({native:nativeMode,expanded,hovered,tab,size:config.size,onError:setError})
   const dockCallbacks=useRef(dock);dockCallbacks.current=dock
-  const enter=()=>{clearTimeout(hoverTimer.current);setHovered(true)}
-  const leave=()=>{clearTimeout(hoverTimer.current);hoverTimer.current=setTimeout(()=>setHovered(false),200)}
-  useEffect(()=>()=>clearTimeout(hoverTimer.current),[])
+  // Observe the whole companion surface, including its avatar and quick input.
+  // Crossing between descendants must never be treated as leaving the notch.
+  useEffect(()=>{
+    const surface=document.querySelector('.desktop')||document.body
+    const enter=()=>{clearTimeout(hoverTimer.current);if(!expanded)setHovered(true)}
+    const leave=e=>{
+      if(e.relatedTarget&&surface.contains(e.relatedTarget))return
+      clearTimeout(hoverTimer.current);hoverTimer.current=setTimeout(()=>{if(!surface.contains(document.activeElement))setHovered(false)},340)
+    }
+    surface.addEventListener('pointerenter',enter);surface.addEventListener('pointerleave',leave)
+    surface.addEventListener('focusin',enter);surface.addEventListener('focusout',leave)
+    return()=>{clearTimeout(hoverTimer.current);surface.removeEventListener('pointerenter',enter);surface.removeEventListener('pointerleave',leave);surface.removeEventListener('focusin',enter);surface.removeEventListener('focusout',leave)}
+  },[expanded])
   useEffect(()=>{if(expanded)setHovered(false)},[expanded])
   useEffect(()=>{
     if(!expanded||tab!=='home')return
@@ -65,14 +75,19 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   },[onExpand])
   const collapse=()=>{setHovered(false);onExpand(false);setTab('home')}
   const openNotch=()=>{if(!dock.consumeDrag()){clearTimeout(hoverTimer.current);setTab('home');onExpand(true)}}
+  const openQuickChat=e=>{e.preventDefault();clearTimeout(hoverTimer.current);setTab('chat');onExpand(true)}
   const chooseTab=id=>{setTab(id);setService(null)}
   return <>
-    {!expanded&&<button className="notch-surface" aria-label="Abrir compañero" onPointerEnter={enter} onPointerLeave={leave} {...dock.handlers} onClick={openNotch}>
+    {!expanded&&<button className="notch-surface" aria-label="Abrir compañero" {...dock.handlers} onClick={openNotch}>
       <span className="notch-avatar-slot" aria-hidden="true"/>
       <span className="notch-copy"><strong>Tu compañero</strong><small>{mood==='sleepy'?'Descansando':'Acá, con vos'}</small></span>
-      <span className="notch-indicator"><span className="status-dot"/><ArrowUpRight size={14}/></span>
+      <span className="notch-indicator"><span className="status-dot"/></span>
       <span className="notch-grip"><Grip size={12}/></span>
     </button>}
+    {!expanded&&<form className="quick-chat" aria-label="Chat rápido" onSubmit={openQuickChat}>
+      <label htmlFor="quick-message">Hablá con Bimu</label>
+      <div><input id="quick-message" aria-label="Mensaje rápido para Bimu" value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Escribile a Bimu…" autoComplete="off"/><IconButton title="Abrir mensaje en el chat" type="submit"><Send size={14}/></IconButton></div>
+    </form>}
     {expanded&&<section className="glass-shell" aria-label="Panel del compañero">
       <header className="hub-header">
         <nav className="hub-tabs" aria-label="Navegación principal">{[[Home,'home','Inicio'],[MessageCircle,'chat','Chat'],[Plug,'connections','Conexiones'],[Settings2,'settings','Ajustes']].map(([Icon,id,label])=><button key={id} title={label} aria-label={label} aria-current={tab===id?'page':undefined} className={tab===id?'selected':''} onClick={()=>chooseTab(id)}><Icon size={16}/><span>{label}</span></button>)}</nav>
@@ -88,7 +103,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
         {tab==='connections'&&<section><div className="page-heading"><span className="micro-label">TODO EN SU LUGAR</span><h1>Conectá tu mundo.</h1><p>Un espacio para tu IA y las herramientas que usás.</p></div><div className="connection-grid">{SERVICES.map(({id,name,desc,icon:Icon,color})=><button key={id} className={'connection-tile glass-card '+(service===id?'chosen':'')} onClick={()=>setService(id)} aria-pressed={service===id}><span className="service-icon" style={{color}}><Icon size={23}/></span><span><strong>{name}</strong><small>{desc}</small></span><span className="state-badge">Pendiente</span></button>)}</div><div className="connection-note glass-card"><Plug size={18}/><div><strong>{service?SERVICES.find(s=>s.id===service)?.name+': conexión pendiente':'Tu espacio, a tu ritmo.'}</strong><p>{service==='ollama'?'La conexión con tu modelo local es la próxima etapa. Todavía no se realizan consultas.':service?'Esta integración todavía no está disponible. Por ahora no se solicita ninguna cuenta.':'Estas conexiones todavía no están activas. Podés explorar su lugar en la interfaz.'}</p></div></div></section>}
         {tab==='settings'&&<section className="settings-view"><div className="page-heading"><span className="micro-label">A TU MANERA</span><h1>Un espacio muy tuyo.</h1><p>Elegí cómo se ve y cómo te acompaña.</p></div><section className="appearance-card glass-card"><div className="section-line"><h2><Palette size={16}/> Apariencia</h2><span className="micro-label">GUARDADO AUTOMÁTICO</span></div><div className="theme-picker" aria-label="Tema">{[[Sun,'light','Claro'],[Moon,'dark','Oscuro'],[Monitor,'system','Sistema']].map(([Icon,id,label])=><button key={id} className={theme===id?'selected':''} aria-pressed={theme===id} onClick={()=>setTheme(id)}><Icon size={15}/>{label}{theme===id&&<Check size={13}/>}</button>)}</div><div className="tint-row"><span>Tinte del cristal</span><div>{TINTS.map(([id,label,color])=><button key={id} style={{'--swatch':color}} title={label} aria-label={label} aria-pressed={tint===id} className={tint===id?'selected':''} onClick={()=>setTint(id)}>{tint===id&&<Check size={12}/>}</button>)}</div></div></section><section className="behavior-card glass-card"><h2><Pin size={16}/> En tu escritorio</h2><label>Borde del monitor<select aria-label="Borde del monitor" value={dock.edge} onChange={e=>{setHovered(false);dock.setEdge(e.target.value)}}><option value="top">Arriba</option><option value="bottom">Abajo</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></label><p className="dock-help">{dock.lateral?'Deslizá el notch verticalmente sobre este borde.':'Deslizá el notch horizontalmente sobre este borde.'} Se imanta al centro cuando lo acercás.</p><span className="dock-alignment">{dock.centered?'✧ Centrado en el borde':'Posición personalizada'}</span><label>Tamaño en reposo<select value={config.size} onChange={e=>onConfig(c=>({...c,size:e.target.value}))}><option value="S">Pequeño</option><option value="M">Mediano</option><option value="L">Grande</option></select></label><label>Siempre visible<input type="checkbox" checked={pinned} onChange={e=>setPinned(e.target.checked)}/></label><div className="settings-actions"><button onClick={dock.center}><Crosshair size={14}/> Centrar en el borde</button><button onClick={()=>safe(()=>invoke('quit_app'))}><Power size={14}/> Cerrar aplicación</button></div></section>{personalization}</section>}
       </div>
-      <footer className="hub-footer"><span><span className="mini-star">✧</span> Mi pequeño compañero</span><span>{tab==='home'?'Un poquito de compañía.':'Hecho para acompañarte.'}<span className="version-tag"> BETA · 0.7</span></span></footer>
+      <footer className="hub-footer"><span><span className="mini-star">✧</span> Mi pequeño compañero</span><span>{tab==='home'?'Un poquito de compañía.':'Hecho para acompañarte.'}<span className="version-tag"> BETA · 0.8</span></span></footer>
     </section>}
     {error&&<div className="desktop-error" role="alert"><span>{error}</span><IconButton title="Cerrar aviso" onClick={()=>setError('')}><X size={14}/></IconButton></div>}
   </>

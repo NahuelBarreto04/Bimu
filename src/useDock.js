@@ -1,36 +1,79 @@
 import {useEffect,useRef,useState} from 'react'
 import {getCurrentWindow,LogicalSize,PhysicalPosition,currentMonitor,primaryMonitor,cursorPosition} from '@tauri-apps/api/window'
-import {EDGES,isLateral,notchSize,dockPosition,slideOffset} from './dock-geometry'
+import {EDGES,isLateral,notchSize,dockPosition,slideOffset,transitionDuration,unionRects} from './dock-geometry'
 const initial=()=>{try{const d=JSON.parse(localStorage.getItem('companion-dock')||'{}');return {edge:EDGES.includes(d.edge)?d.edge:'top',offsets:Object.fromEntries(EDGES.map(e=>[e,Number.isFinite(d.offsets?.[e])?Math.max(0,Math.min(1,d.offsets[e])):.5]))}}catch{return {edge:'top',offsets:{top:.5,bottom:.5,left:.5,right:.5}}}}
 export function useDock({native,expanded,hovered,tab,size,onError}){
   const [dock,setDock]=useState(initial)
   const [dragging,setDragging]=useState(false)
   const [refresh,setRefresh]=useState(0)
-  const shown=useRef(false)
+  const shown=useRef(false),lastState=useRef(null)
   const monitorRef=useRef(null),queue=useRef(Promise.resolve()),revision=useRef(0),dragRef=useRef(null),suppressClick=useRef(false),moveRevision=useRef(0)
   const edge=dock.edge, lateral=isLateral(edge),state=expanded?'open':hovered||dragging?'peek':'idle'
   const fraction=dock.offsets[edge]
   useEffect(()=>{localStorage.setItem('companion-dock',JSON.stringify(dock))},[dock])
   useEffect(()=>{
     const root=document.documentElement
+    const previous=lastState.current
+    const duration=transitionDuration(previous,state,matchMedia('(prefers-reduced-motion: reduce)').matches)
+    lastState.current=state
     root.dataset.edge=edge;root.dataset.notch=state;root.dataset.dragging=String(dragging);root.dataset.centered=String(Math.abs(fraction-.5)<.0001)
+    root.style.setProperty('--dock-duration',duration+'ms')
     const [wantedW,wantedH]=notchSize(edge,state,size,tab)
-    root.style.setProperty('--notch-width',wantedW+'px');root.style.setProperty('--notch-height',wantedH+'px')
-    if(!native)return
+    const setFrame=(x,y,w,h)=>{
+      root.style.setProperty('--dock-left',x+'px');root.style.setProperty('--dock-top',y+'px')
+      root.style.setProperty('--notch-width',w+'px');root.style.setProperty('--notch-height',h+'px')
+    }
+    if(!native){setFrame(0,0,wantedW,wantedH);return}
     const ticket=++revision.current
+    let finishTimer,frame1,frame2
+    const valid=()=>ticket===revision.current
     queue.current=queue.current.catch(()=>{}).then(async()=>{
-      if(ticket!==revision.current)return
+      if(!valid())return
       const win=getCurrentWindow(),monitor=await currentMonitor()||await primaryMonitor()
       if(!monitor)throw new Error('No se pudo detectar el monitor.')
-      if(ticket!==revision.current)return
+      if(!valid())return
       monitorRef.current=monitor
       const scale=monitor.scaleFactor,area=monitor.workArea
       const width=Math.max(1,Math.min(wantedW,area.size.width/scale)),height=Math.max(1,Math.min(wantedH,area.size.height/scale))
-      await win.setSize(new LogicalSize(width,height))
       const pos=dockPosition({x:area.position.x,y:area.position.y,width:area.size.width,height:area.size.height},Math.round(width*scale),Math.round(height*scale),edge,fraction)
-      await win.setPosition(new PhysicalPosition(pos.x,pos.y))
-      if(!shown.current){await win.show();shown.current=true}
+      const target={...pos,width:Math.round(width*scale),height:Math.round(height*scale)}
+      if(!shown.current||!duration||dragging){
+        root.style.setProperty('--dock-duration','0ms')
+        await win.setSize(new LogicalSize(width,height));await win.setPosition(new PhysicalPosition(pos.x,pos.y))
+        if(!valid())return
+        setFrame(0,0,width,height)
+        if(!shown.current){await win.show();shown.current=true}
+        return
+      }
+      // Animate a DOM surface inside a temporary transparent native envelope.
+      // Windows resizes only at the endpoints instead of on every animation frame.
+      const origin=await win.outerPosition()
+      if(!valid())return
+      const rect=document.querySelector('.desktop').getBoundingClientRect()
+      const old={x:origin.x+rect.left*scale,y:origin.y+rect.top*scale,width:rect.width*scale,height:rect.height*scale}
+      const envelope=unionRects(old,target)
+      await win.setSize(new LogicalSize(envelope.width/scale,envelope.height/scale))
+      await win.setPosition(new PhysicalPosition(Math.round(envelope.x),Math.round(envelope.y)))
+      if(!valid())return
+      root.style.setProperty('--dock-duration','0ms')
+      setFrame((old.x-envelope.x)/scale,(old.y-envelope.y)/scale,old.width/scale,old.height/scale)
+      frame1=requestAnimationFrame(()=>{frame2=requestAnimationFrame(()=>{
+        if(!valid())return
+        root.style.setProperty('--dock-duration',duration+'ms')
+        setFrame((target.x-envelope.x)/scale,(target.y-envelope.y)/scale,width,height)
+        finishTimer=setTimeout(()=>{
+          queue.current=queue.current.catch(()=>{}).then(async()=>{
+            if(!valid())return
+            root.style.setProperty('--dock-duration','0ms')
+            await win.setPosition(new PhysicalPosition(pos.x,pos.y))
+            if(!valid())return
+            setFrame(0,0,width,height)
+            await win.setSize(new LogicalSize(width,height))
+          }).catch(e=>onError('No se pudo terminar la transición: '+String(e)))
+        },duration+35)
+      })})
     }).catch(e=>onError('No se pudo anclar el notch: '+String(e)))
+    return()=>{revision.current++;clearTimeout(finishTimer);cancelAnimationFrame(frame1);cancelAnimationFrame(frame2)}
   },[native,edge,state,size,tab,fraction,refresh,dragging])
   useEffect(()=>{
     if(!native)return
