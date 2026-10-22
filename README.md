@@ -1,4 +1,4 @@
-# Bimu · Beta v0.9
+# Bimu · Beta v0.9.1
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -148,3 +148,14 @@ Verificaciones de esta entrega: `npm test`, `npm run build` y pruebas DOM de hov
 - Compilación web verificada. La compilación Rust, conexión real con Ollama y revisión visual del hover deben comprobarse en Windows.
 
 Para actualizar: cerrar Bimu desde bandeja, detener la ejecución anterior, `git pull --ff-only origin main`, `npm ci` y `npm run desktop:dev`. La nueva dependencia HTTP de Rust se descarga durante la primera compilación.
+
+
+## Ajuste v0.9.1 · Hover del avatar
+
+Reposo y hover ahora comparten un marco nativo fijo: la ventana no cambia de posición/tamaño al entrar o salir del hover. Solo se anima la superficie visible dentro del marco. Esto elimina los ajustes nativos que se realizaban al inicio y final de la transición. Al abrir el menú sigue ampliándose el marco.
+
+También se elimina una transición secundaria sobre la posición del avatar y se calcula la mirada sobre su viewport, con límites y suavizado; ya no depende del tamaño de la ventana transparente.
+
+Se reserva un pequeño margen transparente alrededor del notch de reposo para alojar el hover. Ese margen forma parte de la ventana; el paso de clics a través de zonas transparentes sigue pendiente.
+
+Pruebas: geometría del marco para cuatro bordes, distintas escalas y posiciones; mirada limitada; ocho entradas/salidas de hover con API nativa simulada, sin llamadas a mover/redimensionar. Compilación web verificada. La revisión visual definitiva en Windows queda pendiente. Ollama mantiene el comportamiento de v0.9.

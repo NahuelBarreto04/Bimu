@@ -5,6 +5,7 @@ import { RoundedBox, ContactShadows } from '@react-three/drei'
 import * as THREE from 'three'
 import { RotateCcw, Sparkles } from 'lucide-react'
 import './styles.css'
+import {gazeTarget} from './dock-geometry'
 import { DesktopControls, desktopMode } from './desktop.jsx'
 
 const DEFAULT = { color: '#F6CDB5', accessory: 'none', face: 'default', size: 'M' }
@@ -74,14 +75,14 @@ function SleepLetters({ active }) {
 
 function Mascot({ config, mood, celebrate, onTap, thinking }) {
   const group = useRef(); const body = useRef(); const eyes = useRef([]); const pointer = useRef([0,0]); const blink = useRef(1)
-  useEffect(()=>{const move=(e)=>{pointer.current=[(e.clientX/window.innerWidth-.5)*2,(e.clientY/window.innerHeight-.5)*2]};window.addEventListener('pointermove',move);return()=>window.removeEventListener('pointermove',move)},[])
+  useEffect(()=>{const move=(e)=>{const rect=document.querySelector('.canvas-wrap')?.getBoundingClientRect();if(rect)pointer.current=gazeTarget(e.clientX,e.clientY,rect)};window.addEventListener('pointermove',move);return()=>window.removeEventListener('pointermove',move)},[])
   useFrame(({clock},delta)=>{
     const t=clock.elapsedTime
     if(group.current){group.current.position.y=0.025*Math.sin(t*1.9)+(celebrate?Math.abs(Math.sin(t*7))*0.19:0);group.current.rotation.y=THREE.MathUtils.lerp(group.current.rotation.y,(thinking?Math.sin(t*1.5)*0.06:pointer.current[0]*0.14),delta*2);group.current.rotation.x=THREE.MathUtils.lerp(group.current.rotation.x,-pointer.current[1]*0.08,delta*2)}
     if(body.current){body.current.scale.y=1+0.014*Math.sin(t*2);body.current.scale.x=1-0.009*Math.sin(t*2)}
     const phase=t%4.3; const target=mood==='sleepy'?0.12:phase>3.83&&phase<3.97?0.1:1
     blink.current=THREE.MathUtils.lerp(blink.current,target,Math.min(1,delta*25))
-    eyes.current.forEach((eye)=>{if(eye){eye.scale.y=eye.userData.baseScaleY*blink.current;eye.position.x=eye.userData.baseX+pointer.current[0]*0.018;eye.position.y=0.22-(mood==='sleepy'?0:pointer.current[1]*0.018)}})
+    eyes.current.forEach((eye)=>{if(eye){eye.scale.y=eye.userData.baseScaleY*blink.current;eye.position.x=THREE.MathUtils.damp(eye.position.x,eye.userData.baseX+pointer.current[0]*0.018,8,delta);eye.position.y=THREE.MathUtils.damp(eye.position.y,0.22-(mood==='sleepy'?0:pointer.current[1]*0.018),8,delta)}})
   })
   const sleepy=mood==='sleepy'
   return <group ref={group} onClick={onTap}>
@@ -110,7 +111,7 @@ function App(){
   const personalization=(<aside className="panel"><div className="panel-title"><div><span className="eyebrow">PERSONALIZACIÓN</span><h2>Hacela tuya</h2></div><Sparkles size={20}/></div><p>Sin género ni apariencia predefinida. Elegí lo que más te guste.</p><h3>Color del cuerpo</h3><div className="swatches">{COLORS.map(color=><button key={color} aria-label={'Color '+color} title={color} className={'swatch '+(config.color===color?'selected':'')} style={{background:color}} onClick={()=>setConfig(c=>({...c,color}))}/>)}</div><h3>Accesorios</h3><div className="accessories">{OPTIONS.map(a=><button key={a.id} className={'accessory '+(config.accessory===a.id?'selected':'')} onClick={()=>setConfig(c=>({...c,accessory:a.id}))}><span>{a.symbol}</span><small>{a.name}</small></button>)}</div><div className="panel-footer"><button className="reset" onClick={()=>{setConfig(DEFAULT);setMood('idle')}}><RotateCcw size={15}/> Restablecer</button><span>Guardado automático</span></div></aside>)
   return <main className={desktopMode ? "app desktop "+(desktopExpanded?"expanded":"compact") : "app"}>
     {desktopMode&&<DesktopControls expanded={desktopExpanded} onExpand={setDesktopExpanded} personalization={personalization} mood={mood} onThinking={setThinking} config={config} onConfig={setConfig} onRest={()=>{setCelebrate(false);setMood('sleepy')}} onGreet={tap}/>}
-    <header><div className="brand"><span className="brand-dot"/> <span>Mi pequeño compañero</span></div><span className="version">PROTOTIPO · 0.9</span></header>
+    <header><div className="brand"><span className="brand-dot"/> <span>Mi pequeño compañero</span></div><span className="version">PROTOTIPO · 0.9.1</span></header>
     <section className="workspace"><div className="stage"><div className="eyebrow">TU COMPAÑERO DE ESCRITORIO</div><h1>Un poquito de compañía.</h1><p>Una criatura pequeña, expresiva y completamente tuya.</p><div className="canvas-wrap"><Canvas gl={{alpha:true}} shadows camera={{position:[0,0.45,6.6],fov:35}} dpr={[1,2]}><ambientLight intensity={2.1}/><directionalLight position={[-3,5,6]} intensity={2.4} color="#fff6eb"/><directionalLight position={[4,2,-2]} intensity={0.8} color="#ffffff"/><Mascot thinking={thinking} config={config} mood={mood} celebrate={celebrate} onTap={desktopMode?()=>{setDesktopExpanded(true);tap()}:tap}/><ContactShadows position={[0,-1.04,0]} opacity={0.26} scale={5} blur={2.6} far={3}/></Canvas></div><div className="hint">Mové el cursor, esperá un parpadeo o hacé clic sobre la mascota ✨</div><div className="moods"><button onClick={()=>setMood('idle')} className={mood==='idle'?'active':''}>☺ Normal</button><button onClick={tap}>✦ Saludar</button><button onClick={()=>{clearTimeout(greetingTimer.current);setCelebrate(false);setMood('sleepy')}} className={mood==='sleepy'?'active':''}>☾ Descansar</button></div></div>
     {!desktopMode&&personalization}</section><footer>Prototipo visual · La conexión con Ollama llegará en la próxima etapa.</footer>
   </main>

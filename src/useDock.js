@@ -1,12 +1,12 @@
 import {useEffect,useRef,useState} from 'react'
 import {getCurrentWindow,LogicalSize,PhysicalPosition,currentMonitor,primaryMonitor,cursorPosition} from '@tauri-apps/api/window'
-import {EDGES,isLateral,notchSize,dockPosition,slideOffset,transitionDuration,unionRects} from './dock-geometry'
+import {EDGES,isLateral,notchSize,dockPosition,slideOffset,transitionDuration,unionRects,compactEnvelope} from './dock-geometry'
 const initial=()=>{try{const d=JSON.parse(localStorage.getItem('companion-dock')||'{}');return {edge:EDGES.includes(d.edge)?d.edge:'top',offsets:Object.fromEntries(EDGES.map(e=>[e,Number.isFinite(d.offsets?.[e])?Math.max(0,Math.min(1,d.offsets[e])):.5]))}}catch{return {edge:'top',offsets:{top:.5,bottom:.5,left:.5,right:.5}}}}
 export function useDock({native,expanded,hovered,tab,size,onError}){
   const [dock,setDock]=useState(initial)
   const [dragging,setDragging]=useState(false)
   const [refresh,setRefresh]=useState(0)
-  const shown=useRef(false),lastState=useRef(null)
+  const shown=useRef(false),lastState=useRef(null),nativeFrame=useRef(null)
   const monitorRef=useRef(null),queue=useRef(Promise.resolve()),revision=useRef(0),dragRef=useRef(null),suppressClick=useRef(false),moveRevision=useRef(0)
   const edge=dock.edge, lateral=isLateral(edge),state=expanded?'open':hovered||dragging?'peek':'idle'
   const fraction=dock.offsets[edge]
@@ -37,11 +37,21 @@ export function useDock({native,expanded,hovered,tab,size,onError}){
       const width=Math.max(1,Math.min(wantedW,area.size.width/scale)),height=Math.max(1,Math.min(wantedH,area.size.height/scale))
       const pos=dockPosition({x:area.position.x,y:area.position.y,width:area.size.width,height:area.size.height},Math.round(width*scale),Math.round(height*scale),edge,fraction)
       const target={...pos,width:Math.round(width*scale),height:Math.round(height*scale)}
+      const frame=expanded?target:compactEnvelope({x:area.position.x,y:area.position.y,width:area.size.width,height:area.size.height},edge,size,scale,fraction)
+      const localX=(target.x-frame.x)/scale,localY=(target.y-frame.y)/scale
+      const sameFrame=nativeFrame.current&&['x','y','width','height'].every(k=>nativeFrame.current[k]===frame[k])
+      if(shown.current&&sameFrame){
+        // Pure CSS idle/peek animation; no native resize, move or final rebase.
+        root.style.setProperty('--dock-duration',duration+'ms')
+        setFrame(localX,localY,width,height)
+        return
+      }
       if(!shown.current||!duration||dragging){
         root.style.setProperty('--dock-duration','0ms')
-        await win.setSize(new LogicalSize(width,height));await win.setPosition(new PhysicalPosition(pos.x,pos.y))
+        await win.setSize(new LogicalSize(frame.width/scale,frame.height/scale));await win.setPosition(new PhysicalPosition(frame.x,frame.y))
+        nativeFrame.current=frame
         if(!valid())return
-        setFrame(0,0,width,height)
+        setFrame(localX,localY,width,height)
         if(!shown.current){await win.show();shown.current=true}
         return
       }
@@ -51,9 +61,10 @@ export function useDock({native,expanded,hovered,tab,size,onError}){
       if(!valid())return
       const rect=document.querySelector('.desktop').getBoundingClientRect()
       const old={x:origin.x+rect.left*scale,y:origin.y+rect.top*scale,width:rect.width*scale,height:rect.height*scale}
-      const envelope=unionRects(old,target)
+      const envelope=unionRects(old,frame)
       await win.setSize(new LogicalSize(envelope.width/scale,envelope.height/scale))
       await win.setPosition(new PhysicalPosition(Math.round(envelope.x),Math.round(envelope.y)))
+      nativeFrame.current=envelope
       if(!valid())return
       root.style.setProperty('--dock-duration','0ms')
       setFrame((old.x-envelope.x)/scale,(old.y-envelope.y)/scale,old.width/scale,old.height/scale)
@@ -65,10 +76,11 @@ export function useDock({native,expanded,hovered,tab,size,onError}){
           queue.current=queue.current.catch(()=>{}).then(async()=>{
             if(!valid())return
             root.style.setProperty('--dock-duration','0ms')
-            await win.setPosition(new PhysicalPosition(pos.x,pos.y))
+            await win.setPosition(new PhysicalPosition(frame.x,frame.y))
             if(!valid())return
-            setFrame(0,0,width,height)
-            await win.setSize(new LogicalSize(width,height))
+            setFrame(localX,localY,width,height)
+            await win.setSize(new LogicalSize(frame.width/scale,frame.height/scale))
+            nativeFrame.current=frame
           }).catch(e=>onError('No se pudo terminar la transición: '+String(e)))
         },duration+35)
       })})

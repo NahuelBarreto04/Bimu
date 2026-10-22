@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import {notchSize,dockPosition,slideOffset,transitionDuration,unionRects} from '../src/dock-geometry.js'
+import {notchSize,dockPosition,slideOffset,transitionDuration,unionRects,compactEnvelope,gazeTarget} from '../src/dock-geometry.js'
 for(const area of [{x:0,y:0,width:1920,height:1040},{x:-2560,y:-200,width:2560,height:1440},{x:1920,y:0,width:3840,height:2080}]){
  for(const edge of ['top','bottom','left','right'])for(const scale of [1,1.25,2])for(const state of ['idle','peek','open'])for(const ratio of [0,.2,.5,.8,1]){
   const [w,h]=notchSize(edge,state,'M','settings');const width=Math.min(Math.round(w*scale),area.width),height=Math.min(Math.round(h*scale),area.height);const p=dockPosition(area,width,height,edge,ratio)
@@ -21,3 +21,14 @@ assert.equal(transitionDuration('idle','peek',true),0)
 assert.equal(transitionDuration('peek','peek'),0)
 assert.deepEqual(unionRects({x:-20,y:20,width:100,height:40},{x:-50,y:0,width:180,height:90}),{x:-50,y:0,width:180,height:90})
 console.log('OK: aperturas parcial/completa y contenedor de animación.')
+
+for(const edge of ['top','bottom','left','right'])for(const scale of [1,1.25,2])for(const offset of [0,.5,1]){
+ const area={x:-1920,y:0,width:1920,height:1040};const frame=compactEnvelope(area,edge,'M',scale,offset)
+ for(const state of ['idle','peek']){
+  const [w,h]=notchSize(edge,state);const width=Math.round(w*scale),height=Math.round(h*scale);const p=dockPosition(area,width,height,edge,offset)
+  assert.ok(p.x>=frame.x&&p.y>=frame.y&&p.x+width<=frame.x+frame.width&&p.y+height<=frame.y+frame.height)
+ }
+}
+assert.deepEqual(gazeTarget(-9999,9999,{left:20,top:20,width:64,height:54}),[-1,1])
+assert.deepEqual(gazeTarget(52,47,{left:20,top:20,width:64,height:54}),[0,0])
+console.log('OK: marco compacto estable en cuatro bordes y mirada acotada.')

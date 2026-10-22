@@ -31,3 +31,17 @@ export function unionRects(a,b){
   const x=Math.min(a.x,b.x),y=Math.min(a.y,b.y)
   return {x,y,width:Math.max(a.x+a.width,b.x+b.width)-x,height:Math.max(a.y+a.height,b.y+b.height)-y}
 }
+
+// Idle and hover share one native frame: resizing the OS window must not
+// participate in the avatar's hover animation.
+export function compactEnvelope(area,edge,size,scale,fraction){
+  const rect=state=>{
+    const [w,h]=notchSize(edge,state,size)
+    const width=Math.min(Math.round(w*scale),area.width),height=Math.min(Math.round(h*scale),area.height)
+    return {...dockPosition(area,width,height,edge,fraction),width,height}
+  }
+  return unionRects(rect('idle'),rect('peek'))
+}
+export function gazeTarget(x,y,rect){
+  return [clamp((x-rect.left)/Math.max(1,rect.width)*2-1,-1,1),clamp((y-rect.top)/Math.max(1,rect.height)*2-1,-1,1)]
+}
