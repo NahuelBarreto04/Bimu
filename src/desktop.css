@@ -140,3 +140,16 @@ html[data-receive=ready] .desktop .canvas-wrap,html[data-receive=error] .desktop
 
 html[data-drop-return=true] .desktop.compact .canvas-wrap{transform:translate(0,0)!important;transition:left 240ms cubic-bezier(.22,1,.36,1),top 240ms cubic-bezier(.22,1,.36,1),transform 240ms cubic-bezier(.22,1,.36,1)!important}
 @media(prefers-reduced-motion:reduce){html[data-drop-return=true] .desktop.compact .canvas-wrap{transition:none!important}}
+
+/* An open panel remains the native drag target for the entire reception. */
+html[data-receive-layout=panel][data-receive]:not([data-receive=idle]) .desktop .glass-shell{visibility:visible;pointer-events:none}
+html[data-receive-layout=panel][data-receive]:not([data-receive=idle]) .desktop .hub-body{opacity:.18;transition:opacity 180ms ease-out}
+html[data-receive-layout=panel] .drop-surface{inset:65px 14px 34px;border-radius:18px;background:linear-gradient(135deg,rgba(var(--accent),.12),transparent),rgba(var(--glass),.9);box-shadow:inset 0 1px 0 var(--shine)}
+html[data-receive-layout=panel][data-receive]:not([data-receive=idle]) .desktop .canvas-wrap{left:50%!important;top:43%!important;transform:translate(calc(-50% + var(--drop-x,0px)),calc(-50% + var(--drop-y,0px))) scale(1.5)!important;animation:none!important}
+html[data-receive-layout=panel] .drop-folder-icon{top:calc(43% - 38px)}
+html[data-receive-layout=panel] .drop-invitation,html[data-receive-layout=panel] .drop-preparing{bottom:25%;font-size:12px}
+html[data-receive-layout=panel] .drop-ready,html[data-receive-layout=panel] .drop-error{inset:58% 20px 18px;text-align:center;align-items:center;gap:9px;font-size:12px}
+html[data-receive-layout=panel] .drop-ready strong{max-width:100%}
+html[data-receive-layout=panel] .drop-ready small{font-size:10px}
+html[data-receive-layout=panel] .drop-surface button{font-size:11px;padding:7px 12px}
+html[data-receive-layout=panel][data-receive=ready] .desktop .canvas-wrap,html[data-receive-layout=panel][data-receive=error] .desktop .canvas-wrap{top:35%!important;left:50%!important}

@@ -210,3 +210,8 @@ Arrastrá una carpeta sobre el notch: se abre a tamaño medio, oculta el input y
 El chat ahora muestra Markdown, listas, tablas y bloques de código con botón Copiar. No ejecuta código ni HTML recibido. Movimiento reducido respeta la preferencia del sistema.
 
 Validación pendiente en Windows: arrastrar desde Explorador sobre cada borde, salir sin soltar, cancelar, cambiar carpeta y probar escalado de pantalla.
+
+
+### Corrección 0.12.1
+
+Con el chat abierto, arrastrar otra carpeta conserva el tamaño y la posición de la ventana. El panel muestra una zona de recepción con Bimu, manteniendo la conversación de fondo. Cancelar o salir del arrastre restaura el chat; aceptar comparte la nueva carpeta. La recepción compacta queda reservada al notch minimizado.

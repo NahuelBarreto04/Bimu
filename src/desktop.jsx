@@ -49,7 +49,8 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   useEffect(()=>{safe(()=>getCurrentWindow().setAlwaysOnTop(pinned));localStorage.setItem('mascot-pinned',String(pinned))},[pinned])
   useEffect(()=>{localStorage.setItem('companion-draft',draft)},[draft])
   useEffect(()=>{document.documentElement.dataset.view=tab},[tab])
-  const dock=useDock({native:nativeMode,expanded:expanded&&!drop.active,hovered:hovered||drop.active,tab,size:config.size,onError:setError})
+  useEffect(()=>{document.documentElement.dataset.receiveLayout=expanded?'panel':'notch'},[expanded])
+  const dock=useDock({native:nativeMode,expanded,hovered:hovered||drop.active,tab,size:config.size,onError:setError})
   const dockCallbacks=useRef(dock);dockCallbacks.current=dock
   // Observe the whole companion surface, including its avatar and quick input.
   // Crossing between descendants must never be treated as leaving the notch.
@@ -100,7 +101,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
       <label htmlFor="quick-message">Hablá con Bimu</label>
       <div><input id="quick-message" aria-label="Mensaje rápido para Bimu" value={draft} onChange={e=>setDraft(e.target.value)} placeholder={ai.sending?"Bimu está pensando…":"Escribile a Bimu…"} maxLength={16000} autoComplete="off"/><IconButton title="Abrir mensaje en el chat" type="submit" disabled={ai.sending}><Send size={14}/></IconButton></div>
     </form>}
-    {expanded&&<section className="glass-shell" aria-label="Panel del compañero">
+    {expanded&&<section className="glass-shell" inert={drop.active?true:undefined} aria-label="Panel del compañero">
       <header className="hub-header">
         <nav className="hub-tabs" aria-label="Navegación principal">{[[Home,'home','Inicio'],[MessageCircle,'chat','Chat'],[Plug,'connections','Conexiones'],[Settings2,'settings','Ajustes']].map(([Icon,id,label])=><button key={id} title={label} aria-label={label} aria-current={tab===id?'page':undefined} className={tab===id?'selected':''} onClick={()=>chooseTab(id)}><Icon size={16}/><span>{label}</span></button>)}</nav>
         <div className="window-actions"><IconButton title={dock.lateral?"Mover sobre el borde vertical":"Mover sobre el borde horizontal"} {...dock.handlers}><Grip size={16}/></IconButton><IconButton title={resolvedTheme==='dark'?'Cambiar a claro':'Cambiar a oscuro'} onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</IconButton><IconButton title="Volver a pequeño" onClick={collapse}><ArrowDownLeft size={16}/></IconButton><IconButton title="Ocultar en la bandeja" onClick={()=>safe(()=>getCurrentWindow().hide())}><Minus size={16}/></IconButton></div>
