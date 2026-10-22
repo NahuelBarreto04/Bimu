@@ -1,0 +1,95 @@
+import React, { useEffect, useRef, useState } from 'react'
+import { isTauri, invoke } from '@tauri-apps/api/core'
+import { getCurrentWindow, LogicalSize, PhysicalPosition, currentMonitor } from '@tauri-apps/api/window'
+import { listen } from '@tauri-apps/api/event'
+import { Home, MessageCircle, PanelsTopLeft, Settings2, Grip, ArrowDownLeft, ArrowUpRight, Minus, Sun, Moon, Monitor, Hand, Sparkles, Plug, Github, Globe, Cpu, ArrowRight, Send, Check, Palette, Pin, Crosshair, Power, X } from 'lucide-react'
+import './desktop.css'
+import {useDock} from './useDock'
+
+export const nativeMode=isTauri()
+export const desktopMode=nativeMode||new URLSearchParams(location.search).get('desktop')==='1'
+if(desktopMode)document.documentElement.classList.add('desktop-root')
+if(desktopMode&&!nativeMode)document.documentElement.classList.add('desktop-preview')
+const sizes={S:[80,85],M:[100,105],L:[125,130]}
+const TINTS=[['iris','Lavanda','#ac9bf2'],['ocean','Océano','#80bce5'],['sage','Salvia','#94c5b1'],['peach','Durazno','#e3ae95']]
+const SERVICES=[{id:'ollama',name:'Ollama',desc:'Tu inteligencia, en tu equipo.',icon:Cpu,color:'#a6cfbf'}, {id:'github',name:'GitHub',desc:'Repositorios y actividad.',icon:Github,color:'#bba9e8'}, {id:'vercel',name:'Vercel',desc:'Tus proyectos y despliegues.',icon:Globe,color:'#97bbdf'}, {id:'n8n',name:'n8n',desc:'Automatizaciones a tu manera.',icon:PanelsTopLeft,color:'#e7b58e'}]
+const saved=(key,fallback)=>{try{return localStorage.getItem(key)||fallback}catch{return fallback}}
+function IconButton({title,children,...props}){return <button type="button" className="icon-button" title={title} aria-label={title} {...props}>{children}</button>}
+
+export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpand,personalization,mood}) {
+  const [tab,setTab]=useState('home')
+  const [theme,setTheme]=useState(()=>saved('companion-theme','dark'))
+  const [tint,setTint]=useState(()=>saved('companion-tint','iris'))
+  const [pinned,setPinned]=useState(()=>saved('mascot-pinned','true')!=='false')
+  const [systemDark,setSystemDark]=useState(()=>matchMedia('(prefers-color-scheme: dark)').matches)
+  const [draft,setDraft]=useState(()=>saved('companion-draft',''))
+  const [service,setService]=useState(null)
+  const [hovered,setHovered]=useState(false)
+  const hoverTimer=useRef()
+  const [error,setError]=useState('')
+  const callbacks=useRef({onRest,onGreet});callbacks.current={onRest,onGreet}
+  const safe=async(fn)=>{try{if(nativeMode)await fn();setError('')}catch(e){setError('No se pudo completar la acción: '+String(e))}}
+  const resolvedTheme=theme==='system'?(systemDark?'dark':'light'):theme
+  useEffect(()=>{const media=matchMedia('(prefers-color-scheme: dark)');const update=()=>setSystemDark(media.matches);media.addEventListener('change',update);return()=>media.removeEventListener('change',update)},[])
+  useEffect(()=>{
+    document.documentElement.dataset.theme=resolvedTheme
+    document.documentElement.dataset.tint=tint
+    localStorage.setItem('companion-theme',theme);localStorage.setItem('companion-tint',tint)
+  },[theme,tint,resolvedTheme])
+  useEffect(()=>{safe(()=>getCurrentWindow().setAlwaysOnTop(pinned));localStorage.setItem('mascot-pinned',String(pinned))},[pinned])
+  useEffect(()=>{localStorage.setItem('companion-draft',draft)},[draft])
+  useEffect(()=>{document.documentElement.dataset.view=tab},[tab])
+  const dock=useDock({native:nativeMode,expanded,hovered,tab,size:config.size,onError:setError})
+  const dockCallbacks=useRef(dock);dockCallbacks.current=dock
+  const enter=()=>{clearTimeout(hoverTimer.current);setHovered(true)}
+  const leave=()=>{clearTimeout(hoverTimer.current);hoverTimer.current=setTimeout(()=>setHovered(false),200)}
+  useEffect(()=>()=>clearTimeout(hoverTimer.current),[])
+  useEffect(()=>{if(expanded)setHovered(false)},[expanded])
+  useEffect(()=>{
+    if(!expanded||tab!=='home')return
+    let timer;const restart=()=>{clearTimeout(timer);timer=setTimeout(()=>onExpand(false),20000)}
+    restart();window.addEventListener('pointermove',restart);window.addEventListener('pointerdown',restart);window.addEventListener('keydown',restart)
+    return()=>{clearTimeout(timer);window.removeEventListener('pointermove',restart);window.removeEventListener('pointerdown',restart);window.removeEventListener('keydown',restart)}
+  },[expanded,tab,onExpand])
+  useEffect(()=>{
+    if(!nativeMode)return
+    let disposed=false;let off
+    listen('desktop-action',({payload})=>{
+      if(payload==='center'){dockCallbacks.current.center();dockCallbacks.current.reanchor()}
+      if(payload==='show')dockCallbacks.current.reanchor()
+      if(payload==='settings'){onExpand(true);setTab('settings')}
+      if(payload==='rest')callbacks.current.onRest()
+      if(payload==='greet')callbacks.current.onGreet()
+    }).then(fn=>{if(disposed)fn();else off=fn}).catch(e=>setError(String(e)))
+    return()=>{disposed=true;off?.()}
+  },[onExpand])
+  const collapse=()=>{setHovered(false);onExpand(false);setTab('home')}
+  const openNotch=()=>{if(!dock.consumeDrag()){clearTimeout(hoverTimer.current);setTab('home');onExpand(true)}}
+  const chooseTab=id=>{setTab(id);setService(null)}
+  return <>
+    {!expanded&&<button className="notch-surface" aria-label="Abrir compañero" onPointerEnter={enter} onPointerLeave={leave} {...dock.handlers} onClick={openNotch}>
+      <span className="notch-avatar-slot" aria-hidden="true"/>
+      <span className="notch-copy"><strong>Tu compañero</strong><small>{mood==='sleepy'?'Descansando':'Acá, con vos'}</small></span>
+      <span className="notch-indicator"><span className="status-dot"/><ArrowUpRight size={14}/></span>
+      <span className="notch-grip"><Grip size={12}/></span>
+    </button>}
+    {expanded&&<section className="glass-shell" aria-label="Panel del compañero">
+      <header className="hub-header">
+        <nav className="hub-tabs" aria-label="Navegación principal">{[[Home,'home','Inicio'],[MessageCircle,'chat','Chat'],[Plug,'connections','Conexiones'],[Settings2,'settings','Ajustes']].map(([Icon,id,label])=><button key={id} title={label} aria-label={label} aria-current={tab===id?'page':undefined} className={tab===id?'selected':''} onClick={()=>chooseTab(id)}><Icon size={16}/><span>{label}</span></button>)}</nav>
+        <div className="window-actions"><IconButton title={dock.lateral?"Mover sobre el borde vertical":"Mover sobre el borde horizontal"} {...dock.handlers}><Grip size={16}/></IconButton><IconButton title={resolvedTheme==='dark'?'Cambiar a claro':'Cambiar a oscuro'} onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</IconButton><IconButton title="Volver a pequeño" onClick={collapse}><ArrowDownLeft size={16}/></IconButton><IconButton title="Ocultar en la bandeja" onClick={()=>safe(()=>getCurrentWindow().hide())}><Minus size={16}/></IconButton></div>
+      </header>
+      <div className={'hub-body view-'+tab}>
+        {tab==='home'&&<>
+          <div className="home-grid"><section className="companion-card glass-card"><div className="companion-copy"><span className="micro-label"><i className="status-dot"/> TU COMPAÑERO</span><h1>{mood==='sleepy'?'Un momento de calma.':'Acá, con vos.'}</h1><p>{mood==='sleepy'?'Descansando un poquito.':'Un pequeño espacio para tus grandes ideas.'}</p><div className="gesture-buttons"><button onClick={onGreet}><Hand size={14}/> Saludar</button><button onClick={onRest}><Moon size={14}/> Descansar</button></div></div></section>
+          <section className="services-card glass-card"><div className="section-line"><span className="micro-label">TU ESPACIO</span><button className="text-link" onClick={()=>chooseTab('connections')}>Configurar <ArrowUpRight size={12}/></button></div><div className="service-pills">{SERVICES.map(({id,name,icon:Icon,color})=><button key={id} onClick={()=>{chooseTab('connections');setService(id)}}><span style={{color}}><Icon size={15}/></span>{name}<span className="empty-dot"/></button>)}</div></section></div>
+          <button className="chat-shortcut glass-card" onClick={()=>chooseTab('chat')}><span className="chat-shortcut-icon"><MessageCircle size={18}/></span><span><strong>¿En qué estamos pensando hoy?</strong><small>Tu próxima conversación empieza acá.</small></span><ArrowRight size={17}/></button>
+        </>}
+        {tab==='chat'&&<section className="chat-view"><div className="section-line"><span className="micro-label">CONVERSACIONES</span><span className="state-badge"><i/> Sin modelo conectado</span></div><div className="chat-empty"><span className="large-orb"><Sparkles size={26}/></span><h1>Un lugar para tus ideas.</h1><p>Preguntá, imaginá o resolvé algo conmigo.<br/>Primero conectaremos tu modelo local.</p><button className="primary-button" onClick={()=>{chooseTab('connections');setService('ollama')}}><Cpu size={15}/> Ver conexión con Ollama <ArrowRight size={14}/></button></div><div className="composer glass-card"><textarea aria-label="Borrador de mensaje" value={draft} onChange={e=>setDraft(e.target.value)} placeholder="Dejá una idea para después…" rows={2}/><div><small>Borrador guardado en tu equipo</small><IconButton title="Envío disponible al conectar un modelo" disabled><Send size={16}/></IconButton></div></div></section>}
+        {tab==='connections'&&<section><div className="page-heading"><span className="micro-label">TODO EN SU LUGAR</span><h1>Conectá tu mundo.</h1><p>Un espacio para tu IA y las herramientas que usás.</p></div><div className="connection-grid">{SERVICES.map(({id,name,desc,icon:Icon,color})=><button key={id} className={'connection-tile glass-card '+(service===id?'chosen':'')} onClick={()=>setService(id)} aria-pressed={service===id}><span className="service-icon" style={{color}}><Icon size={23}/></span><span><strong>{name}</strong><small>{desc}</small></span><span className="state-badge">Pendiente</span></button>)}</div><div className="connection-note glass-card"><Plug size={18}/><div><strong>{service?SERVICES.find(s=>s.id===service)?.name+': conexión pendiente':'Tu espacio, a tu ritmo.'}</strong><p>{service==='ollama'?'La conexión con tu modelo local es la próxima etapa. Todavía no se realizan consultas.':service?'Esta integración todavía no está disponible. Por ahora no se solicita ninguna cuenta.':'Estas conexiones todavía no están activas. Podés explorar su lugar en la interfaz.'}</p></div></div></section>}
+        {tab==='settings'&&<section className="settings-view"><div className="page-heading"><span className="micro-label">A TU MANERA</span><h1>Un espacio muy tuyo.</h1><p>Elegí cómo se ve y cómo te acompaña.</p></div><section className="appearance-card glass-card"><div className="section-line"><h2><Palette size={16}/> Apariencia</h2><span className="micro-label">GUARDADO AUTOMÁTICO</span></div><div className="theme-picker" aria-label="Tema">{[[Sun,'light','Claro'],[Moon,'dark','Oscuro'],[Monitor,'system','Sistema']].map(([Icon,id,label])=><button key={id} className={theme===id?'selected':''} aria-pressed={theme===id} onClick={()=>setTheme(id)}><Icon size={15}/>{label}{theme===id&&<Check size={13}/>}</button>)}</div><div className="tint-row"><span>Tinte del cristal</span><div>{TINTS.map(([id,label,color])=><button key={id} style={{'--swatch':color}} title={label} aria-label={label} aria-pressed={tint===id} className={tint===id?'selected':''} onClick={()=>setTint(id)}>{tint===id&&<Check size={12}/>}</button>)}</div></div></section><section className="behavior-card glass-card"><h2><Pin size={16}/> En tu escritorio</h2><label>Borde del monitor<select aria-label="Borde del monitor" value={dock.edge} onChange={e=>{setHovered(false);dock.setEdge(e.target.value)}}><option value="top">Arriba</option><option value="bottom">Abajo</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></label><p className="dock-help">{dock.lateral?'Deslizá el notch verticalmente sobre este borde.':'Deslizá el notch horizontalmente sobre este borde.'} Se imanta al centro cuando lo acercás.</p><span className="dock-alignment">{dock.centered?'✧ Centrado en el borde':'Posición personalizada'}</span><label>Tamaño en reposo<select value={config.size} onChange={e=>onConfig(c=>({...c,size:e.target.value}))}><option value="S">Pequeño</option><option value="M">Mediano</option><option value="L">Grande</option></select></label><label>Siempre visible<input type="checkbox" checked={pinned} onChange={e=>setPinned(e.target.checked)}/></label><div className="settings-actions"><button onClick={dock.center}><Crosshair size={14}/> Centrar en el borde</button><button onClick={()=>safe(()=>invoke('quit_app'))}><Power size={14}/> Cerrar aplicación</button></div></section>{personalization}</section>}
+      </div>
+      <footer className="hub-footer"><span><span className="mini-star">✧</span> Mi pequeño compañero</span><span>{tab==='home'?'Un poquito de compañía.':'Hecho para acompañarte.'}<span className="version-tag"> BETA · 0.7</span></span></footer>
+    </section>}
+    {error&&<div className="desktop-error" role="alert"><span>{error}</span><IconButton title="Cerrar aviso" onClick={()=>setError('')}><X size={14}/></IconButton></div>}
+  </>
+}

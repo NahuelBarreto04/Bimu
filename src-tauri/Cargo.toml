@@ -1,0 +1,12 @@
+[package]
+name = "mascota-companero"
+version = "0.7.0"
+description = "Mi pequeño compañero de escritorio"
+authors = ["Mariano"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
