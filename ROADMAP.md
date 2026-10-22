@@ -34,7 +34,9 @@
 - [x] Captura, micrófono y transcripción real validados por el usuario en Windows tras corregir segmentación.
 - [ ] Evaluar reconocimiento local y su consumo de recursos en Windows.
 - [ ] Respuesta hablada opcional con controles de voz y volumen (pospuesta por el usuario).
-- [ ] Más adelante: activación por palabra clave “Bimu”, opcional.
+- [x] Activación experimental por “Bimu”, opcional, con VAD + Whisper local (beta 0.16).
+- [ ] Medir precisión, latencia y consumo del modo manos libres en Windows.
+- [ ] Evaluar detector dedicado de palabra clave para reducir CPU y pausas.
 
 El primer paso será pulsar para hablar. La escucha continua no estará activada por defecto.
 
@@ -66,6 +68,7 @@ El primer paso será pulsar para hablar. La escucha continua no estará activada
 - [x] TXT, PDF con texto, DOCX, XLS/XLSX/ODS y texto compatible.
 - [x] Precarga local, estado por archivo, extractos parciales y permisos limitados a los adjuntos.
 - [x] Agregar lotes y quitar archivos individuales.
-- [ ] Validar aplicaciones y documentos propios en el escritorio Windows.
+- [x] Apertura nativa y comparación de PDF propios validadas por el usuario en Windows (beta 0.15).
+- [ ] Validar contexto automático de adjuntos y nombres originales en Windows (beta 0.16).
 - [ ] OCR de PDF escaneado e imágenes.
 - [ ] Paginación/búsqueda para documentos y planillas grandes.

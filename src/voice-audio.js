@@ -29,3 +29,9 @@ export function microphoneError(error){
 export function normalizeTranscript(text){
   return typeof text==='string'?text.replace(/\s+/gu,' ').trim():''
 }
+export async function pcmToWav(samples,rate){
+ if(!(samples instanceof Float32Array)||!Number.isFinite(rate)||rate<8000||rate>192000||samples.length>rate*MAX_RECORDING_SECONDS)throw Error('Audio de escucha inválido.')
+ if(rate===WAV_RATE)return encodeWav(samples).bytes
+ const length=Math.ceil(samples.length/rate*WAV_RATE),offline=new OfflineAudioContext(1,length,WAV_RATE)
+ const buffer=offline.createBuffer(1,samples.length,rate);buffer.copyToChannel(samples,0);const source=offline.createBufferSource();source.buffer=buffer;source.connect(offline.destination);source.start();const rendered=await offline.startRendering();return encodeWav(rendered.getChannelData(0)).bytes
+}

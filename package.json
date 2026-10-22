@@ -1,7 +1,7 @@
 {
   "name": "mascota-prototipo",
   "private": true,
-  "version": "0.15.0",
+  "version": "0.16.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
@@ -10,7 +10,7 @@
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "tauri": "tauri",
-    "test": "node --test tests/dock-geometry.test.mjs tests/ollama-client.test.mjs tests/conversation-store.test.mjs tests/voice-audio.test.mjs tests/application-intent.test.mjs",
+    "test": "node --test tests/dock-geometry.test.mjs tests/ollama-client.test.mjs tests/conversation-store.test.mjs tests/voice-audio.test.mjs tests/application-intent.test.mjs tests/wake.test.mjs",
     "voice:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-voice.ps1",
     "voice:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-voice.ps1",
     "test:native": "cargo test --manifest-path native-tests/Cargo.toml"

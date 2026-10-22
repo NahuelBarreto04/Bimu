@@ -1,4 +1,4 @@
-# Bimu · Beta v0.15
+# Bimu · Beta v0.16
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -303,7 +303,7 @@ Límites de esta beta: hasta **10 archivos compartidos**, **10 MiB por archivo**
 
 Podés agregar otro lote al conjunto actual o quitar archivos individualmente. Al quitar un archivo se inicia un chat nuevo, conservando el anterior en el historial. Compartir una carpeta reemplaza los adjuntos; pasar de carpeta a archivos también inicia otro chat. No se mezclan carpetas y archivos en un mismo arrastre. Las carpetas compartidas ahora también permiten extraer los formatos compatibles mediante `read_file`.
 
-Los adjuntos son una instantánea de texto al compartirlos: no dan acceso a archivos vecinos ni se actualizan solos si cambiás el original. Al reiniciar, recuperar un chat o quitar el acceso hay que compartirlos de nuevo. El historial puede contener respuestas sobre documentos ya enviados. Para analizar hace falta un modelo Ollama que admita herramientas, como en la lectura de carpetas anterior.
+Los adjuntos son una instantánea de texto al compartirlos: no dan acceso a archivos vecinos ni se actualizan solos si cambiás el original. Al reiniciar, recuperar un chat o quitar el acceso hay que compartirlos de nuevo. El historial puede contener respuestas sobre documentos ya enviados. En la beta 0.16, los archivos adjuntos se incluyen como contexto y no requieren soporte de herramientas. La navegación de carpetas sí lo requiere.
 
 ### Validación de esta entrega
 
@@ -312,3 +312,30 @@ Los adjuntos son una instantánea de texto al compartirlos: no dan acceso a arch
 - Extracción real comprobada aquí con archivos de muestra TXT, PDF, DOCX, XLS y XLSX.
 - Simulaciones del frontend para confirmar/cancelar aperturas, recordar permiso, apps desconocidas y archivos múltiples.
 - Pendiente en Windows: compilación completa de Tauri, apertura física de apps instaladas y selector/arrastre con documentos propios. La respuesta hablada sigue pendiente por decisión del usuario.
+
+
+## Beta 0.16: manos libres y adjuntos reconocidos desde el primer mensaje
+
+### Decir “Bimu, abrí Spotify” desde el notch
+
+1. Dejá `npm run voice:start` abierto como en el dictado manual.
+2. En **Ajustes → Aplicaciones**, activá **Abrir sin volver a preguntar** para las apps que quieras abrir directamente por voz. Si no lo habilitás, el pedido abre el panel de confirmación.
+3. Elegí el dispositivo en **Ajustes → Hablá con Bimu** antes de activar la escucha.
+4. En **Ajustes → Decí «Bimu»**, pulsá **Activar escucha de Bimu** y autorizá el micrófono. Luego podés volver al notch pequeño y usar el resto de la PC.
+5. Decí en una misma frase **“Bimu, abrí Spotify”**, **“Hola Bimu, abre Calculadora”** u **“Oye Bimu, abrí Chrome”**. Al terminar de hablar, el silencio cierra la frase y Whisper la reconoce localmente. No hace falta pulsar el micrófono ni Enviar para una apertura reconocida.
+
+También admite decir solo “Bimu”: cuando el indicador pase a “Te escucho”, hay 8 segundos para comenzar un segundo pedido. “Bimu, cancelá” desarma esa espera. Durante el reconocimiento hay una pausa de escucha, por eso la primera prueba conviene hacerla con nombre y pedido en una sola frase.
+
+El indicador verde del notch significa escucha activa; ámbar indica reconocimiento o pausa por otra operación. Clic en el indicador desactiva el modo y libera el micrófono. **Ocultar la ventana, cerrarla a la bandeja o reiniciar la app lo apaga**. El modo no se activa automáticamente al reiniciar. Para cambiar de micrófono o volver al dictado manual, desactivá primero la escucha.
+
+Es una implementación **experimental de VAD + Whisper**, no un detector dedicado y liviano de palabra clave. El VAD corre en un AudioWorklet, conserva 450 ms previos al inicio de voz, termina tras 900 ms de silencio y limita cada frase a 15 segundos. Las frases con voz se transcriben localmente para detectar si empiezan con Bimu; el resto se descarta sin agregarse al borrador o historial. No se envía audio a un servicio externo. Puede consumir CPU y la latencia depende de Whisper y del equipo. Solo hay una transcripción en curso: mientras se reconoce, no se encolan más grabaciones.
+
+Los pedidos de apertura usan la misma lista nativa de aplicaciones, permisos y errores que el texto. Los demás pedidos dirigidos a Bimu abren el chat y se agregan al borrador para revisión; no se envían automáticamente a Ollama. La respuesta hablada sigue pospuesta.
+
+### Adjuntos: contexto automático y nombres reales
+
+Los adjuntos ya preparados se envían junto con la pregunta, incluyendo **sus nombres originales y texto disponible**. La comparación no depende de que el modelo decida llamar primero a `list_files` o `read_file`, ni necesita rutas proporcionadas por el usuario. Los identificadores internos `archivo-1`, `archivo-2` y rutas locales quedan fuera de este contexto; se indica al modelo que cite los nombres de los documentos.
+
+Esta ruta funciona también con modelos de chat sin tool calling. La lectura de carpetas mantiene sus herramientas y sus comprobaciones anteriores. Los adjuntos se incluyen en las preguntas mientras estén compartidos, con un presupuesto total de texto de 192 KiB repartido entre todos; cualquier recorte se marca como parcial. No se guardan los textos completos de adjuntos en el historial por esta inclusión: solo los mensajes normales del usuario y las respuestas.
+
+Verificación: pruebas unitarias de activación, VAD, silencios, límites, cancelación y contexto con nombres reales; simulación de escucha desde el notch, apertura sin botón de micrófono y uso de adjuntos con modelo sin herramientas. Pendiente de validación real en Windows: precisión, latencia y consumo de escucha continua, más comparación de los PDF del usuario tras el cambio de contexto.

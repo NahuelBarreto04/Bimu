@@ -88,7 +88,7 @@ export function useOllama(native){
   const send=async(text)=>{
     const content=text.trim()
     if(lock.current||choosing||!content)return false
-    if(folder&&toolsSupport!==true){setError(toolsSupport===null?'Esperá mientras se comprueba el soporte de herramientas.':'Este modelo no admite herramientas o no se pudo comprobar. Elegí otro o quitá la carpeta para conversar.');return false}
+    if(folder&&folder.kind!=='files'&&toolsSupport!==true){setError(toolsSupport===null?'Esperá mientras se comprueba el soporte de herramientas.':'Este modelo no admite herramientas o no se pudo comprobar. Elegí otro o quitá la carpeta para conversar.');return false}
     if(!connected||!model){setError('Conectá Ollama y elegí un modelo antes de enviar.');return false}
     lock.current=true;setSending(true);setStopping(false);setError('');setNotice('');setActivity([])
     const id=crypto.randomUUID();active.current=id
