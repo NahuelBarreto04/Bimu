@@ -32,3 +32,14 @@ for(const edge of ['top','bottom','left','right'])for(const scale of [1,1.25,2])
 assert.deepEqual(gazeTarget(-9999,9999,{left:20,top:20,width:64,height:54}),[-1,1])
 assert.deepEqual(gazeTarget(52,47,{left:20,top:20,width:64,height:54}),[0,0])
 console.log('OK: marco compacto estable en cuatro bordes y mirada acotada.')
+
+// Voice feedback keeps the dock in place and stays within monitor bounds.
+const {voiceEnvelope}=await import('../src/dock-geometry.js')
+for(const scale of [1,1.5,2])for(const x of [-1920,-1200,-410]){
+ const area={x:-1920,y:0,width:1920,height:1080}
+ const target={x,y:0,width:330,height:86}
+ const {frame,side}=voiceEnvelope(area,target,target,scale)
+ assert.ok(frame.x>=area.x && frame.x+frame.width<=area.x+area.width)
+ assert.ok(frame.x<=target.x && frame.x+frame.width>=target.x+target.width)
+ assert.equal(side,x-area.x>=224*scale?'left':'right')
+}

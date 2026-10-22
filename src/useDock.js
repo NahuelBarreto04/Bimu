@@ -1,8 +1,8 @@
 import {useEffect,useRef,useState} from 'react'
 import {getCurrentWindow,LogicalSize,PhysicalPosition,currentMonitor,primaryMonitor,cursorPosition} from '@tauri-apps/api/window'
-import {EDGES,isLateral,notchSize,dockPosition,slideOffset,transitionDuration,unionRects,compactEnvelope} from './dock-geometry'
+import {EDGES,isLateral,notchSize,dockPosition,slideOffset,transitionDuration,unionRects,compactEnvelope,voiceEnvelope} from './dock-geometry'
 const initial=()=>{try{const d=JSON.parse(localStorage.getItem('companion-dock')||'{}');return {edge:EDGES.includes(d.edge)?d.edge:'top',offsets:Object.fromEntries(EDGES.map(e=>[e,Number.isFinite(d.offsets?.[e])?Math.max(0,Math.min(1,d.offsets[e])):.5]))}}catch{return {edge:'top',offsets:{top:.5,bottom:.5,left:.5,right:.5}}}}
-export function useDock({native,expanded,hovered,tab,size,onError}){
+export function useDock({native,expanded,hovered,tab,size,voiceVisible,onError}){
   const [dock,setDock]=useState(initial)
   const [dragging,setDragging]=useState(false)
   const [refresh,setRefresh]=useState(0)
@@ -37,7 +37,11 @@ export function useDock({native,expanded,hovered,tab,size,onError}){
       const width=Math.max(1,Math.min(wantedW,area.size.width/scale)),height=Math.max(1,Math.min(wantedH,area.size.height/scale))
       const pos=dockPosition({x:area.position.x,y:area.position.y,width:area.size.width,height:area.size.height},Math.round(width*scale),Math.round(height*scale),edge,fraction)
       const target={...pos,width:Math.round(width*scale),height:Math.round(height*scale)}
-      const frame=expanded?target:compactEnvelope({x:area.position.x,y:area.position.y,width:area.size.width,height:area.size.height},edge,size,scale,fraction)
+      let frame=expanded?target:compactEnvelope({x:area.position.x,y:area.position.y,width:area.size.width,height:area.size.height},edge,size,scale,fraction)
+      if(voiceVisible){
+        const voice=voiceEnvelope({x:area.position.x,y:area.position.y,width:area.size.width,height:area.size.height},frame,target,scale)
+        frame=voice.frame;root.dataset.voiceSide=voice.side
+      }
       const localX=(target.x-frame.x)/scale,localY=(target.y-frame.y)/scale
       const sameFrame=nativeFrame.current&&['x','y','width','height'].every(k=>nativeFrame.current[k]===frame[k])
       if(shown.current&&sameFrame){
@@ -86,7 +90,7 @@ export function useDock({native,expanded,hovered,tab,size,onError}){
       })})
     }).catch(e=>onError('No se pudo anclar el notch: '+String(e)))
     return()=>{revision.current++;clearTimeout(finishTimer);cancelAnimationFrame(frame1);cancelAnimationFrame(frame2)}
-  },[native,edge,state,size,tab,fraction,refresh,dragging])
+  },[native,edge,state,size,tab,fraction,refresh,dragging,voiceVisible])
   useEffect(()=>{
     if(!native)return
     let gone=false,off

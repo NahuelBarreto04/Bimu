@@ -180,3 +180,20 @@ html[data-edge=left] .desktop.compact .wake-bubble,html[data-edge=right] .deskto
 html[data-edge=left] .desktop.compact .wake-bubble::before,html[data-edge=right] .desktop.compact .wake-bubble::before{left:22px;bottom:auto;top:-5px;transform:rotate(135deg)}
 @keyframes voice-bubble-in{from{opacity:0;transform:translateY(3px) scale(.98)}to{opacity:1;transform:none}}
 @media(prefers-reduced-motion:reduce){.wake-glow{transition:none}.wake-bubble{animation:none}}
+
+/* The speech bubble sits outside the panel, pointing toward Bimu. */
+.desktop .wake-bubble,.desktop.compact .wake-bubble,.desktop.expanded .wake-bubble,
+html[data-edge=left] .desktop.compact .wake-bubble,html[data-edge=right] .desktop.compact .wake-bubble{
+  left:auto;right:calc(100% + 14px);top:50%;bottom:auto;transform:translateY(-50%);
+  width:max-content;max-width:196px;max-height:none;overflow:visible;
+  padding:8px 13px;border-radius:18px;font-size:12px;animation:voice-side-in .2s ease-out;
+}
+.desktop.expanded .wake-bubble{top:150px;max-height:260px}
+.desktop .wake-bubble::before{display:none}
+.desktop .wake-bubble::after{content:"";position:absolute;right:-7px;top:calc(50% - 6px);width:12px;height:12px;background:rgb(var(--glass));border-top:1px solid var(--line);border-right:1px solid var(--line);transform:rotate(45deg);border-radius:2px}
+html[data-voice-side=right] .desktop .wake-bubble{right:auto;left:calc(100% + 14px)}
+html[data-voice-side=right] .desktop .wake-bubble::after{right:auto;left:-9px;transform:rotate(225deg)}
+@keyframes voice-side-in{from{opacity:0;transform:translateY(-50%) scale(.96)}to{opacity:1;transform:translateY(-50%)}}
+
+.desktop .wake-bubble>span{display:block;max-height:max(24px,calc(var(--notch-height) - 32px));overflow-y:auto}
+.desktop.expanded .wake-bubble>span{max-height:200px}

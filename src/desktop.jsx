@@ -68,7 +68,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   useEffect(()=>{localStorage.setItem('companion-draft',draft)},[draft])
   useEffect(()=>{document.documentElement.dataset.view=tab},[tab])
   useEffect(()=>{document.documentElement.dataset.receiveLayout=expanded?'panel':'notch'},[expanded])
-  const dock=useDock({native:nativeMode,expanded,hovered:hovered||drop.active,tab,size:config.size,onError:setError})
+  const dock=useDock({native:nativeMode,expanded,hovered:hovered||drop.active,tab,size:config.size,voiceVisible:!!voiceNotice||!!apps.pending?.silent,onError:setError})
   const dockCallbacks=useRef(dock);dockCallbacks.current=dock
   // Observe the whole companion surface, including its avatar and quick input.
   // Crossing between descendants must never be treated as leaving the notch.

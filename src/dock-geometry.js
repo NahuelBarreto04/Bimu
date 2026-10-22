@@ -45,3 +45,11 @@ export function compactEnvelope(area,edge,size,scale,fraction){
 export function gazeTarget(x,y,rect){
   return [clamp((x-rect.left)/Math.max(1,rect.width)*2-1,-1,1),clamp((y-rect.top)/Math.max(1,rect.height)*2-1,-1,1)]
 }
+
+// Reserve transparent space beside the dock without moving its visible surface.
+export function voiceEnvelope(area,frame,target,scale=1){
+  const gap=Math.round(224*scale)
+  const left=target.x-area.x>=gap
+  const space=left?Math.min(gap,frame.x-area.x):Math.min(gap,area.x+area.width-frame.x-frame.width)
+  return {side:left?'left':'right',frame:left?{...frame,x:frame.x-space,width:frame.width+space}:{...frame,width:frame.width+space}}
+}
