@@ -226,3 +226,36 @@ El historial local guarda automáticamente hasta 20 conversaciones con los últi
 El historial contiene los textos de la conversación (incluidas respuestas sobre archivos). Se guarda en el almacenamiento local de la app, sin cifrado adicional. Memoria e historial se borran por separado. Las carpetas y los permisos no se guardan: al reiniciar o recuperar un chat hay que compartirlas de nuevo. Cambiar o quitar una carpeta inicia un chat nuevo y conserva los anteriores en el historial. Los errores de lectura o escritura local se muestran en pantalla.
 
 Pendiente de validación en Windows: cerrar/reabrir Bimu, recuperar/borrar chats y verificar las preferencias con el modelo elegido.
+
+
+## Beta 0.14: hablar con Bimu (Windows x64)
+
+1. Actualizá el repositorio con `git pull origin main` y ejecutá `npm install`.
+2. Prepará el motor **una vez**, desde la carpeta del proyecto:
+
+   ```powershell
+   npm run voice:setup
+   ```
+
+   Descarga whisper.cpp **v1.9.2 CPU x64** (~8 MB) y `ggml-base.bin` multilingüe (~142 MiB). Los archivos quedan en `%LOCALAPPDATA%\Bimu\voice`, fuera del repositorio. El script verifica el SHA-256 del ZIP publicado por GitHub y el SHA-1 del modelo publicado por whisper.cpp. No requiere administrador. La descarga inicial necesita Internet; no se usa una API de pago.
+
+3. Iniciá Whisper y dejá esta terminal abierta:
+
+   ```powershell
+   npm run voice:start
+   ```
+
+   Usa solo `127.0.0.1:8081`, CPU, 4 hilos y español, sin mantener contexto de audios anteriores. Ctrl+C detiene el motor. Si el puerto está ocupado, cerrá el proceso que lo ocupa; por ahora el puerto es fijo.
+
+4. En **otra terminal**, ejecutá `npm run desktop:dev`. En **Ajustes → Hablá con Bimu**, elegí **Autorizar y detectar micrófonos**, seleccioná tu dispositivo y presioná **Comprobar motor local**. Windows/WebView2 puede solicitar acceso al micrófono. Si se bloquea, revisá Configuración de Windows → Privacidad → Micrófono y el acceso para aplicaciones de escritorio.
+5. Abrí **Chat**, pulsá el micrófono, hablá y pulsá el botón de detener. La grabación termina automáticamente a los 30 segundos. La transcripción se agrega al borrador existente, separada por una línea: revisala, corregila y recién después presioná Enviar. **No se envía automáticamente.**
+
+Durante la grabación se muestra “Escuchando” y un contador. Podés cancelar tanto la grabación como la espera de transcripción. Salir del chat, volver al notch, ocultar la ventana o cerrarla en la bandeja libera el micrófono y descarta cualquier resultado tardío. Si cerrás mientras Windows pide permiso, una autorización tardía tampoco deja el micrófono encendido.
+
+Bimu mantiene el audio en memoria, lo convierte a WAV PCM mono de 16 kHz y lo envía únicamente al servidor Whisper en el mismo equipo. Bimu no escribe grabaciones en disco ni guarda audio en el historial. La opción de conversión por FFmpeg de Whisper no se habilita. Solo el texto que enviás pasa al chat/Ollama. Se detectan silencios, micrófono desconectado, permiso denegado y motor no iniciado.
+
+Esta entrega usa CPU para facilitar la primera prueba. No incluye respuesta hablada, escucha continua, palabra clave ni apertura de aplicaciones por voz. Queda medir latencia y consumo reales en Windows y, si hace falta, sumar aceleración por GPU. El motor se prepara e inicia manualmente en esta beta; todavía no está incluido en el instalador ni se inicia con Bimu.
+
+Fuentes de preparación: [release oficial v1.9.2](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.9.2), [modelos y hashes](https://github.com/ggml-org/whisper.cpp/blob/v1.9.2/models/README.md), [servidor y API](https://github.com/ggml-org/whisper.cpp/blob/v1.9.2/examples/server/README.md).
+
+Validación disponible: pruebas JS de WAV y errores; simulaciones de permiso/dispositivo, grabar/detener, transcripción, cancelación, resultados tardíos y motor desconectado. Pendiente en Windows: ejecución de PowerShell, compilación Rust, permiso real del WebView, captura del dispositivo y transcripción con el modelo descargado.

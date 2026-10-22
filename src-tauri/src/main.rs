@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod ollama;
 mod workspace;
+mod voice;
 use tauri::{Emitter, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
 #[tauri::command]
@@ -14,7 +15,8 @@ fn main() {
         .manage(workspace::Workspace::default())
         .manage(workspace::DropInbox::default())
         .manage(ollama::StreamRequests::default())
-        .invoke_handler(tauri::generate_handler![quit_app, ollama::ollama_models, ollama::ollama_chat, ollama::ollama_chat_stream, ollama::ollama_cancel, ollama::ollama_capabilities, workspace::workspace_choose, workspace::workspace_revoke, workspace::workspace_stage_drop, workspace::workspace_accept_drop, workspace::workspace_discard_drop])
+        .manage(voice::VoiceState::default())
+        .invoke_handler(tauri::generate_handler![quit_app, voice::voice_status, voice::voice_transcribe, voice::voice_cancel, ollama::ollama_models, ollama::ollama_chat, ollama::ollama_chat_stream, ollama::ollama_cancel, ollama::ollama_capabilities, workspace::workspace_choose, workspace::workspace_revoke, workspace::workspace_stage_drop, workspace::workspace_accept_drop, workspace::workspace_discard_drop])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Mostrar mascota", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Personalizar", true, None::<&str>)?;
@@ -32,7 +34,7 @@ fn main() {
                     let id = event.id.as_ref();
                     if id == "quit" { quit_app(app.clone()); return; }
                     if let Some(window) = app.get_webview_window("main") {
-                        if id == "hide" { let _ = window.hide(); return; }
+                        if id == "hide" { let _=window.emit("bimu-voice-cancel",());let _ = window.hide(); return; }
                         
                         let _ = window.show();
                         let _ = window.set_focus();
@@ -48,6 +50,7 @@ fn main() {
             if let tauri::WindowEvent::DragDrop(drag)=event {workspace::handle_drag(window,drag);}
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
+                let _=window.emit("bimu-voice-cancel",());
                 let _ = window.hide();
             }
         })

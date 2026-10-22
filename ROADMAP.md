@@ -24,13 +24,14 @@
 - [x] Markdown, tablas y bloques de código con copia (beta 0.12).
 - [x] Recepción animada de una carpeta: hover, seguimiento, precarga local y confirmación (beta 0.12.1; flujo nativo validado por el usuario en Windows).
 - [x] Guardar, recuperar, renombrar y borrar conversaciones localmente (beta 0.13).
-- [x] Memoria explícita editable y borrable, aplicada a futuros mensajes (beta 0.13).
+- [x] Memoria explícita editable y borrable, aplicada a futuros mensajes (beta 0.13; validada por el usuario en Windows).
 
 ## Voz: hablar con Bimu
 
-- [ ] Elegir micrófono y mostrar si está grabando.
-- [ ] Pulsar para hablar y convertir audio a texto.
-- [ ] Revisar/enviar la transcripción como un mensaje normal.
+- [x] Elegir micrófono y mostrar si está grabando (beta 0.14).
+- [x] Pulsar para hablar y convertir audio a texto con whisper.cpp local (beta 0.14).
+- [x] Revisar/enviar la transcripción como un mensaje normal (beta 0.14).
+- [ ] Validar captura, permisos de micrófono y transcripción real en Windows.
 - [ ] Evaluar reconocimiento local y su consumo de recursos en Windows.
 - [ ] Respuesta hablada opcional con controles de voz y volumen.
 - [ ] Más adelante: activación por palabra clave “Bimu”, opcional.
