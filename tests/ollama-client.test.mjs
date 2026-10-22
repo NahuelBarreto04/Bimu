@@ -59,3 +59,9 @@ test('recibir una carpeta usa solo el identificador nativo del drop',async()=>{
  assert.deepEqual(await client.acceptDrop(17),{name:'Docs'})
  assert.deepEqual(calls,[{command:'workspace_accept_drop',args:{id:17}}])
 })
+test('envía solo la memoria explícita como parámetro separado del historial',async()=>{
+ let args;const client=createOllamaClient(async(_,input)=>{args=input;return {content:'Hola Mariano',stopped:false}},()=>({}))
+ const messages=[{role:'user',content:'Hola'}]
+ await client.stream('id','model',messages,()=>{},()=>{},false,'Me llamo Mariano')
+ assert.equal(args.memory,'Me llamo Mariano');assert.deepEqual(args.messages,messages);assert.equal(args.useWorkspace,false)
+})

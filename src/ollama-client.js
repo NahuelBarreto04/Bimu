@@ -6,10 +6,10 @@ export function createOllamaClient(call=invoke,makeChannel=()=>new Channel()){
     chooseFolder:()=>call('workspace_choose'),
     revokeFolder:()=>call('workspace_revoke'),
     acceptDrop:id=>call('workspace_accept_drop',{id}),
-    async stream(requestId,model,messages,onDelta,onTool=()=>{},useWorkspace=false){
+    async stream(requestId,model,messages,onDelta,onTool=()=>{},useWorkspace=false,memory=''){
       const channel=makeChannel()
       channel.onmessage=event=>{if(event?.type==='delta'&&typeof event.content==='string')onDelta(event.content);if(event?.type==='tool'&&['list_files','read_file'].includes(event.name)&&typeof event.path==='string'&&['running','done','error'].includes(event.status))onTool(event)}
-      const result=await call('ollama_chat_stream',{requestId,model,messages,onEvent:channel,useWorkspace})
+      const result=await call('ollama_chat_stream',{requestId,model,messages,onEvent:channel,useWorkspace,memory})
       if(typeof result?.content!=='string'||typeof result.stopped!=='boolean'||(!result.stopped&&!result.content.trim()))throw new Error('El modelo devolvió una respuesta inválida o vacía.')
       return result
     },

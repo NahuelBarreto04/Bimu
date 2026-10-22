@@ -16,14 +16,15 @@
 - [x] Limitar alcance a la carpeta autorizada; no seguir rutas fuera de ella.
 - [x] Mostrar qué herramienta se está usando y devolver el resultado real al modelo.
 
-- [ ] Validar en Windows el selector, las restricciones de rutas y el ciclo real de herramientas con Ollama.
+- [x] Selector y ciclo real de lectura de TXT con Ollama validados por el usuario en Windows.
+- [ ] Completar pruebas nativas de restricciones de rutas.
 
 ## Conversaciones
 
 - [x] Markdown, tablas y bloques de código con copia (beta 0.12).
-- [x] Recepción animada de una carpeta: hover, seguimiento, precarga local y confirmación (beta 0.12; prueba nativa en Windows pendiente).
-- [ ] Guardar y recuperar conversaciones.
-- [ ] Preferencias/memoria que el usuario pueda revisar y borrar.
+- [x] Recepción animada de una carpeta: hover, seguimiento, precarga local y confirmación (beta 0.12.1; flujo nativo validado por el usuario en Windows).
+- [x] Guardar, recuperar, renombrar y borrar conversaciones localmente (beta 0.13).
+- [x] Memoria explícita editable y borrable, aplicada a futuros mensajes (beta 0.13).
 
 ## Voz: hablar con Bimu
 

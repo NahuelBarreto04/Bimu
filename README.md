@@ -215,3 +215,14 @@ Validación pendiente en Windows: arrastrar desde Explorador sobre cada borde, s
 ### Corrección 0.12.1
 
 Con el chat abierto, arrastrar otra carpeta conserva el tamaño y la posición de la ventana. El panel muestra una zona de recepción con Bimu, manteniendo la conversación de fondo. Cancelar o salir del arrastre restaura el chat; aceptar comparte la nueva carpeta. La recepción compacta queda reservada al notch minimizado.
+
+
+## Beta 0.13: historial y memoria personal
+
+El historial local guarda automáticamente hasta 20 conversaciones con los últimos 40 mensajes de cada una, incluidas respuestas interrumpidas. Desde **Chat → Historial** podés recuperar, renombrar o borrar conversaciones, o borrar todo el historial. Al alcanzar 1,5 MB se descartan los chats más antiguos. Los cambios se guardan al terminar o detener la respuesta, no durante cada fragmento del streaming.
+
+**Ajustes → Lo que Bimu recuerda** permite escribir, guardar y borrar hasta 2000 caracteres de preferencias explícitas. Se envían a Ollama en los próximos mensajes; no se extraen recuerdos automáticamente ni se otorgan permisos por medio de esa memoria.
+
+El historial contiene los textos de la conversación (incluidas respuestas sobre archivos). Se guarda en el almacenamiento local de la app, sin cifrado adicional. Memoria e historial se borran por separado. Las carpetas y los permisos no se guardan: al reiniciar o recuperar un chat hay que compartirlas de nuevo. Cambiar o quitar una carpeta inicia un chat nuevo y conserva los anteriores en el historial. Los errores de lectura o escritura local se muestran en pantalla.
+
+Pendiente de validación en Windows: cerrar/reabrir Bimu, recuperar/borrar chats y verificar las preferencias con el modelo elegido.

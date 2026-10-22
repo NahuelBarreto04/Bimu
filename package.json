@@ -1,7 +1,7 @@
 {
   "name": "mascota-prototipo",
   "private": true,
-  "version": "0.12.1",
+  "version": "0.13.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
@@ -10,7 +10,7 @@
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "tauri": "tauri",
-    "test": "node --test tests/dock-geometry.test.mjs tests/ollama-client.test.mjs"
+    "test": "node --test tests/dock-geometry.test.mjs tests/ollama-client.test.mjs tests/conversation-store.test.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.7",
