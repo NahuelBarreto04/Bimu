@@ -1,4 +1,4 @@
-# Bimu · Beta v0.9.1
+# Bimu · Beta v0.10
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -64,7 +64,7 @@ La conexión sale de Tauri hacia `http://127.0.0.1:11434`, sin proxy del sistema
 - Enter envía; Shift+Enter agrega una línea.
 - El historial se conserva mientras Bimu esté abierto y puede borrarse con Nueva conversación. Se envían como contexto hasta los últimos 40 mensajes.
 - El borrador y el modelo elegido se guardan localmente. Los mensajes de la sesión no se guardan en disco por Bimu.
-- Muestra Pensando mientras espera la respuesta completa. Esta versión usa `stream: false`; todavía no presenta tokens de forma progresiva.
+- Presenta la respuesta por fragmentos mientras el modelo genera. El botón Detener cancela la solicitud activa y conserva el texto parcial.
 - Si falla, mantiene el borrador para reintentar. Detecta servidor inaccesible, lista vacía, errores del modelo y respuesta vacía. Tiempo límite de respuesta: 180 segundos; la primera carga del modelo puede demorar.
 - El modelo no tiene acceso a herramientas, archivos, comandos ni integraciones. GitHub, Vercel y n8n siguen pendientes.
 - Bimu se comunica con el servidor Ollama de tu PC. Si elegís un modelo remoto configurado en Ollama, su ejecución depende de la configuración de ese servidor.
@@ -159,3 +159,16 @@ También se elimina una transición secundaria sobre la posición del avatar y s
 Se reserva un pequeño margen transparente alrededor del notch de reposo para alojar el hover. Ese margen forma parte de la ventana; el paso de clics a través de zonas transparentes sigue pendiente.
 
 Pruebas: geometría del marco para cuatro bordes, distintas escalas y posiciones; mirada limitada; ocho entradas/salidas de hover con API nativa simulada, sin llamadas a mover/redimensionar. Compilación web verificada. La revisión visual definitiva en Windows queda pendiente. Ollama mantiene el comportamiento de v0.9.
+
+
+## v0.10 · Streaming y próximos pasos
+
+Ollama ahora responde con `stream: true`. Rust procesa NDJSON, recompone fragmentos UTF-8 y envía texto al frontend mediante un canal Tauri. La UI agrupa actualizaciones cada 32 ms para evitar un render por token.
+
+Detener cierra la solicitud activa, incluso durante la carga inicial del modelo, y muestra la respuesta parcial como interrumpida. Un identificador por solicitud evita mezclar respuestas y permite cancelar aunque el clic llegue antes del inicio del trabajo nativo. La cancelación queda confirmada cuando la solicitud termina; el botón muestra Deteniendo mientras tanto. Si falla la red después de recibir texto, se conserva lo leído.
+
+El streaming mejora el tiempo hasta poder empezar a leer; no aumenta por sí solo la velocidad del modelo. La carga inicial y el razonamiento previo pueden seguir demorando.
+
+Pendientes y orden de implementación en [ROADMAP.md](ROADMAP.md), incluyendo micrófono, respuesta hablada y apertura de aplicaciones como Spotify, tanto por voz como por texto. Estas funciones siguen pendientes; esta entrega no activa escucha ni ejecución de acciones.
+
+Verificación: pruebas JS del cliente, streaming, cancelación, fragmentos y estados del chat, más compilación web. Se incluyen pruebas Rust de paquetes NDJSON y UTF-8; no se ejecutaron en el entorno de preparación porque no dispone de Rust. La cancelación y el streaming reales deben validarse en Windows. Podés ejecutar `cargo test --manifest-path src-tauri/Cargo.toml` en Windows para las pruebas nativas.

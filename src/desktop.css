@@ -119,3 +119,4 @@ html[data-edge=left] .desktop.compact .canvas-wrap,html[data-edge=right] .deskto
 /* Follow the parent's interpolated position once; a second transition on the
    avatar would keep restarting as its percentage-based top changes. */
 html .desktop.compact .canvas-wrap{transition:none!important}
+.stop-generation{font-size:10px;border:1px solid rgba(var(--accent),.5);border-radius:8px;padding:6px 10px;color:var(--ink);background:rgba(var(--accent),.12)}.chat-notice{font-size:9px;color:var(--muted);margin:5px 0;line-height:1.7}.composer .send-controls{display:flex;align-items:center}

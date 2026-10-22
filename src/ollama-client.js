@@ -1,7 +1,15 @@
-import {invoke} from '@tauri-apps/api/core'
-export function createOllamaClient(call=invoke){
+import {invoke,Channel} from '@tauri-apps/api/core'
+export function createOllamaClient(call=invoke,makeChannel=()=>new Channel()){
   return {
     async models(){const result=await call('ollama_models');if(!Array.isArray(result)||result.some(x=>typeof x!=='string'))throw new Error('Lista de modelos inválida.');return result},
+    async stream(requestId,model,messages,onDelta){
+      const channel=makeChannel()
+      channel.onmessage=event=>{if(event?.type==='delta'&&typeof event.content==='string')onDelta(event.content)}
+      const result=await call('ollama_chat_stream',{requestId,model,messages,onEvent:channel})
+      if(typeof result?.content!=='string'||typeof result.stopped!=='boolean'||(!result.stopped&&!result.content.trim()))throw new Error('El modelo devolvió una respuesta inválida o vacía.')
+      return result
+    },
+    cancel:requestId=>call('ollama_cancel',{requestId}),
     async chat(model,messages){const result=await call('ollama_chat',{model,messages});if(typeof result!=='string'||!result.trim())throw new Error('El modelo devolvió una respuesta vacía.');return result}
   }
 }
