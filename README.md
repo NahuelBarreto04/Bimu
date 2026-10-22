@@ -345,3 +345,22 @@ Verificación: pruebas unitarias de activación, VAD, silencios, límites, cance
 Los comandos de apertura por voz conservan la vista actual y no generan conversaciones ni mensajes en el historial. La confirmación, cuando hace falta, aparece en una burbuja sin abrir el chat. La luz de borde usa el tema activo; rojo suave indica un pedido no reconocido o un error, verde una solicitud de apertura y amarillo el vencimiento de los ocho segundos para hablar después de activar con «Bimu». No se ilumina el borde pegado a la pantalla.
 
 La captura conserva 800 ms previos y admite pausas de hasta 1,2 s. Whisper recibe ejemplos del nombre y comandos en español. Esto mejora el contexto de reconocimiento, pero no reemplaza un detector dedicado de palabra de activación: si Whisper no reconoce «Bimu», la frase se descarta y no hay activación ni aviso. Podés decir «Bimu», esperar «Te escucho…» y después el pedido. El dictado manual conserva su funcionamiento. La precisión, los colores y la captura reales requieren validación en Windows.
+
+
+### Whisper con NVIDIA (opcional)
+
+Windows x64: se conserva el motor CPU existente y el modelo base. Para preparar CUDA 12.4 desde el release oficial de whisper.cpp v1.9.2 (ZIP verificado con SHA256):
+
+```powershell
+npm run voice:setup:gpu
+```
+
+Detener el servidor anterior con Ctrl+C y luego:
+
+```powershell
+npm run voice:start:gpu
+```
+
+Las DLL CUDA se incluyen en el paquete oficial; se necesita un controlador NVIDIA compatible. Confirmar en la terminal `ggml_cuda` y el nombre de la GPU: iniciar en modo GPU no demuestra por sí solo que se haya utilizado. No se cambia a CPU silenciosamente desde el script. Si faltan DLL, falla el controlador o no alcanza la VRAM, detener y ejecutar `npm run voice:start` (CPU). Ambos modos usan 127.0.0.1:8081; no iniciarlos simultáneamente. Ollama no cambia y puede competir por VRAM con Whisper.
+
+Comparar con la misma espera de 0,7 s y los mismos pedidos desde Ajustes → Decí «Bimu» → Medir la escucha, reiniciando la medición. Base observada en CPU: 17,6 s / 12 frases ≈ 1,47 s de procesamiento medio; máximo 2,33 s. Realizar un pedido de calentamiento antes de medir cada modo. La aceleración real está pendiente de validar en Windows.
