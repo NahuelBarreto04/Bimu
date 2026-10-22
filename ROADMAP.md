@@ -31,22 +31,22 @@
 - [x] Elegir micrófono y mostrar si está grabando (beta 0.14).
 - [x] Pulsar para hablar y convertir audio a texto con whisper.cpp local (beta 0.14).
 - [x] Revisar/enviar la transcripción como un mensaje normal (beta 0.14).
-- [ ] Validar captura, permisos de micrófono y transcripción real en Windows.
+- [x] Captura, micrófono y transcripción real validados por el usuario en Windows tras corregir segmentación.
 - [ ] Evaluar reconocimiento local y su consumo de recursos en Windows.
-- [ ] Respuesta hablada opcional con controles de voz y volumen.
+- [ ] Respuesta hablada opcional con controles de voz y volumen (pospuesta por el usuario).
 - [ ] Más adelante: activación por palabra clave “Bimu”, opcional.
 
 El primer paso será pulsar para hablar. La escucha continua no estará activada por defecto.
 
 ## Acciones en la PC, por texto o voz
 
-- [ ] Compartir el mismo motor de herramientas para ambas formas de entrada.
-- [ ] Primera acción: abrir aplicaciones registradas, por ejemplo “Bimu, abrí Spotify”.
-- [ ] Resolver nombre/alias contra una lista de aplicaciones permitidas, con destino fijo y configurable.
-- [ ] Distinguir abrir una aplicación de otras acciones como reproducir contenido o controlar la cuenta.
-- [ ] Manejar aplicación no instalada, destino inválido y apertura fallida.
-- [ ] Permisos por acción; permitir recordar autorización para aperturas simples.
-- [ ] No convertir directamente texto del modelo en comandos de terminal.
+- [x] Texto y transcripción revisada comparten el motor nativo de aperturas.
+- [x] Abrir aplicaciones registradas, por ejemplo “Bimu, abrí Spotify” (beta 0.15).
+- [x] Resolver nombre/alias contra una lista permitida con destino fijo y selección nativa de ejecutable.
+- [x] Distinguir apertura de reproducción o control de cuentas.
+- [x] Informar aplicación no instalada, destino inválido y apertura fallida.
+- [x] Confirmación y permiso recordable por aplicación, revocable en Ajustes.
+- [x] Las aperturas no convierten texto del modelo en comandos de terminal.
 - [ ] Más adelante: crear/editar archivos y comandos con revisión adecuada a la acción.
 
 ## Integraciones
@@ -58,3 +58,14 @@ El primer paso será pulsar para hablar. La escucha continua no estará activada
 - [ ] Click-through en márgenes transparentes.
 - [ ] Selector de monitor y pruebas con distintos DPI.
 - [ ] Instalador de Windows y verificaciones nativas automatizadas.
+
+
+## Documentos múltiples · beta 0.15
+
+- [x] Selector múltiple y drag and drop de hasta 10 archivos sueltos.
+- [x] TXT, PDF con texto, DOCX, XLS/XLSX/ODS y texto compatible.
+- [x] Precarga local, estado por archivo, extractos parciales y permisos limitados a los adjuntos.
+- [x] Agregar lotes y quitar archivos individuales.
+- [ ] Validar aplicaciones y documentos propios en el escritorio Windows.
+- [ ] OCR de PDF escaneado e imágenes.
+- [ ] Paginación/búsqueda para documentos y planillas grandes.

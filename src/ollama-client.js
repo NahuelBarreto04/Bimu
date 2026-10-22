@@ -4,6 +4,8 @@ export function createOllamaClient(call=invoke,makeChannel=()=>new Channel()){
     async models(){const result=await call('ollama_models');if(!Array.isArray(result)||result.some(x=>typeof x!=='string'))throw new Error('Lista de modelos inválida.');return result},
     capabilities:model=>call('ollama_capabilities',{model}),
     chooseFolder:()=>call('workspace_choose'),
+    chooseFiles:()=>call('workspace_choose_files'),
+    removeFile:id=>call('workspace_remove_file',{id}),
     revokeFolder:()=>call('workspace_revoke'),
     acceptDrop:id=>call('workspace_accept_drop',{id}),
     async stream(requestId,model,messages,onDelta,onTool=()=>{},useWorkspace=false,memory=''){

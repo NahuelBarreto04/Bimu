@@ -47,7 +47,7 @@ export function useDropZone({native,busy,reception}){
       if(kind==='enter'||kind==='over'){
         clearTimeout(leaveTimer.current)
         if(['preparing','ready'].includes(current.current.stage))return
-        if(busyRef.current){if(current.current.stage!=='error')update({stage:'error',preview:null,error:'Detené la respuesta actual antes de compartir otra carpeta.'});return}
+        if(busyRef.current){if(current.current.stage!=='error')update({stage:'error',preview:null,error:'Terminá o cancelá la operación actual antes de compartir contenido.'});return}
         if(current.current.stage!=='hover')update({stage:'hover',preview:null,error:''})
         position(kind==='enter');return
       }
@@ -58,7 +58,7 @@ export function useDropZone({native,busy,reception}){
       if(kind!=='drop'||!Number.isSafeInteger(id))return
       clearTimeout(leaveTimer.current);const op=++sequence.current
       discard(ticket.current);ticket.current=id
-      if(busyRef.current){update({stage:'error',preview:null,error:'Detené la respuesta actual antes de compartir otra carpeta.'});return}
+      if(busyRef.current){update({stage:'error',preview:null,error:'Terminá o cancelá la operación actual antes de compartir contenido.'});return}
       update({stage:'preparing',preview:null,error:''})
       try{
         const wait=matchMedia('(prefers-reduced-motion: reduce)').matches?0:280
@@ -76,7 +76,7 @@ export function useDropZone({native,busy,reception}){
     try{
       const ok=await commit(current.current.preview.id)
       if(ok){ticket.current=null;sequence.current++;update(EMPTY);return true}
-      update({stage:'error',preview:null,error:'No se pudo compartir la carpeta. Volvé a arrastrarla para intentarlo de nuevo.'})
+      update({stage:'error',preview:null,error:'No se pudo compartir el contenido. Volvé a arrastrarlo para intentarlo de nuevo.'})
       return false
     }finally{setAccepting(false)}
   }

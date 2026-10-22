@@ -1,4 +1,4 @@
-# Bimu · Beta v0.11
+# Bimu · Beta v0.15
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -279,3 +279,36 @@ La respuesta debe indicar `status: ok`. El texto “Iniciando Whisper” del scr
 Bimu pide al servidor `split_on_word=true` y `token_timestamps=false` para evitar segmentos cortados dentro de una palabra. Los saltos de línea y espacios repetidos devueltos por Whisper se convierten en espacios antes de agregar el dictado al borrador. Esto no modifica el texto que ya escribiste en el borrador. Se incluye `Bimu.` como referencia de vocabulario para el nombre del asistente; no es un reemplazo automático de palabras.
 
 La limpieza de formato no corrige errores acústicos ni garantiza que Whisper base reconozca siempre el nombre u otras palabras. El texto sigue siendo editable antes de enviarlo. Pendiente de comparar precisión real tras este ajuste en Windows.
+
+
+## Beta 0.15: aplicaciones y varios documentos
+
+### Abrir aplicaciones por texto o dictado
+
+En Chat, escribí **Bimu, abrí Spotify** (también `abrí Calculadora`, `abre Chrome`, `abrime VS Code`). Por voz: grabá, revisá la transcripción y enviá el mensaje. El pedido usa la misma ruta que el texto; no se dispara una apertura mientras se está transcribiendo. Las aperturas directas no necesitan una respuesta de Ollama.
+
+La primera apertura muestra el nombre y destino registrado, con **Abrir aplicación** y **Cancelar**. Podés marcar **Recordar permiso** para esa aplicación. Desde **Ajustes → Aplicaciones** podés revocarlo, editar nombre/alias, quitar entradas y registrar otro `.exe` mediante el selector nativo. No se aceptan rutas o argumentos de terminal dictados por el usuario o generados por el modelo. Solo se abre el destino fijo registrado, sin argumentos.
+
+Incluye entradas para Spotify (protocolo de Windows `spotify:`), Calculadora, Bloc de notas, Chrome, Edge y Visual Studio Code. La disponibilidad se comprueba en el equipo. Para una instalación en una ruta distinta, registrá su `.exe`; podés quitar la entrada anterior y asignar su nombre/alias a la nueva. Esta versión no registra protocolos arbitrarios de otras apps ni accesos `.lnk`. Spotify debe tener su protocolo instalado.
+
+La configuración se guarda localmente en el directorio de configuración de Bimu, archivo `applications-v1.json`. Las solicitudes fallidas muestran el error real; una solicitud aceptada por Windows se registra como “Se solicitó la apertura”, sin afirmar que la app terminó de iniciar. Un archivo analizado o una respuesta del modelo nunca llama al motor de aperturas: solo el texto enviado directamente por el usuario puede hacerlo.
+
+### TXT, PDF, DOCX, XLS y otros adjuntos
+
+Usá **Chat → Agregar archivos**, o arrastrá varios archivos juntos al notch o al chat abierto. Conserva la recepción animada de Bimu y el tamaño del chat abierto. Al soltar, se prepara el contenido localmente y se muestra cuántos se pudieron leer; **Ver archivos** muestra errores por archivo (desde el notch abre el panel para disponer de espacio). **Usar en el chat** comparte solo los que se pudieron preparar. La precarga no envía documentos a Ollama.
+
+Formatos implementados: TXT, PDF con texto, DOCX, XLS, XLSX, ODS, CSV, TSV, Markdown, JSON, logs y texto de código compatible. TXT admite UTF-8 y UTF-16 con BOM. Los PDF escaneados, OCR, imágenes, `.doc` antiguo y documentos protegidos o dañados quedan pendientes o muestran un error. DOCX extrae párrafos del cuerpo; no analiza imágenes, notas ni encabezados. Las planillas usan valores guardados, sin recalcular fórmulas ni ejecutar macros. No se requiere Office ni un servicio externo.
+
+Límites de esta beta: hasta **10 archivos compartidos**, **10 MiB por archivo** y **30 MiB por lote**; hasta **64 KiB de texto por archivo**. Las planillas incluyen hasta 8 hojas, 200 filas y 30 columnas por hoja; los recortes se indican como extracto parcial. Los contenedores Office se limitan a 32 MiB descomprimidos. Por mensaje de Ollama, los adjuntos tienen un presupuesto de 192 KiB de texto, 16 consultas y 12 rondas; si se alcanza, continuá con menos documentos o una pregunta más específica.
+
+Podés agregar otro lote al conjunto actual o quitar archivos individualmente. Al quitar un archivo se inicia un chat nuevo, conservando el anterior en el historial. Compartir una carpeta reemplaza los adjuntos; pasar de carpeta a archivos también inicia otro chat. No se mezclan carpetas y archivos en un mismo arrastre. Las carpetas compartidas ahora también permiten extraer los formatos compatibles mediante `read_file`.
+
+Los adjuntos son una instantánea de texto al compartirlos: no dan acceso a archivos vecinos ni se actualizan solos si cambiás el original. Al reiniciar, recuperar un chat o quitar el acceso hay que compartirlos de nuevo. El historial puede contener respuestas sobre documentos ya enviados. Para analizar hace falta un modelo Ollama que admita herramientas, como en la lectura de carpetas anterior.
+
+### Validación de esta entrega
+
+- `npm test`: reglas de intención, comandos cliente, geometría, voz e historial.
+- `npm run test:native`: el mismo núcleo Rust de lectura, límites de alcance, selección múltiple, XML DOCX, alias e intención, sin necesitar WebView.
+- Extracción real comprobada aquí con archivos de muestra TXT, PDF, DOCX, XLS y XLSX.
+- Simulaciones del frontend para confirmar/cancelar aperturas, recordar permiso, apps desconocidas y archivos múltiples.
+- Pendiente en Windows: compilación completa de Tauri, apertura física de apps instaladas y selector/arrastre con documentos propios. La respuesta hablada sigue pendiente por decisión del usuario.

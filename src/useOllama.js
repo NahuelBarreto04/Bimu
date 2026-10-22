@@ -62,10 +62,18 @@ export function useOllama(native){
     setChoosing(true);setError('')
     try{const selected=await client.chooseFolder();if(selected){setFolder(selected);freshConversation();setNotice('Carpeta compartida en modo solo lectura para esta sesión.')}}catch(e){setError(String(e.message||e))}finally{setChoosing(false)}
   }
+  const chooseFiles=async()=>{
+    if(lock.current||choosing)return
+    if(!native){setError('Abrí Bimu en el escritorio para compartir archivos.');return}
+    setChoosing(true);setError('')
+    try{const selected=await client.chooseFiles();if(selected){setFolder(selected);if(folder?.kind!=='files')freshConversation();setNotice('Archivos preparados en modo solo lectura. Podés pedir un resumen o compararlos.')}}catch(e){setError(String(e.message||e))}finally{setChoosing(false)}
+  }
+  const removeFile=async id=>{if(lock.current||choosing)return;setChoosing(true);try{const selected=await client.removeFile(id);setFolder(selected);freshConversation();setNotice('Archivo quitado. Se inició un chat nuevo.')}catch(e){setError(String(e.message||e))}finally{setChoosing(false)}}
+  const recordAction=(text,result)=>{if(lock.current)return;setMessages(items=>[...items.slice(-38),{role:'user',content:text},{role:'assistant',content:result}]);setNotice('');setError('')}
   const acceptDroppedFolder=async id=>{
     if(lock.current||choosing)return false
     setChoosing(true);setError('')
-    try{const selected=await client.acceptDrop(id);setFolder(selected);freshConversation();setNotice('Carpeta recibida. ¿Qué querés saber sobre ella?');return true}
+    try{const selected=await client.acceptDrop(id);setFolder(selected);if(selected.kind!=='files'||folder?.kind!=='files')freshConversation();setNotice('Contenido recibido. ¿Qué querés saber sobre él?');return true}
     catch(e){setError(String(e.message||e));return false}finally{setChoosing(false)}
   }
   const revokeFolder=async()=>{
@@ -109,5 +117,5 @@ export function useOllama(native){
       return false
     }finally{active.current=null;lock.current=false;if(mounted.current){setSending(false);setStopping(false)}}
   }
-  return {history:archive.conversations,conversationId,memory:archive.memory,storageError,newConversation,restoreConversation,renameConversation,deleteConversation,clearHistory,saveMemory,acceptDroppedFolder,folder,choosing,toolsSupport,activity,chooseFolder,revokeFolder,models,model,setModel,checking,connected,error,messages,sending,stopping,notice,refresh,send,stop,clear:newConversation}
+  return {chooseFiles,removeFile,recordAction,history:archive.conversations,conversationId,memory:archive.memory,storageError,newConversation,restoreConversation,renameConversation,deleteConversation,clearHistory,saveMemory,acceptDroppedFolder,folder,choosing,toolsSupport,activity,chooseFolder,revokeFolder,models,model,setModel,checking,connected,error,messages,sending,stopping,notice,refresh,send,stop,clear:newConversation}
 }

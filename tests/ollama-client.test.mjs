@@ -65,3 +65,8 @@ test('envía solo la memoria explícita como parámetro separado del historial',
  await client.stream('id','model',messages,()=>{},()=>{},false,'Me llamo Mariano')
  assert.equal(args.memory,'Me llamo Mariano');assert.deepEqual(args.messages,messages);assert.equal(args.useWorkspace,false)
 })
+test('selección múltiple y quitar un adjunto usan comandos nativos sin rutas',async()=>{
+ const calls=[];const client=createOllamaClient(async(command,args)=>{calls.push({command,args});return null})
+ await client.chooseFiles();await client.removeFile('archivo-2')
+ assert.deepEqual(calls,[{command:'workspace_choose_files',args:undefined},{command:'workspace_remove_file',args:{id:'archivo-2'}}])
+})
