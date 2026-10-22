@@ -2,10 +2,12 @@ import React, { useEffect, useRef, useState } from 'react'
 import { isTauri, invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow, LogicalSize, PhysicalPosition, currentMonitor } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
-import { Home, MessageCircle, PanelsTopLeft, Settings2, Grip, ArrowDownLeft, ArrowUpRight, Minus, Sun, Moon, Monitor, Hand, Sparkles, Plug, Github, Globe, Cpu, ArrowRight, Send, Check, Palette, Pin, Crosshair, Power, X, FolderOpen } from 'lucide-react'
+import { Home, MessageCircle, PanelsTopLeft, Settings2, Grip, ArrowDownLeft, ArrowUpRight, Minus, Sun, Moon, Monitor, Hand, Sparkles, Plug, Github, Globe, Cpu, ArrowRight, Send, Check, Palette, Pin, Crosshair, Power, X, FolderOpen, LoaderCircle } from 'lucide-react'
 import './desktop.css'
 import {useDock} from './useDock'
 import {useOllama} from './useOllama'
+import {useDropZone} from './useDropZone'
+import {MessageContent} from './MessageContent'
 
 export const nativeMode=isTauri()
 export const desktopMode=nativeMode||new URLSearchParams(location.search).get('desktop')==='1'
@@ -17,9 +19,12 @@ const SERVICES=[{id:'ollama',name:'Ollama',desc:'Tu inteligencia, en tu equipo.'
 const saved=(key,fallback)=>{try{return localStorage.getItem(key)||fallback}catch{return fallback}}
 function IconButton({title,children,...props}){return <button type="button" className="icon-button" title={title} aria-label={title} {...props}>{children}</button>}
 
-export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpand,personalization,mood,onThinking}) {
+export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpand,personalization,mood,onThinking,reception}) {
   const [tab,setTab]=useState('home')
   const ai=useOllama(nativeMode)
+  const localReception=useRef({active:false,catching:false,target:[0,0]})
+  const receiveRef=reception||localReception
+  const drop=useDropZone({native:nativeMode,busy:ai.sending||ai.choosing,reception:receiveRef})
   const chatEnd=useRef()
   useEffect(()=>{onThinking?.(ai.sending)},[ai.sending,onThinking])
   useEffect(()=>{chatEnd.current?.scrollIntoView?.({block:'end',behavior:ai.sending?'auto':'smooth'})},[ai.messages,ai.sending,tab])
@@ -44,7 +49,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   useEffect(()=>{safe(()=>getCurrentWindow().setAlwaysOnTop(pinned));localStorage.setItem('mascot-pinned',String(pinned))},[pinned])
   useEffect(()=>{localStorage.setItem('companion-draft',draft)},[draft])
   useEffect(()=>{document.documentElement.dataset.view=tab},[tab])
-  const dock=useDock({native:nativeMode,expanded,hovered,tab,size:config.size,onError:setError})
+  const dock=useDock({native:nativeMode,expanded:expanded&&!drop.active,hovered:hovered||drop.active,tab,size:config.size,onError:setError})
   const dockCallbacks=useRef(dock);dockCallbacks.current=dock
   // Observe the whole companion surface, including its avatar and quick input.
   // Crossing between descendants must never be treated as leaving the notch.
@@ -61,11 +66,11 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   },[expanded])
   useEffect(()=>{if(expanded)setHovered(false)},[expanded])
   useEffect(()=>{
-    if(!expanded||tab!=='home')return
+    if(!expanded||tab!=='home'||drop.active)return
     let timer;const restart=()=>{clearTimeout(timer);timer=setTimeout(()=>onExpand(false),20000)}
     restart();window.addEventListener('pointermove',restart);window.addEventListener('pointerdown',restart);window.addEventListener('keydown',restart)
     return()=>{clearTimeout(timer);window.removeEventListener('pointermove',restart);window.removeEventListener('pointerdown',restart);window.removeEventListener('keydown',restart)}
-  },[expanded,tab,onExpand])
+  },[expanded,tab,onExpand,drop.active])
   useEffect(()=>{
     if(!nativeMode)return
     let disposed=false;let off
@@ -84,13 +89,14 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   const openQuickChat=e=>{e.preventDefault();clearTimeout(hoverTimer.current);setTab('chat');onExpand(true);if(ai.connected&&ai.model)submitMessage()}
   const chooseTab=id=>{setTab(id);setService(null)}
   return <>
-    {!expanded&&<button className="notch-surface" aria-label="Abrir compañero" {...dock.handlers} onClick={openNotch}>
+    {drop.active&&<section className="drop-surface" aria-label="Recibir carpeta"><div className="drop-outline"/>{drop.stage==='hover'&&<><FolderOpen className="drop-folder-icon" size={23}/><p className="drop-invitation">Soltá la carpeta. Yo la recibo.</p></>}{drop.stage==='preparing'&&<p className="drop-preparing" role="status"><LoaderCircle size={14}/> Preparando tu carpeta…</p>}{drop.stage==='ready'&&<div className="drop-ready"><strong title={drop.preview.name}>{drop.preview.name}</strong><small>{drop.preview.truncated?'Más de ':''}{drop.preview.entries} elementos visibles · solo lectura</small><p>¿Qué querés hacer?</p><div><button disabled={drop.accepting} onClick={async()=>{if(await drop.accept(ai.acceptDroppedFolder)){setHovered(false);setTab('chat');onExpand(true)}}}>{drop.accepting?'Recibiendo…':'Usar en el chat'}</button><button disabled={drop.accepting} onClick={drop.reset}>Cancelar</button></div></div>}{drop.stage==='error'&&<div className="drop-error" role="alert"><p>{drop.error}</p><button onClick={drop.reset}>Entendido</button></div>}</section>}
+    {!expanded&&!drop.active&&<button className="notch-surface" aria-label="Abrir compañero" {...dock.handlers} onClick={openNotch}>
       <span className="notch-avatar-slot" aria-hidden="true"/>
       <span className="notch-copy"><strong>Tu compañero</strong><small>{mood==='sleepy'?'Descansando':'Acá, con vos'}</small></span>
       <span className="notch-indicator"><span className="status-dot"/></span>
       <span className="notch-grip"><Grip size={12}/></span>
     </button>}
-    {!expanded&&<form className="quick-chat" aria-label="Chat rápido" onSubmit={openQuickChat}>
+    {!expanded&&!drop.active&&<form className="quick-chat" aria-label="Chat rápido" onSubmit={openQuickChat}>
       <label htmlFor="quick-message">Hablá con Bimu</label>
       <div><input id="quick-message" aria-label="Mensaje rápido para Bimu" value={draft} onChange={e=>setDraft(e.target.value)} placeholder={ai.sending?"Bimu está pensando…":"Escribile a Bimu…"} maxLength={16000} autoComplete="off"/><IconButton title="Abrir mensaje en el chat" type="submit" disabled={ai.sending}><Send size={14}/></IconButton></div>
     </form>}
@@ -110,14 +116,14 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
           <section className="workspace-bar" aria-label="Carpeta compartida"><div><FolderOpen size={15}/><span>{ai.folder?ai.folder.name:'Sin carpeta compartida'}</span>{ai.folder&&<small>Solo lectura</small>}</div><div><button type="button" disabled={ai.sending||ai.choosing} onClick={ai.chooseFolder}>{ai.choosing?'Abriendo…':ai.folder?'Cambiar':'Compartir carpeta'}</button>{ai.folder&&<button type="button" disabled={ai.sending||ai.choosing} onClick={ai.revokeFolder}>Quitar</button>}</div></section>
           {ai.folder&&<p className="workspace-hint">Los archivos consultados se envían al modelo elegido. {ai.toolsSupport===null?'Comprobando herramientas…':ai.toolsSupport?'Podés preguntar por este proyecto.':'Este modelo no admite herramientas o no se pudo comprobar.'}</p>}
           {!!ai.activity.length&&<details className="tool-activity" open={ai.sending}><summary>Consultas de archivos · {ai.activity.length}</summary><ul>{ai.activity.map((tool,i)=><li key={i}><span>{tool.name==='read_file'?'Leer':'Listar'} {tool.path}</span><small>{({running:'En curso',done:'Completado',error:'No disponible',stopped:'Detenido'})[tool.status]}</small></li>)}</ul></details>}
-          {ai.messages.length?<div className="chat-history" aria-live="polite">{ai.messages.map((m,i)=><article key={i} className={'chat-message '+m.role}><span>{m.role==='user'?'Vos':'Bimu'}</span><p>{m.content}</p>{m.interrupted&&<small className="chat-notice">Respuesta interrumpida</small>}</article>)}{ai.sending&&<div className="thinking" role="status"><Sparkles size={14}/> Bimu está pensando…</div>}<div ref={chatEnd}/></div>:<div className="chat-empty"><span className="large-orb"><Sparkles size={26}/></span><h1>Un lugar para tus ideas.</h1><p>{ai.connected&&ai.model?'Tu modelo está listo. ¿Qué hacemos hoy?':'Conectá Ollama y elegí uno de tus modelos para empezar.'}</p>{(!ai.connected||!ai.model)&&<button className="primary-button" onClick={()=>{chooseTab('connections');setService('ollama')}}><Cpu size={15}/> Configurar Ollama <ArrowRight size={14}/></button>}</div>}
+          {ai.messages.length?<div className="chat-history" aria-live="polite">{ai.messages.map((m,i)=><article key={i} className={'chat-message '+m.role}><span>{m.role==='user'?'Vos':'Bimu'}</span><MessageContent content={m.content} markdown={m.role==='assistant'}/>{m.interrupted&&<small className="chat-notice">Respuesta interrumpida</small>}</article>)}{ai.sending&&<div className="thinking" role="status"><Sparkles size={14}/> Bimu está pensando…</div>}<div ref={chatEnd}/></div>:<div className="chat-empty"><span className="large-orb"><Sparkles size={26}/></span><h1>Un lugar para tus ideas.</h1><p>{ai.connected&&ai.model?'Tu modelo está listo. ¿Qué hacemos hoy?':'Conectá Ollama y elegí uno de tus modelos para empezar.'}</p>{(!ai.connected||!ai.model)&&<button className="primary-button" onClick={()=>{chooseTab('connections');setService('ollama')}}><Cpu size={15}/> Configurar Ollama <ArrowRight size={14}/></button>}</div>}
           {ai.error&&<p className="ollama-error" role="alert">{ai.error}</p>}{ai.notice&&<p className="chat-notice" role="status">{ai.notice}</p>}
           <form className="composer glass-card" onSubmit={e=>{e.preventDefault();submitMessage()}}><textarea aria-label="Borrador de mensaje" value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();submitMessage()}}} maxLength={16000} placeholder="Escribile a Bimu…" rows={2}/><div><small>{ai.sending?'Generando respuesta…':ai.connected&&ai.model?'Enter para enviar · Shift+Enter para otra línea':'Conectá Ollama para enviar'}</small><div className="send-controls">{ai.sending?<button type="button" className="stop-generation" disabled={ai.stopping} onClick={ai.stop}>{ai.stopping?'Deteniendo…':'Detener'}</button>:<IconButton title="Enviar mensaje" type="submit" disabled={!ai.connected||!ai.model||!draft.trim()}><Send size={16}/></IconButton>}</div></div></form>
         </section>}
         {tab==='connections'&&<section><div className="page-heading"><span className="micro-label">TODO EN SU LUGAR</span><h1>Conectá tu mundo.</h1><p>Un espacio para tu IA y las herramientas que usás.</p></div><div className="connection-grid">{SERVICES.map(({id,name,desc,icon:Icon,color})=><button key={id} className={'connection-tile glass-card '+(service===id?'chosen':'')} onClick={()=>setService(id)} aria-pressed={service===id}><span className="service-icon" style={{color}}><Icon size={23}/></span><span><strong>{name}</strong><small>{desc}</small></span><span className="state-badge">{id==='ollama'&&ai.connected?'Conectado':'Pendiente'}</span></button>)}</div><OllamaPanel ai={ai}/><div className="connection-note glass-card"><Plug size={18}/><div><strong>{service==='ollama'?'Tu IA en tu equipo':service?SERVICES.find(s=>s.id===service)?.name+': conexión pendiente':'Conectá tu modelo local'}</strong><p>{service==='ollama'?'Elegí un modelo instalado en el panel de Ollama. El historial se mantiene durante esta sesión.':service?'Esta integración todavía no está disponible. Por ahora no se solicita ninguna cuenta.':'Ollama ya puede conectarse. Las demás integraciones siguen pendientes.'}</p></div></div></section>}
         {tab==='settings'&&<section className="settings-view"><div className="page-heading"><span className="micro-label">A TU MANERA</span><h1>Un espacio muy tuyo.</h1><p>Elegí cómo se ve y cómo te acompaña.</p></div><section className="appearance-card glass-card"><div className="section-line"><h2><Palette size={16}/> Apariencia</h2><span className="micro-label">GUARDADO AUTOMÁTICO</span></div><div className="theme-picker" aria-label="Tema">{[[Sun,'light','Claro'],[Moon,'dark','Oscuro'],[Monitor,'system','Sistema']].map(([Icon,id,label])=><button key={id} className={theme===id?'selected':''} aria-pressed={theme===id} onClick={()=>setTheme(id)}><Icon size={15}/>{label}{theme===id&&<Check size={13}/>}</button>)}</div><div className="tint-row"><span>Tinte del cristal</span><div>{TINTS.map(([id,label,color])=><button key={id} style={{'--swatch':color}} title={label} aria-label={label} aria-pressed={tint===id} className={tint===id?'selected':''} onClick={()=>setTint(id)}>{tint===id&&<Check size={12}/>}</button>)}</div></div></section><section className="behavior-card glass-card"><h2><Pin size={16}/> En tu escritorio</h2><label>Borde del monitor<select aria-label="Borde del monitor" value={dock.edge} onChange={e=>{setHovered(false);dock.setEdge(e.target.value)}}><option value="top">Arriba</option><option value="bottom">Abajo</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></label><p className="dock-help">{dock.lateral?'Deslizá el notch verticalmente sobre este borde.':'Deslizá el notch horizontalmente sobre este borde.'} Se imanta al centro cuando lo acercás.</p><span className="dock-alignment">{dock.centered?'✧ Centrado en el borde':'Posición personalizada'}</span><label>Tamaño en reposo<select value={config.size} onChange={e=>onConfig(c=>({...c,size:e.target.value}))}><option value="S">Pequeño</option><option value="M">Mediano</option><option value="L">Grande</option></select></label><label>Siempre visible<input type="checkbox" checked={pinned} onChange={e=>setPinned(e.target.checked)}/></label><div className="settings-actions"><button onClick={dock.center}><Crosshair size={14}/> Centrar en el borde</button><button onClick={()=>safe(()=>invoke('quit_app'))}><Power size={14}/> Cerrar aplicación</button></div></section>{personalization}</section>}
       </div>
-      <footer className="hub-footer"><span><span className="mini-star">✧</span> Mi pequeño compañero</span><span>{tab==='home'?'Un poquito de compañía.':'Hecho para acompañarte.'}<span className="version-tag"> BETA · 0.11</span></span></footer>
+      <footer className="hub-footer"><span><span className="mini-star">✧</span> Mi pequeño compañero</span><span>{tab==='home'?'Un poquito de compañía.':'Hecho para acompañarte.'}<span className="version-tag"> BETA · 0.12</span></span></footer>
     </section>}
     {error&&<div className="desktop-error" role="alert"><span>{error}</span><IconButton title="Cerrar aviso" onClick={()=>setError('')}><X size={14}/></IconButton></div>}
   </>

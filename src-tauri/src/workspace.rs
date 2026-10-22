@@ -112,3 +112,70 @@ pub fn definitions()->Value{json!([
     #[test]fn validates_args(){assert!(arguments(json!({"path":"a","extra":true})).is_err());assert!(arguments(json!({"path":2})).is_err());assert_eq!(arguments(json!({"path":"."})).unwrap(),".");}
     #[test]fn reads_only_small_text(){let root=std::env::temp_dir().join(format!("bimu-test-{}",std::process::id()));fs::create_dir_all(&root).unwrap();let root=root.canonicalize().unwrap();fs::write(root.join("hello.txt"),"hola").unwrap();fs::write(root.join("binary.bin"),[0,1,2]).unwrap();fs::write(root.join("large.txt"),vec![b'x';65537]).unwrap();assert_eq!(execute(&root,"read_file","hello.txt").unwrap()["content"],"hola");assert!(execute(&root,"read_file","binary.bin").is_err());assert!(execute(&root,"read_file","large.txt").is_err());assert!(execute(&root,"run_command","hello.txt").is_err());fs::remove_dir_all(root).unwrap();}
 }
+
+#[derive(Default)]
+pub struct DropState { ticket:u64, paths:Vec<PathBuf>, prepared:Option<PathBuf> }
+#[derive(Default)]
+pub struct DropInbox(pub Mutex<DropState>);
+#[derive(Serialize)]
+pub struct DropPreview { id:u64,name:String,entries:usize,truncated:bool }
+
+// Only a real native drop populates this inbox. Frontend/model commands cannot
+// submit an arbitrary filesystem path as a dropped folder.
+pub fn handle_drag(window:&tauri::Window,event:&tauri::DragDropEvent){
+    use tauri::Emitter;
+    let data=match event {
+        tauri::DragDropEvent::Enter{..}=>json!({"kind":"enter"}),
+        tauri::DragDropEvent::Over{..}=>json!({"kind":"over"}),
+        tauri::DragDropEvent::Leave=>json!({"kind":"leave"}),
+        tauri::DragDropEvent::Drop{paths,..}=>{
+            let inbox=window.state::<DropInbox>();
+            let Ok(mut pending)=inbox.inner().0.lock()else{return};
+            pending.ticket=pending.ticket.wrapping_add(1);pending.prepared=None;
+            pending.paths=paths.iter().take(2).cloned().collect();
+            json!({"kind":"drop","id":pending.ticket})
+        },
+        _=>return
+    };
+    let _=window.emit("bimu-folder-drag",data);
+}
+#[tauri::command]
+pub async fn workspace_stage_drop(id:u64,inbox:State<'_,DropInbox>)->Result<DropPreview,String>{
+    let path={let pending=inbox.inner().0.lock().map_err(|_|"No se pudo preparar la carpeta.")?;
+        if pending.ticket!=id{return Err("La carpeta arrastrada cambió.".into());}
+        if pending.paths.len()!=1{return Err("Por ahora recibo una sola carpeta. Los archivos sueltos todavía no están disponibles.".into());}
+        pending.paths[0].clone()
+    };
+    let (root,name,entries,truncated)=tauri::async_runtime::spawn_blocking(move||->Result<_,String>{
+        let root=path.canonicalize().map_err(|_|"No se pudo acceder a la carpeta arrastrada.")?;
+        if !root.is_dir(){return Err("Por ahora recibo carpetas. Para un TXT, arrastrá la carpeta que lo contiene.".into());}
+        let listing=execute(&root,"list_files",".")?;
+        let name=root.file_name().unwrap_or(root.as_os_str()).to_string_lossy().into_owned();
+        let entries=listing["entries"].as_array().map(Vec::len).unwrap_or(0);
+        let truncated=listing["truncated"].as_bool().unwrap_or(false);
+        Ok((root,name,entries,truncated))
+    }).await.map_err(|_|"No se pudo preparar la carpeta.")??;
+    let mut pending=inbox.inner().0.lock().map_err(|_|"No se pudo preparar la carpeta.")?;
+    if pending.ticket!=id{return Err("La carpeta arrastrada cambió.".into());}
+    pending.prepared=Some(root);
+    Ok(DropPreview{id,name,entries,truncated})
+}
+#[tauri::command]
+pub fn workspace_accept_drop(id:u64,inbox:State<'_,DropInbox>,workspace:State<'_,Workspace>)->Result<FolderInfo,String>{
+    let mut pending=inbox.inner().0.lock().map_err(|_|"No se pudo recibir la carpeta.")?;
+    if pending.ticket!=id{return Err("Esa carpeta ya no está disponible.".into());}
+    let root=pending.prepared.as_ref().ok_or("Esperá a que se prepare la carpeta.")?;
+    let root=root.canonicalize().map_err(|_|"La carpeta ya no está disponible.")?;
+    if !root.is_dir(){return Err("La carpeta ya no está disponible.".into());}
+    let name=root.file_name().unwrap_or(root.as_os_str()).to_string_lossy().into_owned();
+    let mut grant=workspace.inner().0.lock().map_err(|_|"No se pudo compartir la carpeta.")?;
+    grant.root=Some(root);grant.generation=grant.generation.wrapping_add(1);
+    pending.prepared=None;pending.paths.clear();
+    Ok(FolderInfo{name})
+}
+#[tauri::command]
+pub fn workspace_discard_drop(id:u64,inbox:State<'_,DropInbox>)->Result<(),String>{
+    let mut pending=inbox.inner().0.lock().map_err(|_|"No se pudo descartar la carpeta.")?;
+    if pending.ticket==id{pending.prepared=None;pending.paths.clear();pending.ticket=pending.ticket.wrapping_add(1);}
+    Ok(())
+}

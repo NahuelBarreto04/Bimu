@@ -31,12 +31,14 @@ function Accessory({ type }) {
 }
 
 // Shoulder and wrist pivots keep the hand attached throughout the greeting.
-function Arm({ side, color, waving }) {
+function Arm({ side, color, waving, reception }) {
   const shoulder=useRef(); const wrist=useRef()
   useFrame(({clock},delta)=>{
     const t=clock.elapsedTime
-    const target=waving && side===1 ? 2.45+Math.sin(t*9)*0.24 : side*0.12+Math.sin(t*1.9)*0.055
+    const receiving=reception?.current.active
+    const target=receiving ? side*(reception.current.catching?1.65:2.05) : waving && side===1 ? 2.45+Math.sin(t*9)*0.24 : side*0.12+Math.sin(t*1.9)*0.055
     shoulder.current.rotation.z=THREE.MathUtils.damp(shoulder.current.rotation.z,target,8,delta)
+    shoulder.current.rotation.x=THREE.MathUtils.damp(shoulder.current.rotation.x,receiving?-0.55:0,8,Math.min(delta,0.05))
     wrist.current.rotation.z=THREE.MathUtils.damp(wrist.current.rotation.z,waving&&side===1?Math.sin(t*12)*0.35:0,10,delta)
   })
   return <group position={[side*0.91,-0.1,0.03]}><group ref={shoulder}>
@@ -73,11 +75,12 @@ function SleepLetters({ active }) {
   </mesh>)}</group>
 }
 
-function Mascot({ config, mood, celebrate, onTap, thinking }) {
+function Mascot({ config, mood, celebrate, onTap, thinking, reception }) {
   const group = useRef(); const body = useRef(); const eyes = useRef([]); const pointer = useRef([0,0]); const blink = useRef(1)
   useEffect(()=>{const move=(e)=>{const rect=document.querySelector('.canvas-wrap')?.getBoundingClientRect();if(rect)pointer.current=gazeTarget(e.clientX,e.clientY,rect)};window.addEventListener('pointermove',move);return()=>window.removeEventListener('pointermove',move)},[])
   useFrame(({clock},delta)=>{
     const t=clock.elapsedTime
+    if(reception?.current.active)pointer.current=reception.current.target
     if(group.current){group.current.position.y=0.025*Math.sin(t*1.9)+(celebrate?Math.abs(Math.sin(t*7))*0.19:0);group.current.rotation.y=THREE.MathUtils.lerp(group.current.rotation.y,(thinking?Math.sin(t*1.5)*0.06:pointer.current[0]*0.14),delta*2);group.current.rotation.x=THREE.MathUtils.lerp(group.current.rotation.x,-pointer.current[1]*0.08,delta*2)}
     if(body.current){body.current.scale.y=1+0.014*Math.sin(t*2);body.current.scale.x=1-0.009*Math.sin(t*2)}
     const phase=t%4.3; const target=mood==='sleepy'?0.12:phase>3.83&&phase<3.97?0.1:1
@@ -95,13 +98,14 @@ function Mascot({ config, mood, celebrate, onTap, thinking }) {
       <mesh position={[0,-0.08,0.78]} rotation={[0,0,Math.PI]}><torusGeometry args={[0.083,0.016,8,28,Math.PI]}/><meshStandardMaterial color="#8C514A"/></mesh>
       <Accessory type={config.accessory}/>
     </group>
-    {[-1,1].map(side=><Arm key={side} side={side} color={config.color} waving={celebrate&&!sleepy}/>)}
+    {[-1,1].map(side=><Arm key={side} side={side} color={config.color} waving={celebrate&&!sleepy} reception={reception}/>)}
     <SleepLetters active={sleepy}/>
   </group>
 }
 
 function App(){
   const [config,setConfig]=useState(()=>{try{return {...DEFAULT,...JSON.parse(localStorage.getItem('mascot-v1')||'{}')}}catch{return DEFAULT}})
+  const reception=useRef({active:false,catching:false,target:[0,0]})
   const [thinking,setThinking]=useState(false)
   const [desktopExpanded,setDesktopExpanded]=useState(new URLSearchParams(location.search).get('desktop')==='1')
   const [mood,setMood]=useState('idle'); const [celebrate,setCelebrate]=useState(false); const greetingTimer=useRef()
@@ -110,9 +114,9 @@ function App(){
   const tap=()=>{clearTimeout(greetingTimer.current);setMood('idle');setCelebrate(true);greetingTimer.current=window.setTimeout(()=>setCelebrate(false),2800)}
   const personalization=(<aside className="panel"><div className="panel-title"><div><span className="eyebrow">PERSONALIZACIÓN</span><h2>Hacela tuya</h2></div><Sparkles size={20}/></div><p>Sin género ni apariencia predefinida. Elegí lo que más te guste.</p><h3>Color del cuerpo</h3><div className="swatches">{COLORS.map(color=><button key={color} aria-label={'Color '+color} title={color} className={'swatch '+(config.color===color?'selected':'')} style={{background:color}} onClick={()=>setConfig(c=>({...c,color}))}/>)}</div><h3>Accesorios</h3><div className="accessories">{OPTIONS.map(a=><button key={a.id} className={'accessory '+(config.accessory===a.id?'selected':'')} onClick={()=>setConfig(c=>({...c,accessory:a.id}))}><span>{a.symbol}</span><small>{a.name}</small></button>)}</div><div className="panel-footer"><button className="reset" onClick={()=>{setConfig(DEFAULT);setMood('idle')}}><RotateCcw size={15}/> Restablecer</button><span>Guardado automático</span></div></aside>)
   return <main className={desktopMode ? "app desktop "+(desktopExpanded?"expanded":"compact") : "app"}>
-    {desktopMode&&<DesktopControls expanded={desktopExpanded} onExpand={setDesktopExpanded} personalization={personalization} mood={mood} onThinking={setThinking} config={config} onConfig={setConfig} onRest={()=>{setCelebrate(false);setMood('sleepy')}} onGreet={tap}/>}
-    <header><div className="brand"><span className="brand-dot"/> <span>Mi pequeño compañero</span></div><span className="version">PROTOTIPO · 0.11</span></header>
-    <section className="workspace"><div className="stage"><div className="eyebrow">TU COMPAÑERO DE ESCRITORIO</div><h1>Un poquito de compañía.</h1><p>Una criatura pequeña, expresiva y completamente tuya.</p><div className="canvas-wrap"><Canvas gl={{alpha:true}} shadows camera={{position:[0,0.45,6.6],fov:35}} dpr={[1,2]}><ambientLight intensity={2.1}/><directionalLight position={[-3,5,6]} intensity={2.4} color="#fff6eb"/><directionalLight position={[4,2,-2]} intensity={0.8} color="#ffffff"/><Mascot thinking={thinking} config={config} mood={mood} celebrate={celebrate} onTap={desktopMode?()=>{setDesktopExpanded(true);tap()}:tap}/><ContactShadows position={[0,-1.04,0]} opacity={0.26} scale={5} blur={2.6} far={3}/></Canvas></div><div className="hint">Mové el cursor, esperá un parpadeo o hacé clic sobre la mascota ✨</div><div className="moods"><button onClick={()=>setMood('idle')} className={mood==='idle'?'active':''}>☺ Normal</button><button onClick={tap}>✦ Saludar</button><button onClick={()=>{clearTimeout(greetingTimer.current);setCelebrate(false);setMood('sleepy')}} className={mood==='sleepy'?'active':''}>☾ Descansar</button></div></div>
+    {desktopMode&&<DesktopControls reception={reception} expanded={desktopExpanded} onExpand={setDesktopExpanded} personalization={personalization} mood={mood} onThinking={setThinking} config={config} onConfig={setConfig} onRest={()=>{setCelebrate(false);setMood('sleepy')}} onGreet={tap}/>}
+    <header><div className="brand"><span className="brand-dot"/> <span>Mi pequeño compañero</span></div><span className="version">PROTOTIPO · 0.12</span></header>
+    <section className="workspace"><div className="stage"><div className="eyebrow">TU COMPAÑERO DE ESCRITORIO</div><h1>Un poquito de compañía.</h1><p>Una criatura pequeña, expresiva y completamente tuya.</p><div className="canvas-wrap"><Canvas gl={{alpha:true}} shadows camera={{position:[0,0.45,6.6],fov:35}} dpr={[1,2]}><ambientLight intensity={2.1}/><directionalLight position={[-3,5,6]} intensity={2.4} color="#fff6eb"/><directionalLight position={[4,2,-2]} intensity={0.8} color="#ffffff"/><Mascot reception={reception} thinking={thinking} config={config} mood={mood} celebrate={celebrate} onTap={desktopMode?()=>{setDesktopExpanded(true);tap()}:tap}/><ContactShadows position={[0,-1.04,0]} opacity={0.26} scale={5} blur={2.6} far={3}/></Canvas></div><div className="hint">Mové el cursor, esperá un parpadeo o hacé clic sobre la mascota ✨</div><div className="moods"><button onClick={()=>setMood('idle')} className={mood==='idle'?'active':''}>☺ Normal</button><button onClick={tap}>✦ Saludar</button><button onClick={()=>{clearTimeout(greetingTimer.current);setCelebrate(false);setMood('sleepy')}} className={mood==='sleepy'?'active':''}>☾ Descansar</button></div></div>
     {!desktopMode&&personalization}</section><footer>Prototipo visual · La conexión con Ollama llegará en la próxima etapa.</footer>
   </main>
 }

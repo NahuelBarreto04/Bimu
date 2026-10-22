@@ -5,6 +5,7 @@ export function createOllamaClient(call=invoke,makeChannel=()=>new Channel()){
     capabilities:model=>call('ollama_capabilities',{model}),
     chooseFolder:()=>call('workspace_choose'),
     revokeFolder:()=>call('workspace_revoke'),
+    acceptDrop:id=>call('workspace_accept_drop',{id}),
     async stream(requestId,model,messages,onDelta,onTool=()=>{},useWorkspace=false){
       const channel=makeChannel()
       channel.onmessage=event=>{if(event?.type==='delta'&&typeof event.content==='string')onDelta(event.content);if(event?.type==='tool'&&['list_files','read_file'].includes(event.name)&&typeof event.path==='string'&&['running','done','error'].includes(event.status))onTool(event)}

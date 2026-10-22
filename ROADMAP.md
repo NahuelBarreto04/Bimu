@@ -20,7 +20,8 @@
 
 ## Conversaciones
 
-- [ ] Markdown y bloques de código.
+- [x] Markdown, tablas y bloques de código con copia (beta 0.12).
+- [x] Recepción animada de una carpeta: hover, seguimiento, precarga local y confirmación (beta 0.12; prueba nativa en Windows pendiente).
 - [ ] Guardar y recuperar conversaciones.
 - [ ] Preferencias/memoria que el usuario pueda revisar y borrar.
 

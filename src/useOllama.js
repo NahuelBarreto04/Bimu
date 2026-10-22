@@ -29,6 +29,12 @@ export function useOllama(native){
     setChoosing(true);setError('')
     try{const selected=await client.chooseFolder();if(selected){setFolder(selected);setMessages([]);setActivity([]);setNotice('Carpeta compartida en modo solo lectura para esta sesión.')}}catch(e){setError(String(e.message||e))}finally{setChoosing(false)}
   }
+  const acceptDroppedFolder=async id=>{
+    if(lock.current||choosing)return false
+    setChoosing(true);setError('')
+    try{const selected=await client.acceptDrop(id);setFolder(selected);setMessages([]);setActivity([]);setNotice('Carpeta recibida. ¿Qué querés saber sobre ella?');return true}
+    catch(e){setError(String(e.message||e));return false}finally{setChoosing(false)}
+  }
   const revokeFolder=async()=>{
     if(lock.current||choosing)return
     try{await client.revokeFolder();setFolder(null);setMessages([]);setActivity([]);setError('');setNotice('Acceso quitado. Se limpió el chat de esta sesión.')}catch(e){setError(String(e.message||e))}
@@ -70,5 +76,5 @@ export function useOllama(native){
       return false
     }finally{active.current=null;lock.current=false;if(mounted.current){setSending(false);setStopping(false)}}
   }
-  return {folder,choosing,toolsSupport,activity,chooseFolder,revokeFolder,models,model,setModel,checking,connected,error,messages,sending,stopping,notice,refresh,send,stop,clear:()=>{if(!lock.current){setMessages([]);setActivity([]);setError('');setNotice('')}}}
+  return {acceptDroppedFolder,folder,choosing,toolsSupport,activity,chooseFolder,revokeFolder,models,model,setModel,checking,connected,error,messages,sending,stopping,notice,refresh,send,stop,clear:()=>{if(!lock.current){setMessages([]);setActivity([]);setError('');setNotice('')}}}
 }

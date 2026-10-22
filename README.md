@@ -201,3 +201,12 @@ Pruebas JS del cliente y del estado de conversación: autorización explícita, 
 Se agregaron pruebas Rust de rutas, parámetros, texto pequeño y rechazo de binarios/archivos grandes. La compilación y las pruebas Rust y el ciclo real de herramientas deben ejecutarse en Windows, porque el entorno de preparación no tiene Rust. Usá `cargo test --manifest-path src-tauri/Cargo.toml`.
 
 La primera compilación descarga `tauri-plugin-dialog`. No necesitás reinstalar los requisitos de Windows.
+
+
+## Beta 0.12: recibir carpetas y respuestas con formato
+
+Arrastrá una carpeta sobre el notch: se abre a tamaño medio, oculta el input y Bimu extiende los brazos siguiendo el arrastre. Al salir vuelve a reposo; al soltar prepara un listado local acotado y pregunta qué querés hacer. **Usar en el chat** comparte esa carpeta en modo lectura y abre la conversación; **Cancelar** descarta la recepción. La precarga no envía contenidos a Ollama. Solo una carpeta por vez, todavía sin archivos sueltos ni PDF.
+
+El chat ahora muestra Markdown, listas, tablas y bloques de código con botón Copiar. No ejecuta código ni HTML recibido. Movimiento reducido respeta la preferencia del sistema.
+
+Validación pendiente en Windows: arrastrar desde Explorador sobre cada borde, salir sin soltar, cancelar, cambiar carpeta y probar escalado de pantalla.

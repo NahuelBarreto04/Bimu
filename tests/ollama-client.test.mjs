@@ -53,3 +53,9 @@ test('selector y revocación delegan al backend; nunca envían rutas elegidas po
  assert.deepEqual(await client.chooseFolder(),{name:'Bimu'});await client.revokeFolder();assert.deepEqual(await client.capabilities('model'),['tools'])
  assert.deepEqual(calls,[{command:'workspace_choose',args:undefined},{command:'workspace_revoke',args:undefined},{command:'ollama_capabilities',args:{model:'model'}}])
 })
+
+test('recibir una carpeta usa solo el identificador nativo del drop',async()=>{
+ const calls=[];const client=createOllamaClient(async(command,args)=>{calls.push({command,args});return {name:'Docs'}})
+ assert.deepEqual(await client.acceptDrop(17),{name:'Docs'})
+ assert.deepEqual(calls,[{command:'workspace_accept_drop',args:{id:17}}])
+})

@@ -12,8 +12,9 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(workspace::Workspace::default())
+        .manage(workspace::DropInbox::default())
         .manage(ollama::StreamRequests::default())
-        .invoke_handler(tauri::generate_handler![quit_app, ollama::ollama_models, ollama::ollama_chat, ollama::ollama_chat_stream, ollama::ollama_cancel, ollama::ollama_capabilities, workspace::workspace_choose, workspace::workspace_revoke])
+        .invoke_handler(tauri::generate_handler![quit_app, ollama::ollama_models, ollama::ollama_chat, ollama::ollama_chat_stream, ollama::ollama_cancel, ollama::ollama_capabilities, workspace::workspace_choose, workspace::workspace_revoke, workspace::workspace_stage_drop, workspace::workspace_accept_drop, workspace::workspace_discard_drop])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Mostrar mascota", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Personalizar", true, None::<&str>)?;
@@ -44,6 +45,7 @@ fn main() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if let tauri::WindowEvent::DragDrop(drag)=event {workspace::handle_drag(window,drag);}
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
                 let _ = window.hide();
