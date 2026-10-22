@@ -259,3 +259,16 @@ Esta entrega usa CPU para facilitar la primera prueba. No incluye respuesta habl
 Fuentes de preparación: [release oficial v1.9.2](https://github.com/ggml-org/whisper.cpp/releases/tag/v1.9.2), [modelos y hashes](https://github.com/ggml-org/whisper.cpp/blob/v1.9.2/models/README.md), [servidor y API](https://github.com/ggml-org/whisper.cpp/blob/v1.9.2/examples/server/README.md).
 
 Validación disponible: pruebas JS de WAV y errores; simulaciones de permiso/dispositivo, grabar/detener, transcripción, cancelación, resultados tardíos y motor desconectado. Pendiente en Windows: ejecución de PowerShell, compilación Rust, permiso real del WebView, captura del dispositivo y transcripción con el modelo descargado.
+
+
+### Corrección de inicio de voz (0.14)
+
+El script de inicio no debe pasar `-nc`: el servidor de whisper.cpp v1.9.2 no reconoce esa opción y termina antes de cargar el modelo. El servidor ya establece `no_context = true` por defecto. Si aparece `unknown argument: -nc`, actualizá con `git pull origin main` y ejecutá nuevamente `npm run voice:start`. No hace falta repetir `voice:setup`.
+
+Para comprobar que el motor ya cargó, desde otra terminal PowerShell:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8081/health
+```
+
+La respuesta debe indicar `status: ok`. El texto “Iniciando Whisper” del script solo anuncia el intento de arranque.
