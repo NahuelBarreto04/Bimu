@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod ollama;
 use tauri::{Emitter, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
 #[tauri::command]
@@ -8,7 +9,7 @@ fn quit_app(app: tauri::AppHandle) {
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![quit_app])
+        .invoke_handler(tauri::generate_handler![quit_app, ollama::ollama_models, ollama::ollama_chat])
         .setup(|app| {
             let show = MenuItem::with_id(app, "show", "Mostrar mascota", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Personalizar", true, None::<&str>)?;

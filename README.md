@@ -1,4 +1,4 @@
-# Bimu · Beta v0.8
+# Bimu · Beta v0.9
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -52,9 +52,22 @@ Saludar y Descansar están en Inicio. Ocultar está en la barra del menú. Para 
 
 El material usa transparencias, gradientes, reflejos y backdrop-filter CSS. El desenfoque del escritorio real depende de Windows/WebView2; no implementa refracción óptica nativa.
 
-## Chat y conexiones
+## Chat con Ollama
 
-Son interfaces preparadas para la siguiente etapa: no envían mensajes ni conectan servicios. El borrador del chat se guarda localmente. Ollama, GitHub, Vercel y n8n muestran estado pendiente.
+1. Instalá y abrí Ollama para Windows desde https://ollama.com/download/windows . Si ya lo tenés, no hace falta reinstalarlo.
+2. Asegurate de tener al menos un modelo descargado en Ollama. Podés comprobarlo con `ollama list` en PowerShell.
+3. Abrí Bimu y entrá en **Conexiones → Ollama → Detectar modelos**. Bimu también intenta detectar al arrancar.
+4. Elegí un modelo instalado y abrí Chat. También podés enviar desde el input rápido del notch.
+
+La conexión sale de Tauri hacia `http://127.0.0.1:11434`, sin proxy del sistema ni cambios de CORS. Ollama debe estar funcionando en esa dirección. La vista del navegador no conecta con Ollama: usá `npm run desktop:dev`.
+
+- Enter envía; Shift+Enter agrega una línea.
+- El historial se conserva mientras Bimu esté abierto y puede borrarse con Nueva conversación. Se envían como contexto hasta los últimos 40 mensajes.
+- El borrador y el modelo elegido se guardan localmente. Los mensajes de la sesión no se guardan en disco por Bimu.
+- Muestra Pensando mientras espera la respuesta completa. Esta versión usa `stream: false`; todavía no presenta tokens de forma progresiva.
+- Si falla, mantiene el borrador para reintentar. Detecta servidor inaccesible, lista vacía, errores del modelo y respuesta vacía. Tiempo límite de respuesta: 180 segundos; la primera carga del modelo puede demorar.
+- El modelo no tiene acceso a herramientas, archivos, comandos ni integraciones. GitHub, Vercel y n8n siguen pendientes.
+- Bimu se comunica con el servidor Ollama de tu PC. Si elegís un modelo remoto configurado en Ollama, su ejecución depende de la configuración de ese servidor.
 
 ## Vista web
 
@@ -124,3 +137,14 @@ Si Git detecta cambios locales que impiden actualizar, revisalos antes de contin
 - En Tauri se anima la superficie dentro de una ventana transparente temporal y se ajusta la ventana al finalizar. Evita redimensionar la ventana nativa en cada fotograma. El anclaje y el movimiento restringido se conservan.
 
 Verificaciones de esta entrega: `npm test`, `npm run build` y pruebas DOM de hover compartido, transferencia del borrador a Chat y regresión de navegación/tema. La fluidez y el hover nativos quedan pendientes de comprobar en Windows.
+
+
+## Cambios de la beta v0.9
+
+- Avatar con viewport WebGL fijo durante reposo/hover: evita recortes y deformaciones por redimensionamientos durante la transición. Se conserva la zona unificada de hover.
+- Chat real con Ollama mediante comandos Tauri asíncronos y HTTP local desde Rust. No requiere API key para el servidor local predeterminado.
+- Selector de modelo, estado de conexión, conversación contextual, borrador compartido, Nueva conversación y estado Pensando.
+- Pruebas: geometría y duraciones, validación del cliente, modelos, contexto, respuestas inválidas, bloqueo de duplicados, recuperación de errores y regresión de UI.
+- Compilación web verificada. La compilación Rust, conexión real con Ollama y revisión visual del hover deben comprobarse en Windows.
+
+Para actualizar: cerrar Bimu desde bandeja, detener la ejecución anterior, `git pull --ff-only origin main`, `npm ci` y `npm run desktop:dev`. La nueva dependencia HTTP de Rust se descarga durante la primera compilación.

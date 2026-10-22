@@ -1,0 +1,16 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {createOllamaClient} from '../src/ollama-client.js'
+test('detecta modelos y envía el contexto al comando nativo',async()=>{
+ const calls=[];const client=createOllamaClient(async(command,args)=>{calls.push({command,args});return command==='ollama_models'?['local-model:latest']:'Hola, soy Bimu.'})
+ assert.deepEqual(await client.models(),['local-model:latest'])
+ const messages=[{role:'user',content:'Hola'}]
+ assert.equal(await client.chat('local-model:latest',messages),'Hola, soy Bimu.')
+ assert.deepEqual(calls[1],{command:'ollama_chat',args:{model:'local-model:latest',messages}})
+})
+test('rechaza respuestas vacías o listas inválidas y conserva errores de conexión',async()=>{
+ await assert.rejects(createOllamaClient(async()=>({})).models(),/Lista de modelos inválida/)
+ await assert.rejects(createOllamaClient(async()=>['ok',1]).models(),/Lista de modelos inválida/)
+ await assert.rejects(createOllamaClient(async()=>' ').chat('m',[]),/respuesta vacía/)
+ await assert.rejects(createOllamaClient(async()=>{throw new Error('Sin conexión')}).models(),/Sin conexión/)
+})
