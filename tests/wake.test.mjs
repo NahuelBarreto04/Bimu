@@ -47,3 +47,19 @@ test('confirmar y cancelar voz tampoco escribe historial; fallos notifican sin s
  await h.app.request('abrí Spotify',{silent:true});await h.app.cancel();assert.equal(h.recorded.length,0)
  await h.app.request('abrí Spotify',{silent:true});fail=true;assert.equal(await h.app.confirm(false),false);assert.equal(h.recorded.length,0)
 })
+
+
+test('espera rápida segmenta antes y pausas largas conserva una pausa de 1,4 segundos',()=>{
+ const fast=processor();fast.p.port.onmessage({data:{type:'config',enabled:true,silenceMs:700}});fast.feed(.4,.1);fast.feed(.8,0);assert.equal(fast.messages.filter(m=>m.type==='utterance').length,1)
+ const slow=processor();slow.p.port.onmessage({data:{type:'config',enabled:true,silenceMs:1600}});slow.feed(.4,.1);slow.feed(1.4,0);assert.equal(slow.messages.some(m=>m.type==='utterance'),false);slow.feed(.4,.1);slow.feed(1.7,0);assert.equal(slow.messages.filter(m=>m.type==='utterance').length,1)
+})
+test('mediciones agregadas no conservan transcripciones y distinguen resultados',async()=>{
+ const {emptyWakeMetrics,addWakeMetric}=await import('../src/wake-metrics.js')
+ let s=emptyWakeMetrics();for(const kind of ['arm','request','ignore','error','clipped'])s=addWakeMetric(s,{kind,audioMs:1000,processingMs:250,text:'privado'})
+ assert.equal(s.count,5);assert.equal(s.activated,2);assert.equal(s.ignored,1);assert.equal(s.errors,1);assert.equal(s.clipped,1);assert.equal(s.audioMs,5000);assert.equal(s.processingMs,1250);assert.equal(s.maxMs,250);assert.equal('text' in s,false)
+})
+test('configuración local tolera datos inválidos y respeta los límites',async()=>{
+ const {loadWakeSettings}=await import('../src/wake-metrics.js')
+ const original=globalThis.localStorage
+ try{globalThis.localStorage={getItem:()=>'{oops'};assert.deepEqual(loadWakeSettings(),{threshold:.008,silenceMs:1200});globalThis.localStorage={getItem:()=>JSON.stringify({threshold:1,silenceMs:700})};assert.deepEqual(loadWakeSettings(),{threshold:.025,silenceMs:700})}finally{if(original===undefined)delete globalThis.localStorage;else globalThis.localStorage=original}
+})

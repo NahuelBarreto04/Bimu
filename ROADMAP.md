@@ -35,7 +35,8 @@
 - [ ] Evaluar reconocimiento local y su consumo de recursos en Windows.
 - [ ] Respuesta hablada opcional con controles de voz y volumen (pospuesta por el usuario).
 - [x] Activación experimental por “Bimu”, opcional, con VAD + Whisper local (beta 0.16).
-- [ ] Medir precisión, latencia y consumo del modo manos libres en Windows.
+- [x] Instrumentación local de latencia, conteos y reportes manuales; espera de silencio configurable y persistente.
+- [ ] Medir precisión, latencia y consumo del modo manos libres en Windows con el diagnóstico (CPU/RAM desde Administrador de tareas).
 - [ ] Evaluar detector dedicado de palabra clave para reducir CPU y pausas.
 
 El primer paso será pulsar para hablar. La escucha continua no estará activada por defecto.
