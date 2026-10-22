@@ -39,13 +39,17 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   const [pinned,setPinned]=useState(()=>saved('mascot-pinned','true')!=='false')
   const [systemDark,setSystemDark]=useState(()=>matchMedia('(prefers-color-scheme: dark)').matches)
   const [draft,setDraft]=useState(()=>saved('companion-draft',''))
+  const [voiceNotice,setVoiceNotice]=useState(null)
+  const noticeTimer=useRef()
+  const voiceFeedback=(state,text)=>{clearTimeout(noticeTimer.current);setVoiceNotice({state,text});noticeTimer.current=setTimeout(()=>setVoiceNotice(null),6000)}
+  useEffect(()=>()=>clearTimeout(noticeTimer.current),[])
   const apps=useApplications({native:nativeMode,onResult:ai.recordAction})
   const voice=useVoice({native:nativeMode,enabled:expanded&&tab==='chat',busy:ai.sending||ai.choosing||apps.busy||!!apps.pending,onTranscript:text=>{const merged=draft.trim()?draft+'\n'+text:text;if(merged.length>16000)throw Error('El borrador no tiene espacio suficiente. Acortalo antes de volver a grabar.');setDraft(merged)}})
   const wake=useWakeListener({native:nativeMode,device:voice.device,busy:ai.sending||ai.choosing||apps.busy||!!apps.pending||voice.active||voice.detecting,onRequest:async text=>{
-    if(apps.isCommand(text)){const handled=await apps.request(text);if(handled==='error'){setTab('chat');onExpand(true)}return}
-    const merged=draft.trim()?draft+'\n'+text:text;if(merged.length>16000)throw Error('El borrador no tiene espacio. Acortalo antes de pedir otro dictado.');setDraft(merged);setTab('chat');onExpand(true)
-  }})
-  useEffect(()=>{if(apps.pending){setTab('chat');onExpand(true)}},[apps.pending,onExpand])
+    if(apps.isCommand(text)){await apps.request(text,{silent:true,onFeedback:voiceFeedback});return}
+    voiceFeedback('error','No entendí el comando. Probá: “Bimu, abrí Spotify”.')
+  },onFeedback:voiceFeedback})
+
   const drop=useDropZone({native:nativeMode,busy:ai.sending||ai.choosing||voice.active||voice.detecting||apps.busy||!!apps.pending,reception:receiveRef})
   const [service,setService]=useState(null)
   const [hovered,setHovered]=useState(false)
@@ -104,7 +108,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   const openQuickChat=e=>{e.preventDefault();clearTimeout(hoverTimer.current);setTab('chat');onExpand(true);if(ai.connected&&ai.model)submitMessage()}
   const chooseTab=id=>{setTab(id);setService(null)}
   return <>
-    <WakeIndicator wake={wake}/>
+    <WakeIndicator wake={wake} notice={voiceNotice} pending={apps.pending?.silent?apps.pending:null} onConfirm={()=>{setVoiceNotice({state:'success',text:'Abriendo aplicación…'});apps.confirm(false).then(ok=>voiceFeedback(ok?'success':'error',ok?'Se solicitó la apertura.':'No pude abrir la aplicación. Revisá su configuración.')).catch(()=>voiceFeedback('error','No pude abrir la aplicación.'))}} onCancel={()=>{apps.cancel();voiceFeedback('idle','Apertura cancelada.')}}/>
     {drop.active&&<section className="drop-surface" aria-label="Recibir archivos o carpeta"><div className="drop-outline"/>{drop.stage==='hover'&&<><FolderOpen className="drop-folder-icon" size={23}/><p className="drop-invitation">Soltá los archivos. Yo los recibo.</p></>}{drop.stage==='preparing'&&<p className="drop-preparing" role="status"><LoaderCircle size={14}/> Preparando el contenido…</p>}{drop.stage==='ready'&&<div className="drop-ready"><strong title={drop.preview.name}>{drop.preview.name}</strong><small>{drop.preview.kind==='files'?`${drop.preview.ready}/${drop.preview.entries} archivos listos`:`${drop.preview.truncated?'Más de ':''}${drop.preview.entries} elementos visibles`} · solo lectura</small>{drop.preview.kind==='files'&&<details className="drop-file-list" onToggle={e=>{if(e.currentTarget.open&&!expanded)onExpand(true)}}><summary>Ver archivos</summary>{drop.preview.items.map((item,i)=><p key={i}>{item.name}: {item.detail}</p>)}</details>}<p>¿Qué querés hacer?</p><div><button disabled={drop.accepting||(drop.preview.kind==='files'&&!drop.preview.ready)} onClick={async()=>{if(await drop.accept(ai.acceptDroppedFolder)){setHovered(false);setTab('chat');onExpand(true)}}}>{drop.accepting?'Recibiendo…':'Usar en el chat'}</button><button disabled={drop.accepting} onClick={drop.reset}>Cancelar</button></div></div>}{drop.stage==='error'&&<div className="drop-error" role="alert"><p>{drop.error}</p><button onClick={drop.reset}>Entendido</button></div>}</section>}
     {!expanded&&!drop.active&&<button className="notch-surface" aria-label="Abrir compañero" {...dock.handlers} onClick={openNotch}>
       <span className="notch-avatar-slot" aria-hidden="true"/>

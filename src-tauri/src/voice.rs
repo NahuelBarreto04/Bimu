@@ -24,10 +24,10 @@ fn validate_wav(audio:&[u8])->Result<(),String>{
     let u32_at=|i|u32::from_le_bytes([audio[i],audio[i+1],audio[i+2],audio[i+3]]);
     if u32_at(4) as usize!=audio.len()-8||u32_at(16)!=16||u16_at(20)!=1||u16_at(22)!=1||u32_at(24)!=16000||u32_at(28)!=32000||u16_at(32)!=2||u16_at(34)!=16||u32_at(40) as usize!=audio.len()-44||(audio.len()-44)%2!=0{return Err("Se requiere WAV PCM mono de 16 kHz y 16 bits.".into());}Ok(())
 }
-async fn transcribe(audio:Vec<u8>,mut cancel:watch::Receiver<bool>)->Result<String,String>{
+async fn transcribe(audio:Vec<u8>,hands_free:bool,mut cancel:watch::Receiver<bool>)->Result<String,String>{
     if *cancel.borrow(){return Err("Transcripción cancelada.".into());}
     let part=reqwest::multipart::Part::bytes(audio).file_name("bimu-voice.wav").mime_str("audio/wav").map_err(|_|"No se pudo preparar el audio.")?;
-    let form=reqwest::multipart::Form::new().part("file",part).text("response_format","json").text("language","es").text("translate","false").text("temperature","0.0").text("split_on_word","true").text("token_timestamps","false").text("prompt","Bimu.");
+    let form=reqwest::multipart::Form::new().part("file",part).text("response_format","json").text("language","es").text("translate","false").text("temperature","0.0").text("split_on_word","true").text("token_timestamps","false").text("prompt",if hands_free {"Hola Bimu. Bimu, abrí Spotify. Bimu, abrí Calculadora. Bimu, abrí Bloc de notas. Bimu, cancelá."} else {"Bimu."});
     let request=client()?.post(format!("{BASE}/inference")).multipart(form).send();
     let mut response=tokio::select!{biased;_=cancel.changed()=>return Err("Transcripción cancelada.".into()),r=request=>r.map_err(|_|"Falló la transcripción local. Comprobá Whisper e intentá una frase más corta.")?};
     if !response.status().is_success(){return Err(format!("Whisper no pudo procesar el audio ({}).",response.status().as_u16()));}
@@ -42,13 +42,13 @@ async fn transcribe(audio:Vec<u8>,mut cancel:watch::Receiver<bool>)->Result<Stri
     if text.chars().count()>16000||text.len()>64000{return Err("La transcripción supera el tamaño del mensaje.".into());}Ok(text.into())
 }
 #[tauri::command]
-pub async fn voice_transcribe(request_id:String,audio:Vec<u8>,state:State<'_,VoiceState>)->Result<String,String>{
+pub async fn voice_transcribe(request_id:String,audio:Vec<u8>,hands_free:Option<bool>,state:State<'_,VoiceState>)->Result<String,String>{
     if request_id.is_empty()||request_id.len()>100{return Err("Solicitud de voz inválida.".into());}validate_wav(&audio)?;
     let(tx,rx)=watch::channel(false);
     {let mut requests=state.inner().0.lock().map_err(|_|"No se pudo iniciar la transcripción.")?;
         if requests.pending.as_deref()==Some(request_id.as_str()){requests.pending=None;return Err("Transcripción cancelada.".into());}
         if requests.active.is_some(){return Err("Todavía hay una transcripción en curso.".into());}requests.active=Some((request_id.clone(),tx));}
-    let result=transcribe(audio,rx).await;
+    let result=transcribe(audio,hands_free.unwrap_or(false),rx).await;
     if let Ok(mut requests)=state.inner().0.lock(){if requests.active.as_ref().map(|(id,_)|id)==Some(&request_id){requests.active=None;}}
     result
 }

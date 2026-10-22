@@ -339,3 +339,9 @@ Los adjuntos ya preparados se envían junto con la pregunta, incluyendo **sus no
 Esta ruta funciona también con modelos de chat sin tool calling. La lectura de carpetas mantiene sus herramientas y sus comprobaciones anteriores. Los adjuntos se incluyen en las preguntas mientras estén compartidos, con un presupuesto total de texto de 192 KiB repartido entre todos; cualquier recorte se marca como parcial. No se guardan los textos completos de adjuntos en el historial por esta inclusión: solo los mensajes normales del usuario y las respuestas.
 
 Verificación: pruebas unitarias de activación, VAD, silencios, límites, cancelación y contexto con nombres reales; simulación de escucha desde el notch, apertura sin botón de micrófono y uso de adjuntos con modelo sin herramientas. Pendiente de validación real en Windows: precisión, latencia y consumo de escucha continua, más comparación de los PDF del usuario tras el cambio de contexto.
+
+### Ajuste de escucha manos libres (0.16.1)
+
+Los comandos de apertura por voz conservan la vista actual y no generan conversaciones ni mensajes en el historial. La confirmación, cuando hace falta, aparece en una burbuja sin abrir el chat. La luz de borde usa el tema activo; rojo suave indica un pedido no reconocido o un error, verde una solicitud de apertura y amarillo el vencimiento de los ocho segundos para hablar después de activar con «Bimu». No se ilumina el borde pegado a la pantalla.
+
+La captura conserva 800 ms previos y admite pausas de hasta 1,2 s. Whisper recibe ejemplos del nombre y comandos en español. Esto mejora el contexto de reconocimiento, pero no reemplaza un detector dedicado de palabra de activación: si Whisper no reconoce «Bimu», la frase se descarta y no hay activación ni aviso. Podés decir «Bimu», esperar «Te escucho…» y después el pedido. El dictado manual conserva su funcionamiento. La precisión, los colores y la captura reales requieren validación en Windows.

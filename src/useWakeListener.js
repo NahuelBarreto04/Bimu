@@ -3,10 +3,10 @@ import {invoke} from '@tauri-apps/api/core'
 import {listen} from '@tauri-apps/api/event'
 import {pcmToWav,microphoneError,normalizeTranscript} from './voice-audio'
 import {wakeIntent,ARM_WINDOW_MS} from './wake-policy'
-export function useWakeListener({native,device,busy,onRequest}){
+export function useWakeListener({native,device,busy,onRequest,onFeedback}){
  const [enabled,setEnabled]=useState(false),[phase,setPhase]=useState('off'),[error,setError]=useState(''),[last,setLast]=useState(''),[threshold,setThresholdState]=useState(.008)
- const active=useRef(false),resources=useRef(null),epoch=useRef(0),job=useRef(0),request=useRef(null),processing=useRef(false),speechActive=useRef(false),armedForPhrase=useRef(false),armedUntil=useRef(0),armTimer=useRef(),mounted=useRef(true),latest=useRef({device,busy,onRequest,threshold}),cooldown=useRef(0)
- latest.current={device,busy,onRequest,threshold}
+ const active=useRef(false),resources=useRef(null),epoch=useRef(0),job=useRef(0),request=useRef(null),processing=useRef(false),speechActive=useRef(false),armedForPhrase=useRef(false),armedUntil=useRef(0),armTimer=useRef(),mounted=useRef(true),latest=useRef({device,busy,onRequest,onFeedback,threshold}),cooldown=useRef(0)
+ latest.current={device,busy,onRequest,onFeedback,threshold}
  const configure=enabled=>resources.current?.node?.port.postMessage({type:'config',enabled,threshold:latest.current.threshold})
  const abortJob=()=>{job.current++;processing.current=false;speechActive.current=false;armedForPhrase.current=false;const id=request.current;request.current=null;if(id)invoke('voice_cancel',{requestId:id}).catch(()=>{})}
  const stop=()=>{
@@ -21,7 +21,7 @@ export function useWakeListener({native,device,busy,onRequest}){
   if(data.type==='speech'){speechActive.current=true;armedForPhrase.current=Date.now()<armedUntil.current;setPhase('speech');return}
   if(data.type!=='utterance')return
   speechActive.current=false;const phraseArmed=armedForPhrase.current||Date.now()<armedUntil.current;armedForPhrase.current=false
-  if(data.clipped){setError('La frase superó 15 segundos. Probá un pedido más corto.');ready();return}
+  if(data.clipped){latest.current.onFeedback?.('error','La frase fue demasiado larga. Probá un pedido más corto.');ready();return}
   if(Date.now()<cooldown.current){ready();return}
   if(processing.current)return
   processing.current=true;const ticket=++job.current;configure(false);setPhase('transcribing');setError('')
@@ -29,10 +29,12 @@ export function useWakeListener({native,device,busy,onRequest}){
   try{
    const wav=await pcmToWav(data.samples,data.rate);if(!valid())return
    const requestId=crypto.randomUUID();request.current=requestId
-   const text=await invoke('voice_transcribe',{requestId,audio:Array.from(wav)});if(!valid())return;request.current=null
+   const text=await invoke('voice_transcribe',{requestId,audio:Array.from(wav),handsFree:true});if(!valid())return;request.current=null
    if(latest.current.busy)return
    const intent=wakeIntent(normalizeTranscript(text),phraseArmed)
-   if(intent.kind==='arm'){armedUntil.current=Date.now()+ARM_WINDOW_MS;clearTimeout(armTimer.current);armTimer.current=setTimeout(()=>{armedUntil.current=0;if(active.current&&!processing.current&&!speechActive.current)ready()},ARM_WINDOW_MS)}
+   if(intent.kind==='arm'){armedUntil.current=Date.now()+ARM_WINDOW_MS;clearTimeout(armTimer.current);armTimer.current=setTimeout(()=>{armedUntil.current=0;if(active.current&&!processing.current&&!speechActive.current){latest.current.onFeedback?.('warning','No te escuché. Decí “Bimu” para intentarlo otra vez.');ready()}},ARM_WINDOW_MS)}
+   if(intent.kind==='arm')latest.current.onFeedback?.('idle','Te escucho…')
+   if(intent.kind==='ignore'&&phraseArmed)latest.current.onFeedback?.('error','No entendí el pedido. Probá otra vez.')
    if(intent.kind==='cancel'){armedUntil.current=0;clearTimeout(armTimer.current);setLast('Pedido cancelado')}
    if(intent.kind==='request'){
     armedUntil.current=0;clearTimeout(armTimer.current)
@@ -40,7 +42,7 @@ export function useWakeListener({native,device,busy,onRequest}){
     if(document.documentElement.dataset.receive&&document.documentElement.dataset.receive!=='idle')return
     cooldown.current=Date.now()+2000;setLast(intent.text);await latest.current.onRequest(intent.text)
    }
-  }catch(e){if(valid()&&!/No se reconocieron palabras|No se detectó suficiente audio/i.test(String(e.message||e))){setError(microphoneError(e));stop()}}
+  }catch(e){if(valid()&&phraseArmed&&/No se reconocieron palabras|No se detectó suficiente audio/i.test(String(e.message||e)))latest.current.onFeedback?.('warning','No te escuché. Probá otra vez.');if(valid()&&!/No se reconocieron palabras|No se detectó suficiente audio/i.test(String(e.message||e))){setError(microphoneError(e));latest.current.onFeedback?.('error',microphoneError(e));stop()}}
   finally{if(valid()){request.current=null;processing.current=false;ready()}}
  }
  const start=async()=>{
@@ -62,7 +64,7 @@ export function useWakeListener({native,device,busy,onRequest}){
    source.connect(node);node.connect(mute);mute.connect(context.destination)
    stream.getTracks().forEach(track=>{track.onended=()=>{if(active.current){setError('El micrófono se desconectó. Volvé a seleccionarlo y activá la escucha.');stop()}}})
    ready()
-  }catch(e){stream?.getTracks().forEach(t=>t.stop());context?.close().catch(()=>{});if(active.current&&epoch.current===session){setError(microphoneError(e));stop()}}
+  }catch(e){stream?.getTracks().forEach(t=>t.stop());context?.close().catch(()=>{});if(active.current&&epoch.current===session){setError(microphoneError(e));latest.current.onFeedback?.('error',microphoneError(e));stop()}}
  }
  const setThreshold=value=>{const n=Math.max(.002,Math.min(.04,Number(value)));if(!Number.isFinite(n))return;setThresholdState(n);latest.current.threshold=n;if(active.current&&!request.current)configure(!latest.current.busy)}
  useEffect(()=>{if(!active.current)return;if(busy){abortJob();armedUntil.current=0;clearTimeout(armTimer.current);configure(false);setPhase('paused')}else if(resources.current?.node)ready()},[busy])
