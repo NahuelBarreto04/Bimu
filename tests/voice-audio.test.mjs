@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {encodeWav,microphoneError} from '../src/voice-audio.js'
+import {encodeWav,microphoneError,normalizeTranscript} from '../src/voice-audio.js'
 test('codifica WAV PCM mono 16 kHz con tamaños exactos y saturación correcta',()=>{
  const {bytes,rms,duration}=encodeWav(Float32Array.from([-2,-1,0,1,2,NaN]))
  const view=new DataView(bytes.buffer),text=(a,b)=>new TextDecoder().decode(bytes.slice(a,b))
@@ -14,4 +14,11 @@ test('limita duración y maneja silencio sin NaN',()=>{
 })
 test('distingue permiso, dispositivo ausente y micrófono ocupado',()=>{
  assert.match(microphoneError({name:'NotAllowedError'}),/autorizó/);assert.match(microphoneError({name:'NotFoundError'}),/disponible/);assert.match(microphoneError({name:'NotReadableError'}),/ocupado/);assert.match(microphoneError({name:'OverconstrainedError'}),/Elegí otro/)
+})
+
+test('normaliza segmentos del dictado sin reescribir palabras ni puntuación',()=>{
+ assert.equal(normalizeTranscript('  Hola, Bimu.\n Esta es una prueba\r\n del micrófono.  '),'Hola, Bimu. Esta es una prueba del micrófono.')
+ assert.equal(normalizeTranscript('Qué\t tal\n  funciona'),'Qué tal funciona')
+ assert.equal(normalizeTranscript('Hola vimos, dictado provoso.'),'Hola vimos, dictado provoso.')
+ assert.equal(normalizeTranscript('   \n '),'');assert.equal(normalizeTranscript(null),'')
 })

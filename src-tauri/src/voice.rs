@@ -27,7 +27,7 @@ fn validate_wav(audio:&[u8])->Result<(),String>{
 async fn transcribe(audio:Vec<u8>,mut cancel:watch::Receiver<bool>)->Result<String,String>{
     if *cancel.borrow(){return Err("Transcripción cancelada.".into());}
     let part=reqwest::multipart::Part::bytes(audio).file_name("bimu-voice.wav").mime_str("audio/wav").map_err(|_|"No se pudo preparar el audio.")?;
-    let form=reqwest::multipart::Form::new().part("file",part).text("response_format","json").text("language","es").text("translate","false").text("temperature","0.0");
+    let form=reqwest::multipart::Form::new().part("file",part).text("response_format","json").text("language","es").text("translate","false").text("temperature","0.0").text("split_on_word","true").text("token_timestamps","false").text("prompt","Bimu.");
     let request=client()?.post(format!("{BASE}/inference")).multipart(form).send();
     let mut response=tokio::select!{biased;_=cancel.changed()=>return Err("Transcripción cancelada.".into()),r=request=>r.map_err(|_|"Falló la transcripción local. Comprobá Whisper e intentá una frase más corta.")?};
     if !response.status().is_success(){return Err(format!("Whisper no pudo procesar el audio ({}).",response.status().as_u16()));}

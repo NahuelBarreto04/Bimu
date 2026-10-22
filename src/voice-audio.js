@@ -24,3 +24,8 @@ export async function recordingToWav(blob){
 export function microphoneError(error){
   return ({NotAllowedError:'No se autorizó el micrófono. Permití el acceso y revisá Privacidad → Micrófono en Windows.',NotFoundError:'No hay un micrófono disponible.',NotReadableError:'No se pudo abrir el micrófono. Puede estar ocupado por otra aplicación.',OverconstrainedError:'Ese micrófono ya no está disponible. Elegí otro en Ajustes.'})[error?.name]||String(error?.message||error)
 }
+
+// Whisper server inserts line breaks between segments; a dictation is one draft.
+export function normalizeTranscript(text){
+  return typeof text==='string'?text.replace(/\s+/gu,' ').trim():''
+}

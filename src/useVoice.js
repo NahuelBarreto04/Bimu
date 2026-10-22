@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react'
 import {invoke} from '@tauri-apps/api/core'
 import {listen} from '@tauri-apps/api/event'
-import {MAX_RECORDING_SECONDS,recordingToWav,microphoneError} from './voice-audio'
+import {MAX_RECORDING_SECONDS,recordingToWav,microphoneError,normalizeTranscript} from './voice-audio'
 export function useVoice({native,enabled,busy,onTranscript}){
   const [stage,setStage]=useState('idle'),[seconds,setSeconds]=useState(0),[error,setError]=useState(''),[notice,setNotice]=useState('')
   const [devices,setDevices]=useState([]),[device,setDeviceState]=useState(()=>{try{return localStorage.getItem('bimu-microphone')||''}catch{return ''}})
@@ -60,8 +60,9 @@ export function useVoice({native,enabled,busy,onTranscript}){
           const requestId=crypto.randomUUID();request.current=requestId
           const text=await invoke('voice_transcribe',{requestId,audio:Array.from(wav)})
           if(sequence.current!==op||!mounted.current)return
-          if(typeof text!=='string'||!text.trim())throw Error('No se reconocieron palabras. Volvé a intentar.')
-          latest.current.onTranscript(text.trim());setNotice('Transcripción lista. Revisala antes de enviarla.')
+          const transcript=normalizeTranscript(text)
+          if(!transcript)throw Error('No se reconocieron palabras. Volvé a intentar.')
+          latest.current.onTranscript(transcript);setNotice('Transcripción lista. Revisala antes de enviarla.')
         }catch(e){if(sequence.current===op&&mounted.current)setError(microphoneError(e))}
         finally{if(sequence.current===op&&mounted.current){request.current=null;update('idle');setSeconds(0)}}
       }

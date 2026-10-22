@@ -272,3 +272,10 @@ Invoke-RestMethod http://127.0.0.1:8081/health
 ```
 
 La respuesta debe indicar `status: ok`. El texto “Iniciando Whisper” del script solo anuncia el intento de arranque.
+
+
+### Dictado: segmentos y reconocimiento
+
+Bimu pide al servidor `split_on_word=true` y `token_timestamps=false` para evitar segmentos cortados dentro de una palabra. Los saltos de línea y espacios repetidos devueltos por Whisper se convierten en espacios antes de agregar el dictado al borrador. Esto no modifica el texto que ya escribiste en el borrador. Se incluye `Bimu.` como referencia de vocabulario para el nombre del asistente; no es un reemplazo automático de palabras.
+
+La limpieza de formato no corrige errores acústicos ni garantiza que Whisper base reconozca siempre el nombre u otras palabras. El texto sigue siendo editable antes de enviarlo. Pendiente de comparar precisión real tras este ajuste en Windows.
