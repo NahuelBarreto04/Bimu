@@ -368,7 +368,7 @@ Comparar con la misma espera de 0,7 s y los mismos pedidos desde Ajustes → Dec
 
 ## Bimu 0.17: instalación, voz integrada y actualizaciones
 
-Descargar una vez `Bimu_0.17.0_x64-setup.exe` desde GitHub Releases y ejecutarlo con el usuario habitual. Mantiene el identificador de la app para conservar datos. No desinstalar borrando los datos de usuario. Windows puede advertir que el editor es desconocido: este instalador todavía no tiene certificado Authenticode.
+Descargar una vez `Bimu_0.17.1_x64-setup.exe` desde GitHub Releases y ejecutarlo con el usuario habitual. Mantiene el identificador de la app para conservar datos. No desinstalar borrando los datos de usuario. Windows puede advertir que el editor es desconocido: este instalador todavía no tiene certificado Authenticode.
 
 Desde Ajustes → Motor de voz se puede preparar CPU o NVIDIA CUDA, iniciar/detener y consultar los registros. Reutiliza `%LOCALAPPDATA%\Bimu\voice`, el modelo y las descargas anteriores. Detener una vez el servidor que se hubiera iniciado manualmente. Bimu inicia el motor preparado al abrirse (opción desactivable), lo detiene al salir y nunca mata servidores externos. Abrir el motor no activa la escucha del micrófono. La preparación inicial necesita conexión y puede tardar varios minutos; la transcripción posterior es local.
 
