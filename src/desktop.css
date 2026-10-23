@@ -245,3 +245,24 @@ html.desktop-root[data-theme=dark]{color-scheme:dark}html.desktop-root[data-them
 :is(html:not([data-receive]),html[data-receive=idle])[data-view=home] .desktop.expanded .canvas-wrap{left:var(--home-avatar-left,25px)!important;top:var(--home-avatar-top,91px)!important;clip-path:inset(var(--home-avatar-clip-top,0px) 0 var(--home-avatar-clip-bottom,0px) 0);transition:none!important}
 :is(html:not([data-receive]),html[data-receive=idle])[data-view=home][data-home-avatar-visible=false] .desktop.expanded .canvas-wrap{visibility:hidden;pointer-events:none}
 .chrome-profile-picker{border-top:1px solid var(--line);padding-top:7px;margin-top:9px}.chrome-profile-picker small{margin-top:8px}
+
+/* Side docks stay small at rest and unfold inward as a readable chat strip. */
+:is(html[data-edge=left],html[data-edge=right])[data-notch=idle] .quick-chat{display:none}
+:is(html[data-edge=left],html[data-edge=right])[data-notch=peek] .quick-chat{display:block;left:82px;right:12px;top:20px}
+html[data-edge=right][data-notch=peek] .quick-chat{left:12px;right:82px}
+:is(html[data-edge=left],html[data-edge=right])[data-notch=peek] .quick-chat>div{flex-direction:row;align-items:center;gap:4px;padding:3px 5px 3px 9px}
+:is(html[data-edge=left],html[data-edge=right])[data-notch=peek] .quick-chat input{font-size:11px;padding:5px 0}
+:is(html[data-edge=left],html[data-edge=right])[data-notch=peek] .quick-chat .icon-button{align-self:center;flex-shrink:0}
+:is(html[data-edge=left],html[data-edge=right]) .notch-surface{padding:8px 6px 12px}
+:is(html[data-edge=left],html[data-edge=right]) .notch-avatar-slot{width:64px;height:54px;min-width:64px;align-self:flex-start}
+html[data-edge=right] .notch-avatar-slot{align-self:flex-end}
+:is(html[data-edge=left],html[data-edge=right]) .notch-indicator{position:absolute;left:35px;right:auto;bottom:12px;margin:0;gap:0}
+html[data-edge=right] .notch-indicator{left:auto;right:35px}
+:is(html[data-edge=left],html[data-edge=right]):is(:not([data-receive]),[data-receive=idle]) .desktop.compact .canvas-wrap{left:6px!important;top:8px!important;transition:none!important}
+html[data-edge=right]:is(:not([data-receive]),[data-receive=idle]) .desktop.compact .canvas-wrap{left:calc(var(--notch-width,76px) - 70px)!important}
+.microphone-level{display:block!important;margin:16px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--input)}
+.microphone-level h3{font-size:12px;font-weight:500;margin:0 0 12px}.microphone-meter{height:11px;position:relative;border-radius:8px;background:rgba(var(--card),.12);margin:8px 0;overflow:hidden}
+.microphone-meter>span{height:100%;display:block;border-radius:8px;background:rgb(var(--accent));transition:width .12s linear}
+.microphone-meter.detecting>span{background:#8fcdb1}.microphone-meter>i{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+.calibration-actions{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.microphone-level progress{display:block;width:100%;accent-color:rgb(var(--accent));margin:10px 0}
+.wake-settings>label>output{font-variant-numeric:tabular-nums;white-space:nowrap}.wake-settings>label>input[type=range]{min-width:0;flex:1;accent-color:rgb(var(--accent))}

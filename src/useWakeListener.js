@@ -4,8 +4,10 @@ import {listen} from '@tauri-apps/api/event'
 import {pcmToWav,microphoneError,normalizeTranscript} from './voice-audio'
 import {wakeIntent,ARM_WINDOW_MS} from './wake-policy'
 import {emptyWakeMetrics,addWakeMetric,loadWakeSettings} from './wake-metrics'
-export function useWakeListener({native,device,busy,onRequest,onFeedback,onActivity}){
+export function useWakeListener({native,device,busy,monitor=false,onRequest,onFeedback,onActivity}){
  const [settings]=useState(loadWakeSettings)
+ const [calibration,setCalibration]=useState(settings.calibration??null),[level,setLevel]=useState(null),[calibrating,setCalibrating]=useState(false),[calibrationNotice,setCalibrationNotice]=useState('')
+ const calibratingRef=useRef(false),calibrationDevice=useRef(device)
  const [preferred,setPreferred]=useState(()=>{try{return localStorage.getItem('bimu-wake-enabled')==='true'}catch{return false}})
  const wanted=useRef(preferred),restoreTimer=useRef(),restoreEpoch=useRef(0)
  const remember=value=>{wanted.current=value;setPreferred(value);try{localStorage.setItem('bimu-wake-enabled',String(value))}catch{setError('No se pudo guardar la preferencia de escucha en este equipo.')}}
@@ -20,18 +22,28 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback,onActiv
  const [engaged,setEngaged]=useState(false)
  const [enabled,setEnabled]=useState(false),[phase,setPhase]=useState('off'),[error,setError]=useState(''),[last,setLast]=useState(''),[threshold,setThresholdState]=useState(settings.threshold)
  const active=useRef(false),resources=useRef(null),epoch=useRef(0),job=useRef(0),request=useRef(null),processing=useRef(false),speechActive=useRef(false),armedForPhrase=useRef(false),armedUntil=useRef(0),armTimer=useRef(),mounted=useRef(true),latest=useRef({device,busy,onRequest,onFeedback,onActivity,threshold,silenceMs}),cooldown=useRef(0)
- latest.current={device,busy,onRequest,onFeedback,onActivity,threshold,silenceMs}
- const configure=enabled=>resources.current?.node?.port.postMessage({type:'config',enabled,threshold:latest.current.threshold,silenceMs:latest.current.silenceMs})
+ latest.current={device,busy,monitor,onRequest,onFeedback,onActivity,threshold,silenceMs,noiseFloor:calibration?.device===device?calibration.noiseFloor:null}
+ const configure=enabled=>resources.current?.node?.port.postMessage({type:'config',enabled,threshold:latest.current.threshold,silenceMs:latest.current.silenceMs,noiseFloor:latest.current.noiseFloor,meter:latest.current.monitor})
  const abortJob=()=>{job.current++;processing.current=false;speechActive.current=false;armedForPhrase.current=false;const id=request.current;request.current=null;if(id)invoke('voice_cancel',{requestId:id}).catch(()=>{})}
  const stop=()=>{
   active.current=false;epoch.current++;abortJob();armedUntil.current=0;clearTimeout(armTimer.current)
+  calibratingRef.current=false
   const r=resources.current;resources.current=null
   if(r){r.node?.disconnect();r.source?.disconnect();r.mute?.disconnect();r.stream.getTracks().forEach(t=>{t.onended=null;t.stop()});r.context?.close().catch(()=>{})}
-  if(mounted.current){setEnabled(false);setEngaged(false);setPhase('off')}
+  if(mounted.current){setEnabled(false);setEngaged(false);setPhase('off');setCalibrating(false);setLevel(null)}
  }
- const ready=()=>{if(!active.current||!resources.current?.node||processing.current)return;const paused=latest.current.busy;configure(!paused);setPhase(paused?'paused':Date.now()<armedUntil.current?'armed':'listening')}
+ const ready=()=>{if(!active.current||!resources.current?.node||processing.current||calibratingRef.current)return;const paused=latest.current.busy;configure(!paused);setPhase(paused?'paused':Date.now()<armedUntil.current?'armed':'listening')}
  const receive=async(data,session)=>{
-  if(!active.current||epoch.current!==session||latest.current.busy)return
+  if(!active.current||epoch.current!==session)return
+  if(data.type==='level'){if(latest.current.monitor&&Number.isFinite(data.rms)&&Number.isFinite(data.threshold))setLevel({rms:Math.max(0,data.rms),peak:Number.isFinite(data.peak)?Math.max(0,data.peak):0,threshold:Math.max(.0005,data.threshold),speaking:!!data.speaking,progress:Math.max(0,Math.min(1,data.calibrationProgress||0))});return}
+  if(data.type==='calibrated'){
+   if(!calibratingRef.current||latest.current.busy)return
+   calibratingRef.current=false;setCalibrating(false)
+   if(!data.tooNoisy&&Number.isFinite(data.noiseFloor)&&data.noiseFloor>=.0001&&data.noiseFloor<=.02){const next={device:calibrationDevice.current,noiseFloor:data.noiseFloor};setCalibration(next);latest.current.noiseFloor=next.noiseFloor;setCalibrationNotice('Ruido de fondo calibrado. Ahora hablá con tu volumen habitual y mirá si se detecta tu voz.')}
+   else setCalibrationNotice('La medición fue demasiado alta. Repetí la calibración sin hablar y con menos ruido de fondo.')
+   ready();return
+  }
+  if(latest.current.busy||calibratingRef.current)return
   if(data.type==='speech'){speechActive.current=true;armedForPhrase.current=Date.now()<armedUntil.current;setPhase('speech');return}
   if(data.type!=='utterance')return
   speechActive.current=false;const phraseArmed=armedForPhrase.current||Date.now()<armedUntil.current;armedForPhrase.current=false
@@ -43,7 +55,7 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback,onActiv
   const valid=()=>active.current&&epoch.current===session&&job.current===ticket&&mounted.current
   const started=performance.now();let measured=false
   try{
-   const wav=await pcmToWav(data.samples,data.rate);if(!valid())return
+   const wav=await pcmToWav(data.samples,data.rate,{normalize:true});if(!valid())return
    const requestId=crypto.randomUUID();request.current=requestId
    const text=await invoke('voice_transcribe',{requestId,audio:Array.from(wav),handsFree:true});if(!valid())return;request.current=null
    if(latest.current.busy)return
@@ -74,7 +86,7 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback,onActiv
   let stream,context
   try{
    await invoke('voice_status');if(!active.current||epoch.current!==session)return
-   stream=await navigator.mediaDevices.getUserMedia({video:false,audio:{...(latest.current.device?{deviceId:{exact:latest.current.device}}:{}),channelCount:1,echoCancellation:true,noiseSuppression:true}})
+   stream=await navigator.mediaDevices.getUserMedia({video:false,audio:{...(latest.current.device?{deviceId:{exact:latest.current.device}}:{}),channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}})
    if(!active.current||epoch.current!==session){stream.getTracks().forEach(t=>t.stop());return}
    context=new AudioContext({sampleRate:16000});resources.current={stream,context};await context.resume()
    await context.audioWorklet.addModule(new URL('./wake-processor.js',document.baseURI).href)
@@ -101,10 +113,15 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback,onActiv
  }
  const pause=()=>{cancelRestore();stop()}
  const disable=()=>{remember(false);pause()}
- const setThreshold=value=>{const n=Math.max(.002,Math.min(.025,Number(value)));if(!Number.isFinite(n))return;setThresholdState(n);latest.current.threshold=n;if(active.current&&!request.current&&!speechActive.current)configure(!latest.current.busy)}
- useEffect(()=>{try{localStorage.setItem('bimu-wake-settings',JSON.stringify({threshold,silenceMs}))}catch{}},[threshold,silenceMs])
+ const setThreshold=value=>{const n=Math.max(.0005,Math.min(.025,Number(value)));if(!Number.isFinite(n))return;setThresholdState(n);latest.current.threshold=n;if(active.current&&!request.current&&!speechActive.current&&!calibratingRef.current)configure(!latest.current.busy)}
+ const calibrate=()=>{if(!active.current||!resources.current?.node||latest.current.busy||processing.current)return;abortJob();armedUntil.current=0;clearTimeout(armTimer.current);setEngaged(false);configure(false);calibratingRef.current=true;calibrationDevice.current=latest.current.device;setCalibrating(true);setCalibrationNotice('Durante dos segundos no hables. Estoy midiendo el ruido del ambiente.');setPhase('calibrating');resources.current.node.port.postMessage({type:'calibrate'})}
+ const cancelCalibration=()=>{calibratingRef.current=false;setCalibrating(false);resources.current?.node?.port.postMessage({type:'cancel-calibration'});setCalibrationNotice('Calibración cancelada. Se conserva el ajuste anterior.');ready()}
+ const resetCalibration=()=>{if(calibratingRef.current)return;setCalibration(null);latest.current.noiseFloor=null;setCalibrationNotice('Se quitó la calibración. Podés repetirla con este micrófono.');if(active.current&&!processing.current&&!speechActive.current)ready()}
+ useEffect(()=>{try{localStorage.setItem('bimu-wake-settings',JSON.stringify({version:2,threshold,silenceMs,calibration}))}catch{}},[threshold,silenceMs,calibration])
+ useEffect(()=>{setCalibrationNotice('');setLevel(null)},[device])
+ useEffect(()=>{resources.current?.node?.port.postMessage({type:'meter',enabled:monitor});if(!monitor)setLevel(null)},[monitor])
  const changeSilence=value=>{const n=Number(value);if(![700,1200,1600].includes(n))return;setSilenceMs(n);latest.current.silenceMs=n;if(active.current&&!processing.current&&!speechActive.current)ready()}
- useEffect(()=>{if(!active.current)return;if(busy){setEngaged(false);abortJob();armedUntil.current=0;clearTimeout(armTimer.current);configure(false);setPhase('paused')}else if(resources.current?.node)ready()},[busy])
+ useEffect(()=>{if(!active.current)return;if(busy){if(calibratingRef.current){calibratingRef.current=false;setCalibrating(false);setCalibrationNotice('Calibración interrumpida por otra operación. Podés volver a intentarlo.')}setEngaged(false);abortJob();armedUntil.current=0;clearTimeout(armTimer.current);configure(false);setPhase('paused')}else if(resources.current?.node)ready()},[busy])
  useEffect(()=>{mounted.current=true;let disposed=false,off,offShow
   if(native)listen('bimu-voice-cancel',pause).then(fn=>{if(disposed)fn();else off=fn}).catch(()=>{})
   if(native)listen('desktop-action',()=>restore()).then(fn=>{if(disposed)fn();else offShow=fn}).catch(()=>{})
@@ -112,5 +129,5 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback,onActiv
   const hidden=()=>{if(document.hidden)pause();else restore()};document.addEventListener('visibilitychange',hidden);document.addEventListener('bimu-surface-ready',restoreReady);restore()
   return()=>{disposed=true;off?.();offShow?.();mounted.current=false;pause();document.removeEventListener('visibilitychange',hidden);document.removeEventListener('bimu-surface-ready',restoreReady)}
  },[native])
- return {enabled,preferred,engaged,phase,error,last,threshold,start,stop:disable,pause,setThreshold,silenceMs,setSilenceMs:changeSilence,diagnostics,metrics,toggleDiagnostics,resetMetrics,report}
+ return {enabled,preferred,engaged,phase,error,last,threshold,start,stop:disable,pause,setThreshold,silenceMs,setSilenceMs:changeSilence,diagnostics,metrics,toggleDiagnostics,resetMetrics,report,level,calibrating,calibrationNotice,calibrated:calibration?.device===device,calibrate,cancelCalibration,resetCalibration}
 }

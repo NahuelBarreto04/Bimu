@@ -21,9 +21,9 @@ function hooks(file,name,globals,props){
 function wakeHarness({preferred=false,hidden=false,status=async()=>{},permission=async()=>({getTracks:()=>[{stop(){}}]})}={}){
  const time=clock(),doc={...target(),hidden,baseURI:'http://bimu.local/'};const storage=new Map([['bimu-wake-enabled',String(preferred)]]),events={},nodes=[];let permissions=0,activity=0,transcript='Hola sin activar'
  const globals={...time,document:doc,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},loadWakeSettings:()=>({silenceMs:700,threshold:.008}),emptyWakeMetrics,addWakeMetric,wakeIntent,ARM_WINDOW_MS,performance:{now:time.now},crypto:{randomUUID:()=> 'request'},URL,Date,pcmToWav:async()=>new Uint8Array([1]),normalizeTranscript:s=>s,microphoneError:e=>e.message,invoke:async cmd=>cmd==='voice_status'?status():cmd==='voice_transcribe'?transcript:null,listen:async(event,fn)=>{events[event]=fn;return ()=>delete events[event]},navigator:{mediaDevices:{getUserMedia:async()=>{permissions++;return permission()}}},AudioContext:class{constructor(){this.audioWorklet={addModule:async()=>{}};this.destination={}}resume(){return Promise.resolve()}close(){return Promise.resolve()}createMediaStreamSource(){return {connect(){},disconnect(){}}}createGain(){return {gain:{},connect(){},disconnect(){}}}},AudioWorkletNode:class{constructor(){this.port={postMessage(){}};nodes.push(this)}connect(){}disconnect(){}}}
- const props={native:true,busy:false,device:'',onRequest:async()=>{},onActivity:()=>activity++}
+ const props={native:true,busy:false,device:'',monitor:true,onRequest:async()=>{},onActivity:()=>activity++}
  const h=hooks('../src/useWakeListener.js','useWakeListener',globals,props)
- return {...h,time,doc,storage,events,nodes,get permissions(){return permissions},get activity(){return activity},set transcript(value){transcript=value}}
+ return {...h,time,doc,storage,events,nodes,props,get permissions(){return permissions},get activity(){return activity},set transcript(value){transcript=value}}
 }
 test('opacity restores a bounded preference and tolerates invalid storage',()=>{
  const original=globalThis.localStorage
@@ -90,4 +90,26 @@ test('manual launch does not show the automatic startup greeting',async()=>{
  const time=clock(),doc={...target(),hidden:false};let greetings=0
  const h=hooks('../src/useStartup.js','useStartup',{...time,document:doc,invoke:async()=>({enabled:true,supported:true,automaticLaunch:false})},{native:true,listenPreferred:true,onGreeting:()=>greetings++})
  h.render();await flush();h.render();await time.advance(2000);assert.equal(greetings,0);h.dispose()
+})
+test('calibration persists per microphone and level telemetry never changes the wake preference',async()=>{
+ const h=wakeHarness();h.render();await h.render().start();h.render().calibrate()
+ assert.equal(h.render().calibrating,true);assert.equal(h.render().phase,'calibrating')
+ await h.nodes.at(-1).port.onmessage({data:{type:'level',rms:.0008,peak:.001,threshold:.002,speaking:false,calibrationProgress:.5}})
+ assert.equal(h.render().level.progress,.5);assert.equal(h.storage.get('bimu-wake-enabled'),'true')
+ await h.nodes.at(-1).port.onmessage({data:{type:'calibrated',noiseFloor:.0007,tooNoisy:false}})
+ assert.equal(h.render().calibrated,true);assert.equal(h.render().phase,'listening');assert.equal(h.render().calibrating,false)
+ assert.equal(JSON.parse(h.storage.get('bimu-wake-settings')).calibration.noiseFloor,.0007)
+ h.render().stop();h.props.device='other-mic';assert.equal(h.render().calibrated,false)
+ await h.render().start();assert.equal(h.render().enabled,true);h.dispose()
+})
+test('busy operation interrupts calibration and late calibration data cannot change the saved noise floor',async()=>{
+ const h=wakeHarness();h.render();await h.render().start();h.render().calibrate();h.props.busy=true;h.render()
+ assert.equal(h.render().calibrating,false);assert.equal(h.render().phase,'paused')
+ await h.nodes.at(-1).port.onmessage({data:{type:'calibrated',noiseFloor:.001,tooNoisy:false}})
+ assert.equal(h.render().calibrated,false);h.props.busy=false;assert.equal(h.render().phase,'paused');assert.equal(h.render().phase,'listening');h.dispose()
+})
+test('canceling or hiding during calibration preserves the previous listening choice',async()=>{
+ const h=wakeHarness();h.render();await h.render().start();h.render().calibrate();h.render().cancelCalibration()
+ assert.equal(h.render().calibrating,false);assert.equal(h.render().enabled,true);assert.equal(h.render().phase,'listening')
+ h.render().calibrate();h.doc.hidden=true;h.doc.emit('visibilitychange');assert.equal(h.render().calibrating,false);assert.equal(h.storage.get('bimu-wake-enabled'),'true');h.dispose()
 })

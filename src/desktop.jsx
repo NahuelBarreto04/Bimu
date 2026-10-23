@@ -61,7 +61,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
     cancel:()=>actions.pending?actions.cancel():registry.cancel()}
 
   const voice=useVoice({native:nativeMode,enabled:expanded&&tab==='chat',busy:ai.sending||ai.choosing||apps.busy||!!apps.pending,onTranscript:text=>{const merged=draft.trim()?draft+'\n'+text:text;if(merged.length>16000)throw Error('El borrador no tiene espacio suficiente. Acortalo antes de volver a grabar.');setDraft(merged)}})
-  const wake=useWakeListener({native:nativeMode,device:voice.device,busy:ai.sending||ai.choosing||apps.busy||!!apps.pending||voice.active||voice.detecting,onRequest:async text=>{
+  const wake=useWakeListener({native:nativeMode,device:voice.device,monitor:expanded&&tab==='settings',busy:ai.sending||ai.choosing||apps.busy||!!apps.pending||voice.active||voice.detecting,onRequest:async text=>{
     if(apps.isCommand(text)){await apps.request(text,{silent:true,onFeedback:voiceFeedback});return}
     voiceFeedback('error','No entendí el pedido. Probá: “Bimu, modo trabajo” o “buscá una carpeta llamada fotos”.')
   },onFeedback:voiceFeedback,onActivity:onInteract})
@@ -87,7 +87,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   useEffect(()=>{document.documentElement.style.setProperty('--ui-opacity',String(opacity/100));try{localStorage.setItem('bimu-ui-opacity',String(opacity))}catch{}},[opacity])
   useEffect(()=>{document.documentElement.dataset.view=tab},[tab])
   useEffect(()=>{document.documentElement.dataset.receiveLayout=expanded?'panel':'notch'},[expanded])
-  const dock=useDock({native:nativeMode,expanded,hovered:hovered||drop.active,tab,size:config.size,voiceVisible:!!voiceNotice||!!apps.pending?.silent,onError:setError})
+  const dock=useDock({native:nativeMode,expanded,hovered:hovered||drop.active,receiving:drop.active,tab,size:config.size,voiceVisible:!!voiceNotice||!!apps.pending?.silent,onError:setError})
   const dockCallbacks=useRef(dock);dockCallbacks.current=dock
   // Observe the whole companion surface, including its avatar and quick input.
   // Crossing between descendants must never be treated as leaving the notch.

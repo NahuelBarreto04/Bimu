@@ -29,9 +29,17 @@ export function microphoneError(error){
 export function normalizeTranscript(text){
   return typeof text==='string'?text.replace(/\s+/gu,' ').trim():''
 }
-export async function pcmToWav(samples,rate){
+export function normalizeSpeech(samples){
+ let sum=0,peak=0;for(const s of samples){const value=Number.isFinite(s)?s:0;sum+=value*value;peak=Math.max(peak,Math.abs(value))}
+ const rms=Math.sqrt(sum/Math.max(1,samples.length))
+ if(!peak||!rms)return samples
+ const gain=Math.max(1,Math.min(6,.08/rms,.92/peak))
+ if(gain===1)return samples
+ return Float32Array.from(samples,s=>(Number.isFinite(s)?s:0)*gain)
+}
+export async function pcmToWav(samples,rate,{normalize=false}={}){
  if(!(samples instanceof Float32Array)||!Number.isFinite(rate)||rate<8000||rate>192000||samples.length>rate*MAX_RECORDING_SECONDS)throw Error('Audio de escucha inválido.')
- if(rate===WAV_RATE)return encodeWav(samples).bytes
+ if(rate===WAV_RATE)return encodeWav(normalize?normalizeSpeech(samples):samples).bytes
  const length=Math.ceil(samples.length/rate*WAV_RATE),offline=new OfflineAudioContext(1,length,WAV_RATE)
- const buffer=offline.createBuffer(1,samples.length,rate);buffer.copyToChannel(samples,0);const source=offline.createBufferSource();source.buffer=buffer;source.connect(offline.destination);source.start();const rendered=await offline.startRendering();return encodeWav(rendered.getChannelData(0)).bytes
+ const buffer=offline.createBuffer(1,samples.length,rate);buffer.copyToChannel(samples,0);const source=offline.createBufferSource();source.buffer=buffer;source.connect(offline.destination);source.start();const rendered=await offline.startRendering();const pcm=rendered.getChannelData(0);return encodeWav(normalize?normalizeSpeech(pcm):pcm).bytes
 }

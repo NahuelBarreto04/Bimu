@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {encodeWav,microphoneError,normalizeTranscript} from '../src/voice-audio.js'
+import {encodeWav,microphoneError,normalizeTranscript,normalizeSpeech,pcmToWav} from '../src/voice-audio.js'
 test('codifica WAV PCM mono 16 kHz con tamaños exactos y saturación correcta',()=>{
  const {bytes,rms,duration}=encodeWav(Float32Array.from([-2,-1,0,1,2,NaN]))
  const view=new DataView(bytes.buffer),text=(a,b)=>new TextDecoder().decode(bytes.slice(a,b))
@@ -21,4 +21,13 @@ test('normaliza segmentos del dictado sin reescribir palabras ni puntuación',()
  assert.equal(normalizeTranscript('Qué\t tal\n  funciona'),'Qué tal funciona')
  assert.equal(normalizeTranscript('Hola vimos, dictado provoso.'),'Hola vimos, dictado provoso.')
  assert.equal(normalizeTranscript('   \n '),'');assert.equal(normalizeTranscript(null),'')
+})
+test('quiet speech is amplified at most six times without new clipping or modifying source samples',async()=>{
+ const source=Float32Array.from([.001,-.001,.0006,-.0006]),result=normalizeSpeech(source)
+ assert.ok(Math.abs(result[0]-.006)<1e-8);assert.ok(Math.abs(source[0]-.001)<1e-8)
+ assert.ok(Math.max(...normalizeSpeech(Float32Array.from([.4,-.4,0])))<=.920001)
+ assert.deepEqual(normalizeSpeech(new Float32Array(4)),new Float32Array(4))
+ assert.equal(normalizeSpeech(Float32Array.from([1,-1]))[0],1)
+ const original=new DataView((await pcmToWav(source,16000)).buffer),louder=new DataView((await pcmToWav(source,16000,{normalize:true})).buffer)
+ assert.ok(louder.getInt16(44,true)>original.getInt16(44,true)*5)
 })

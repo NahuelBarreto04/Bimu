@@ -1,11 +1,11 @@
 export const EDGES=['top','bottom','left','right']
 export const isLateral=edge=>edge==='left'||edge==='right'
 export const clamp=(value,min,max)=>Math.max(min,Math.min(max,value))
-export function notchSize(edge,state,size='M',tab='home') {
+export function notchSize(edge,state,size='M',tab='home',receiving=false) {
   const lateral=isLateral(edge)
   if(state==='open')return lateral?[430,tab==='home'?480:650]:[680,tab==='home'?350:570]
   const factor={S:.85,M:1,L:1.15}[size]||1
-  const base=state==='peek'?(lateral?[156,260]:[410,86]):(lateral?[116,206]:[330,54])
+  const base=receiving&&lateral?[156,260]:state==='peek'?(lateral?[310,96]:[410,86]):(lateral?[76,96]:[330,54])
   return base.map(n=>Math.round(n*factor))
 }
 // All values here are physical pixels, including negative monitor origins.

@@ -83,3 +83,9 @@ El primer paso será pulsar para hablar. La escucha continua no estará activada
 - [x] Etapa 1: submenús, preferencia de escucha, transparencia, descanso tras 10 minutos y versión en Actualizaciones.
 - [x] Etapa 2: atajos rápidos con varias apps, páginas y carpetas; búsqueda nativa de carpetas por nombre.
 - [ ] Etapa 3: actualización y reinicio desde Bimu sin recorrer el asistente de instalación.
+
+## Escucha y autonomía · v0.20
+
+- [x] Medidor de micrófono, calibración de ruido, sensibilidad ampliada y amplificación limitada para voz baja.
+- [x] Pestaña lateral compacta con chat rápido que se despliega hacia adentro.
+- [ ] Pedidos generales por voz conectados a Ollama y herramientas generales; descubrimiento de aplicaciones instaladas y consultas de hora.

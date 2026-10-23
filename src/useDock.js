@@ -2,7 +2,7 @@ import {useEffect,useLayoutEffect,useRef,useState} from 'react'
 import {getCurrentWindow,LogicalSize,PhysicalPosition,currentMonitor,primaryMonitor,cursorPosition} from '@tauri-apps/api/window'
 import {EDGES,isLateral,notchSize,dockPosition,slideOffset,transitionDuration,unionRects,desktopEnvelope} from './dock-geometry'
 const initial=()=>{try{const d=JSON.parse(localStorage.getItem('companion-dock')||'{}');return {edge:EDGES.includes(d.edge)?d.edge:'top',offsets:Object.fromEntries(EDGES.map(e=>[e,Number.isFinite(d.offsets?.[e])?Math.max(0,Math.min(1,d.offsets[e])):.5]))}}catch{return {edge:'top',offsets:{top:.5,bottom:.5,left:.5,right:.5}}}}
-export function useDock({native,expanded,hovered,tab,size,voiceVisible,onError}){
+export function useDock({native,expanded,hovered,tab,size,receiving=false,voiceVisible,onError}){
   const [dock,setDock]=useState(initial)
   const [dragging,setDragging]=useState(false)
   const [refresh,setRefresh]=useState(0)
@@ -18,7 +18,7 @@ export function useDock({native,expanded,hovered,tab,size,voiceVisible,onError})
     lastState.current=state
     root.dataset.edge=edge;root.dataset.notch=state;root.dataset.dragging=String(dragging);root.dataset.centered=String(Math.abs(fraction-.5)<.0001)
     root.style.setProperty('--dock-duration',duration+'ms')
-    const [wantedW,wantedH]=notchSize(edge,state,size,tab)
+    const [wantedW,wantedH]=notchSize(edge,state,size,tab,receiving)
     const setFrame=(x,y,w,h)=>{
       root.style.setProperty('--dock-left',x+'px');root.style.setProperty('--dock-top',y+'px')
       root.style.setProperty('--notch-width',w+'px');root.style.setProperty('--notch-height',h+'px')
@@ -99,7 +99,7 @@ export function useDock({native,expanded,hovered,tab,size,voiceVisible,onError})
       })})
     }).catch(e=>onError('No se pudo anclar el notch: '+String(e)))
     return()=>{revision.current++;clearTimeout(finishTimer);cancelAnimationFrame(frame1);cancelAnimationFrame(frame2)}
-  },[native,edge,state,size,tab,fraction,refresh,dragging])
+  },[native,edge,state,size,tab,fraction,refresh,dragging,receiving])
   useEffect(()=>{
     if(!native)return
     let gone=false,off

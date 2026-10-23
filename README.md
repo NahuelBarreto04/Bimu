@@ -1,4 +1,4 @@
-# Bimu · Beta v0.19.2
+# Bimu · Beta v0.20.0
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -430,3 +430,13 @@ El registro usa HKCU\Software\Microsoft\Windows\CurrentVersion\Run, valor Bimu, 
 Se corrigió la instalación de actualizaciones: ya no exige apagar explícitamente la escucha continua. El instalador pausa el micrófono y el motor sin borrar la preferencia, que se recupera al volver a abrir Bimu. Las grabaciones y otras operaciones activas todavía deben terminarse antes de instalar.
 
 Prueba Windows: abrir la versión instalada con escucha activa; verificar el inicio habilitado en Ajustes; cerrar sesión/iniciar sesión o reiniciar Windows y comprobar notch pequeño, saludo y escucha sin clics; abrir otra vez el acceso directo y comprobar una sola instancia; instalar la siguiente actualización sin apagar la escucha; desactivar el inicio desde Ajustes y verificar que no reaparezca en el próximo inicio de sesión.
+
+## v0.20.0 · Voz baja y pestaña lateral
+
+Ajustes → Configuración de Voz incluye un medidor de entrada, una marca del nivel de detección y Calibrar ruido de fondo. Con la escucha activa, pulsá calibrar y permanecé dos segundos sin hablar; después probá «Bimu» con tu voz habitual. La calibración guarda un nivel de ruido por el micrófono seleccionado, no grabaciones. Si cambiás de micrófono, hay que calibrar ese dispositivo; Quitar calibración vuelve a la sensibilidad sin calibrar. Durante la calibración se suspende la detección y no se envía audio a Whisper. Cancelar, ocultar o empezar otra operación interrumpe la medición sin modificar la preferencia de escucha.
+
+El rango de sensibilidad llega ahora a RMS 0,0005. Si el ajuste anterior estaba al máximo, migra al nuevo máximo; otros valores existentes se conservan. Con calibración se usa el ruido medido para separar la voz del ambiente. El audio de escucha se amplifica hasta seis veces, con control de picos, antes de codificarse para Whisper; se solicita también el control automático de ganancia del navegador cuando esté disponible. Esto no cambia el modelo Whisper ni garantiza reconocimiento en cualquier entorno: el medidor y las mediciones ayudan a distinguir falta de señal de errores de reconocimiento.
+
+En bordes izquierdo y derecho el tamaño mediano en reposo es 76 × 96 px. Solo muestra el personaje, el estado y el control para apagar la escucha. Al acercar el cursor se extiende hacia adentro a 310 × 96 px con chat rápido horizontal; al salir vuelve a la pestaña pequeña. Las opciones S/L mantienen su escala. La apertura completa conserva su panel, y recibir archivos utiliza el tamaño lateral anterior de 156 × 260 px para conservar espacio para la vista previa y los botones.
+
+Prueba manual Windows: calibrar en silencio, hablar bajo y observar detección/transcripción; probar ruido constante y ajustar sensibilidad; ocultar/cancelar durante calibración; cambiar micrófono y reiniciar para comprobar los ajustes. Probar ambos laterales con hover, foco del chat, arrastre, cuatro bordes y recepción de archivos. La interpretación de pedidos generales con Ollama queda para la próxima etapa.

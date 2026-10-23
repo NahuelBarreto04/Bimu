@@ -13,7 +13,17 @@ for(const area of [{x:0,y:0,width:1920,height:1040},{x:-2560,y:-200,width:2560,h
 }
 assert.equal(slideOffset(.45,85,1920),.5);assert.equal(slideOffset(.45,180,3840,2),.5);assert.notEqual(slideOffset(.45,200,1920),.5)
 assert.equal(slideOffset(.5,-9999,1920),0);assert.equal(slideOffset(.5,9999,1920),1)
-assert.ok(notchSize('top','peek')[0]>notchSize('top','idle')[0]);assert.ok(notchSize('left','peek')[1]>notchSize('left','idle')[1])
+assert.ok(notchSize('top','peek')[0]>notchSize('top','idle')[0])
+for(const edge of ['left','right']){
+ const idle=notchSize(edge,'idle'),peek=notchSize(edge,'peek')
+ assert.ok(idle[0]<=80&&idle[1]<=100,'a small side tab at rest')
+ assert.equal(peek[1],idle[1],'hover expands inward without a tall empty column')
+ assert.ok(peek[0]-64>=220,'quick chat has enough horizontal reading space')
+ const area={x:-1920,y:0,width:1920,height:1040},a=dockPosition(area,...idle,edge,.5),b=dockPosition(area,...peek,edge,.5)
+ assert.equal(a.y,b.y)
+ if(edge==='left')assert.equal(a.x,b.x);else assert.equal(a.x+idle[0],b.x+peek[0])
+ assert.deepEqual(notchSize(edge,'peek','M','home',true),[156,260],'file reception retains its usable layout')
+}
 console.log('OK: 540 combinaciones de posición, límites de monitor, centro, DPI y magnetismo.')
 
 assert.ok(transitionDuration('peek','open')<transitionDuration('idle','peek'))
@@ -52,6 +62,10 @@ for(const area of [{x:0,y:0,width:1920,height:1040},{x:-1920,y:-200,width:1920,h
   const [w,h]=notchSize(edge,state,'M',tab),width=Math.min(Math.round(w*scale),area.width),height=Math.min(Math.round(h*scale),area.height)
   const target=dockPosition(area,width,height,edge,fraction)
   assert.ok(target.x>=frame.x&&target.y>=frame.y&&target.x+width<=frame.x+frame.width&&target.y+height<=frame.y+frame.height)
+ }
+ if(edge==='left'||edge==='right'){
+  const [w,h]=notchSize(edge,'peek','M','home',true),width=Math.min(Math.round(w*scale),area.width),height=Math.min(Math.round(h*scale),area.height),target=dockPosition(area,width,height,edge,fraction)
+  assert.ok(target.x>=frame.x&&target.y>=frame.y&&target.x+width<=frame.x+frame.width&&target.y+height<=frame.y+frame.height,'receiving files fits in the stable native frame')
  }
 }
 console.log('OK: marco nativo unico en reposo, hover, inicio y ajustes, con DPI y bordes de monitor.')
