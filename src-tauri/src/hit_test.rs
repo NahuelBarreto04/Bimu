@@ -2,11 +2,12 @@ use serde::Deserialize;
 use std::sync::{Arc,Mutex};
 use tauri::{Manager,State};
 #[derive(Clone,Copy,Deserialize)]
-pub struct Region { x:f64,y:f64,width:f64,height:f64, radius:f64 }
+pub struct Region { x:f64,y:f64,width:f64,height:f64, radii:[f64;4] }
 impl Region {
  fn contains(&self,x:f64,y:f64)->bool {
   if x<self.x || y<self.y || x>=self.x+self.width || y>=self.y+self.height{return false}
-  let r=self.radius.max(0.).min(self.width/2.).min(self.height/2.);
+  let corner=if y<self.y+self.height/2.{if x<self.x+self.width/2.{0}else{1}}else if x<self.x+self.width/2.{3}else{2};
+  let r=self.radii[corner].max(0.).min(self.width/2.).min(self.height/2.);
   let cx=x.clamp(self.x+r,self.x+self.width-r);let cy=y.clamp(self.y+r,self.y+self.height-r);
   (x-cx).powi(2)+(y-cy).powi(2)<=r*r
  }
@@ -14,8 +15,8 @@ impl Region {
 #[derive(Default,Clone)]pub struct HitRegions(Arc<Mutex<Vec<Region>>>);
 #[tauri::command]
 pub fn desktop_hit_regions(regions:Vec<Region>,state:State<'_,HitRegions>)->Result<(),String>{
- if regions.len()>16||regions.iter().any(|r|[r.x,r.y,r.width,r.height,r.radius].iter().any(|v|!v.is_finite())||r.width<0.||r.height<0.){return Err("Regiones de ventana invalidas.".into())}
- *state.0.lock().map_err(|_|"No se pudo actualizar la ventana.")?=regions;Ok(())
+ if regions.len()>16||regions.iter().any(|r|[r.x,r.y,r.width,r.height].iter().chain(r.radii.iter()).any(|v|!v.is_finite())||r.width<0.||r.height<0.){return Err("Regiones de ventana invalidas.".into())}
+ *state.inner().0.lock().map_err(|_|"No se pudo actualizar la ventana.")?=regions;Ok(())
 }
 pub fn start(app:tauri::AppHandle){
  #[cfg(windows)]
@@ -37,5 +38,5 @@ pub fn start(app:tauri::AppHandle){
 }
 #[cfg(test)]mod tests{
  use super::*;
- #[test]fn rounded_regions_leave_corners_transparent(){let r=Region{x:10.,y:20.,width:100.,height:50.,radius:20.};assert!(r.contains(60.,45.));assert!(!r.contains(10.,20.));assert!(!r.contains(9.,45.));assert!(r.contains(10.,45.));}
+ #[test]fn rounded_regions_leave_corners_transparent(){let r=Region{x:10.,y:20.,width:100.,height:50.,radii:[20.;4]};assert!(r.contains(60.,45.));assert!(!r.contains(10.,20.));assert!(!r.contains(9.,45.));assert!(r.contains(10.,45.));assert!(r.contains(45.,55.));}
 }

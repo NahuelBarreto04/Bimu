@@ -9,7 +9,7 @@ export function useHitRegions(native){
    if(pending||gone)return
    const regions=[...document.querySelectorAll('.notch-surface,.glass-shell,.drop-surface,.wake-bubble,.desktop-error')].filter(el=>!el.hidden&&getComputedStyle(el).visibility!=='hidden').map(el=>{
     const r=el.getBoundingClientRect(),s=getComputedStyle(el)
-    return {x:r.x,y:r.y,width:r.width,height:r.height,radius:Math.min(...['borderTopLeftRadius','borderTopRightRadius','borderBottomLeftRadius','borderBottomRightRadius'].map(k=>parseFloat(s[k])||0))}
+    return {x:r.x,y:r.y,width:r.width,height:r.height,radii:['borderTopLeftRadius','borderTopRightRadius','borderBottomRightRadius','borderBottomLeftRadius'].map(k=>parseFloat(s[k])||0)}
    }).filter(r=>r.width>0&&r.height>0)
    const key=JSON.stringify(regions);if(key===last)return
    pending=true

@@ -10,7 +10,7 @@ pub struct UpdateInfo{current:String,available:Option<String>,downloaded:bool}
 fn client()->Result<reqwest::Client,String>{reqwest::Client::builder().user_agent("Bimu-updates").https_only(true).connect_timeout(Duration::from_secs(15)).timeout(Duration::from_secs(600)).build().map_err(|e|e.to_string())}
 fn hash(path:&std::path::Path)->Result<String,String>{let mut file=std::fs::File::open(path).map_err(|e|e.to_string())?;let mut h=Sha256::new();let mut buf=[0u8;65536];loop{let n=file.read(&mut buf).map_err(|e|e.to_string())?;if n==0{break}h.update(&buf[..n]);}Ok(format!("{:x}",h.finalize()))}
 #[tauri::command]pub async fn updates_check(app:tauri::AppHandle,state:State<'_,Updates>)->Result<UpdateInfo,String>{
- let mut s=state.0.lock().await;let current=app.package_info().version.to_string();
+ let mut s=state.inner().0.lock().await;let current=app.package_info().version.to_string();
  let response=client()?.get("https://api.github.com/repos/marianoarias1/Bimu/releases/latest").header("Accept","application/vnd.github+json").send().await.map_err(|_|"No se pudo conectar con GitHub. Revisa tu conexion.")?;
  if response.status().as_u16()==404{s.candidate=None;s.download=None;return Ok(UpdateInfo{current,available:None,downloaded:false})}
  if !response.status().is_success(){return Err(format!("GitHub no pudo comprobar actualizaciones ({}).",response.status()))}
@@ -21,7 +21,7 @@ fn hash(path:&std::path::Path)->Result<String,String>{let mut file=std::fs::File
  Ok(UpdateInfo{current,available:s.candidate.as_ref().map(|v|v.0.clone()),downloaded:s.download.as_ref().map(|p|p.is_file()).unwrap_or(false)})
 }
 #[tauri::command]pub async fn updates_download(app:tauri::AppHandle,state:State<'_,Updates>)->Result<UpdateInfo,String>{
- let mut s=state.0.lock().await;let (version,asset)=s.candidate.clone().ok_or("Primero busca una actualizacion.")?;
+ let mut s=state.inner().0.lock().await;let (version,asset)=s.candidate.clone().ok_or("Primero busca una actualizacion.")?;
  let dir=app.path().app_cache_dir().map_err(|e|e.to_string())?.join("updates");std::fs::create_dir_all(&dir).map_err(|e|e.to_string())?;
  let path=dir.join(&asset.name);let partial=dir.join(format!("{}.partial",asset.name));
  let result=async{
@@ -42,7 +42,7 @@ fn hash(path:&std::path::Path)->Result<String,String>{let mut file=std::fs::File
 }
 #[tauri::command]pub async fn updates_install(app:tauri::AppHandle,state:State<'_,Updates>)->Result<(),String>{
  if cfg!(debug_assertions){return Err("Instala primero Bimu con el .exe de Releases. La instalacion desde la app se habilita en esa version.".into())}
- let s=state.0.lock().await;let path=s.download.as_ref().ok_or("Primero descarga la actualizacion.")?;let (_,asset)=s.candidate.as_ref().ok_or("Primero busca una actualizacion.")?;
+ let s=state.inner().0.lock().await;let path=s.download.as_ref().ok_or("Primero descarga la actualizacion.")?;let (_,asset)=s.candidate.as_ref().ok_or("Primero busca una actualizacion.")?;
  if format!("sha256:{}",hash(path)?)!=asset.digest.as_deref().unwrap_or("").to_lowercase(){return Err("El instalador cambio despues de descargarlo. Descargalo nuevamente.".into())}
  let _=app.emit("bimu-voice-cancel",());
  app.state::<crate::voice_engine::VoiceEngine>().shutdown();
