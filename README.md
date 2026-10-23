@@ -1,4 +1,4 @@
-# Bimu · Beta v0.19.1
+# Bimu · Beta v0.19.2
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -417,3 +417,16 @@ El backend vuelve a comprobar que el perfil exista al guardar y ejecutar; no ace
 El avatar sigue la posición real de su tarjeta de Inicio cuando aparecen resultados y al desplazarse por el panel; se recorta al área visible. El lienzo 3D y el comportamiento compacto/drop se conservan. Los desplegables tienen esquema de color y opciones opacas con contraste en los temas claro y oscuro.
 
 Prueba Windows: abrir una carpeta desde voz y desplazar Inicio; comprobar personaje dentro de su tarjeta y regreso al notch; abrir desplegables en ambos temas; elegir Trabajo en Chrome para Gmail/Jira, guardar, reiniciar y ejecutar el atajo.
+
+
+## v0.19.2 · Inicio con Windows y escucha continua
+
+Si la escucha «Bimu» está guardada como activa, la primera ejecución de esta versión habilita el inicio con Windows para el usuario actual. Al iniciar sesión se abre el notch pequeño y se muestra un saludo visual breve, sin abrir el panel. La escucha recupera el dispositivo y espera hasta unos dos minutos a que el motor local esté disponible. No hay audio hablado en el saludo.
+
+Ajustes → Configuración de la app incluye Abrir Bimu al iniciar sesión en Windows. Esa elección es independiente de la escucha: apagar la voz no desactiva automáticamente el inicio de la app; desactivar explícitamente el inicio con Windows se respeta aunque luego actives la escucha. Las versiones de desarrollo no se registran para inicio automático. Si Windows bloquea la ejecución desde sus aplicaciones de inicio, se debe habilitar allí.
+
+El registro usa HKCU\Software\Microsoft\Windows\CurrentVersion\Run, valor Bimu, con la ruta del ejecutable entre comillas y el argumento fijo --autostart. Se actualiza al abrir la app si cambió la ruta de instalación. El plugin de instancia única impide duplicar el personaje y los procesos de voz al volver a abrir Bimu.
+
+Se corrigió la instalación de actualizaciones: ya no exige apagar explícitamente la escucha continua. El instalador pausa el micrófono y el motor sin borrar la preferencia, que se recupera al volver a abrir Bimu. Las grabaciones y otras operaciones activas todavía deben terminarse antes de instalar.
+
+Prueba Windows: abrir la versión instalada con escucha activa; verificar el inicio habilitado en Ajustes; cerrar sesión/iniciar sesión o reiniciar Windows y comprobar notch pequeño, saludo y escucha sin clics; abrir otra vez el acceso directo y comprobar una sola instancia; instalar la siguiente actualización sin apagar la escucha; desactivar el inicio desde Ajustes y verificar que no reaparezca en el próximo inicio de sesión.

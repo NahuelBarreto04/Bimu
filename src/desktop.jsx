@@ -14,6 +14,7 @@ import {ConversationHistory} from './ConversationPanels'
 import {useVoice} from './useVoice'
 import {useHitRegions} from './useHitRegions'
 import {VoiceControls,VoiceStatus} from './VoicePanels'
+import {useStartup} from './useStartup'
 import {useHomeAvatar} from './useHomeAvatar'
 import {useAssistantActions} from './useAssistantActions'
 import {AssistantResults} from './AssistantPanels'
@@ -65,6 +66,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
     voiceFeedback('error','No entendí el pedido. Probá: “Bimu, modo trabajo” o “buscá una carpeta llamada fotos”.')
   },onFeedback:voiceFeedback,onActivity:onInteract})
 
+  const startup=useStartup({native:nativeMode,listenPreferred:wake.preferred,onGreeting:()=>{onGreet();voiceFeedback('idle','¡Hola! Ya estoy acá para acompañarte.')}})
   const drop=useDropZone({native:nativeMode,busy:ai.sending||ai.choosing||voice.active||voice.detecting||apps.busy||!!apps.pending,reception:receiveRef})
   useEffect(()=>{if(drop.active)onInteract?.()},[drop.active,onInteract])
   const [service,setService]=useState(null)
@@ -160,7 +162,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
           <ApplicationConfirmation apps={apps}/><VoiceStatus voice={voice}/><form className="composer glass-card" onSubmit={e=>{e.preventDefault();submitMessage()}}><textarea disabled={voice.active} aria-label="Borrador de mensaje" value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();submitMessage()}}} maxLength={16000} placeholder="Escribile a Bimu…" rows={2}/><div><small>{ai.sending?'Generando respuesta…':ai.connected&&ai.model?'Enter para enviar · Shift+Enter para otra línea':'Conectá Ollama para enviar'}</small><div className="send-controls"><VoiceControls voice={voice} busy={ai.sending||ai.choosing||apps.busy||!!apps.pending||wake.enabled}/>{ai.sending?<button type="button" className="stop-generation" disabled={ai.stopping} onClick={ai.stop}>{ai.stopping?'Deteniendo…':'Detener'}</button>:<IconButton title="Enviar mensaje" type="submit" disabled={voice.active||ai.choosing||apps.busy||!!apps.pending||(!apps.isCommand(draft)&&(!ai.connected||!ai.model))||!draft.trim()}><Send size={16}/></IconButton>}</div></div></form>
         </section>}
         {tab==='connections'&&<section><div className="page-heading"><span className="micro-label">TODO EN SU LUGAR</span><h1>Conectá tu mundo.</h1><p>Un espacio para tu IA y las herramientas que usás.</p></div><div className="connection-grid">{SERVICES.map(({id,name,desc,icon:Icon,color})=><button key={id} className={'connection-tile glass-card '+(service===id?'chosen':'')} onClick={()=>setService(id)} aria-pressed={service===id}><span className="service-icon" style={{color}}><Icon size={23}/></span><span><strong>{name}</strong><small>{desc}</small></span><span className="state-badge">{id==='ollama'&&ai.connected?'Conectado':'Pendiente'}</span></button>)}</div><OllamaPanel ai={ai}/><div className="connection-note glass-card"><Plug size={18}/><div><strong>{service==='ollama'?'Tu IA en tu equipo':service?SERVICES.find(s=>s.id===service)?.name+': conexión pendiente':'Conectá tu modelo local'}</strong><p>{service==='ollama'?'Elegí un modelo instalado en el panel de Ollama. El historial se mantiene durante esta sesión.':service?'Esta integración todavía no está disponible. Por ahora no se solicita ninguna cuenta.':'Ollama ya puede conectarse. Las demás integraciones siguen pendientes.'}</p></div></div></section>}
-        {tab==='settings'&&<SettingsPanels theme={theme} setTheme={setTheme} tint={tint} setTint={setTint} opacity={opacity} setOpacity={setOpacity} dock={dock} setHovered={setHovered} config={config} onConfig={onConfig} pinned={pinned} setPinned={setPinned} safe={safe} voice={voice} wake={wake} ai={ai} apps={apps} actions={actions} personalization={personalization}/> }
+        {tab==='settings'&&<SettingsPanels theme={theme} setTheme={setTheme} tint={tint} setTint={setTint} opacity={opacity} setOpacity={setOpacity} dock={dock} setHovered={setHovered} config={config} onConfig={onConfig} pinned={pinned} setPinned={setPinned} safe={safe} voice={voice} wake={wake} ai={ai} apps={apps} actions={actions} startup={startup} personalization={personalization}/> }
       </div>
       <footer className="hub-footer"><span><span className="mini-star">✧</span> Mi pequeño compañero</span></footer>
     </section>}

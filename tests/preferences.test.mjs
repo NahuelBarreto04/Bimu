@@ -18,8 +18,8 @@ function hooks(file,name,globals,props){
  vm.runInContext(source+`;globalThis.hook=${name}`,context)
  return {render:()=>{cursor=0;const result=context.hook(props);effects.splice(0).forEach(fn=>fn());return result},dispose:()=>slots.forEach(s=>s?.cleanup?.())}
 }
-function wakeHarness({preferred=false,status=async()=>{},permission=async()=>({getTracks:()=>[{stop(){}}]})}={}){
- const time=clock(),doc={...target(),hidden:false,baseURI:'http://bimu.local/'};const storage=new Map([['bimu-wake-enabled',String(preferred)]]),events={},nodes=[];let permissions=0,activity=0,transcript='Hola sin activar'
+function wakeHarness({preferred=false,hidden=false,status=async()=>{},permission=async()=>({getTracks:()=>[{stop(){}}]})}={}){
+ const time=clock(),doc={...target(),hidden,baseURI:'http://bimu.local/'};const storage=new Map([['bimu-wake-enabled',String(preferred)]]),events={},nodes=[];let permissions=0,activity=0,transcript='Hola sin activar'
  const globals={...time,document:doc,localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)},loadWakeSettings:()=>({silenceMs:700,threshold:.008}),emptyWakeMetrics,addWakeMetric,wakeIntent,ARM_WINDOW_MS,performance:{now:time.now},crypto:{randomUUID:()=> 'request'},URL,Date,pcmToWav:async()=>new Uint8Array([1]),normalizeTranscript:s=>s,microphoneError:e=>e.message,invoke:async cmd=>cmd==='voice_status'?status():cmd==='voice_transcribe'?transcript:null,listen:async(event,fn)=>{events[event]=fn;return ()=>delete events[event]},navigator:{mediaDevices:{getUserMedia:async()=>{permissions++;return permission()}}},AudioContext:class{constructor(){this.audioWorklet={addModule:async()=>{}};this.destination={}}resume(){return Promise.resolve()}close(){return Promise.resolve()}createMediaStreamSource(){return {connect(){},disconnect(){}}}createGain(){return {gain:{},connect(){},disconnect(){}}}},AudioWorkletNode:class{constructor(){this.port={postMessage(){}};nodes.push(this)}connect(){}disconnect(){}}}
  const props={native:true,busy:false,device:'',onRequest:async()=>{},onActivity:()=>activity++}
  const h=hooks('../src/useWakeListener.js','useWakeListener',globals,props)
@@ -65,4 +65,29 @@ test('only a recognized Bimu invocation wakes the animation; ambient phrases do 
 })
 test('canceling restoration while engine readiness is pending cannot open microphone later',async()=>{
  let ready;const h=wakeHarness({preferred:true,status:()=>new Promise(resolve=>ready=resolve)});h.render();h.render().stop();ready();await flush();assert.equal(h.permissions,0);assert.equal(h.render().enabled,false);h.dispose()
+})
+
+test('saved listening starts when the initially hidden native surface becomes ready',async()=>{
+ const h=wakeHarness({preferred:true,hidden:true});h.render();await flush();assert.equal(h.permissions,0)
+ h.doc.hidden=false;h.doc.emit('bimu-surface-ready');await flush();assert.equal(h.render().enabled,true);assert.equal(h.permissions,1);h.dispose()
+})
+test('update suspension retains listening preference and the next launch restores it',async()=>{
+ const h=wakeHarness({preferred:true});h.render();await flush();h.events['bimu-voice-cancel']();assert.equal(h.render().enabled,false);assert.equal(h.storage.get('bimu-wake-enabled'),'true');h.dispose()
+ const next=wakeHarness({preferred:true});next.render();await flush();assert.equal(next.render().enabled,true);next.dispose()
+})
+test('boot recovery tolerates an engine taking more than a minute to become ready',async()=>{
+ const h=wakeHarness({preferred:true,status:async()=>{if(h.time.now()<70000)throw Error('Cargando motor')}});h.render();await flush();await h.time.advance(75000);await flush();assert.equal(h.render().enabled,true);assert.equal(h.permissions,1);h.dispose()
+})
+test('automatic launch greets only after visibility, once, and startup can be explicitly disabled',async()=>{
+ const time=clock(),doc={...target(),hidden:true},calls=[];let greetings=0
+ const h=hooks('../src/useStartup.js','useStartup',{...time,document:doc,invoke:async(cmd,args)=>{calls.push({cmd,args});return {enabled:cmd==='startup_set'?args.enabled:true,supported:true,automaticLaunch:true}}},{native:true,listenPreferred:true,onGreeting:()=>greetings++})
+ h.render();await flush();h.render();await time.advance(1000);assert.equal(greetings,0)
+ doc.hidden=false;doc.emit('bimu-surface-ready');await time.advance(600);assert.equal(greetings,1)
+ doc.emit('visibilitychange');await time.advance(1000);assert.equal(greetings,1)
+ await h.render().setEnabled(false);assert.equal(h.render().status.enabled,false);assert.equal(calls[0].args.listenPreferred,true);assert.equal(calls.at(-1).cmd,'startup_set');h.dispose()
+})
+test('manual launch does not show the automatic startup greeting',async()=>{
+ const time=clock(),doc={...target(),hidden:false};let greetings=0
+ const h=hooks('../src/useStartup.js','useStartup',{...time,document:doc,invoke:async()=>({enabled:true,supported:true,automaticLaunch:false})},{native:true,listenPreferred:true,onGreeting:()=>greetings++})
+ h.render();await flush();h.render();await time.advance(2000);assert.equal(greetings,0);h.dispose()
 })

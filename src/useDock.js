@@ -65,7 +65,7 @@ export function useDock({native,expanded,hovered,tab,size,voiceVisible,onError})
         nativeFrame.current=frame
         if(!valid())return
         setFrame(localX,localY,width,height)
-        if(!shown.current){await win.show();shown.current=true}
+        if(!shown.current){await win.show();shown.current=true;document.dispatchEvent(new Event('bimu-surface-ready'))}
         return
       }
       // Animate a DOM surface inside a temporary transparent native envelope.

@@ -95,8 +95,8 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback,onActiv
    if(mounted.current&&wanted.current&&!document.hidden&&token===restoreEpoch.current)await start({automatic:true})
   }catch(e){
    if(!mounted.current||!wanted.current||token!==restoreEpoch.current)return
-   if(attempt<19)restoreTimer.current=setTimeout(()=>restore(attempt+1,token),3000)
-   else{setPhase('off');setError('La escucha está guardada, pero no pudo iniciarse: '+String(e.message||e))}
+   if(attempt<39)restoreTimer.current=setTimeout(()=>restore(attempt+1,token),3000)
+   else{setPhase('off');setError('La escucha está guardada, pero no pudo iniciarse: '+String(e.message||e));latest.current.onFeedback?.('error','No pude activar la escucha. Revisá la configuración de voz.')}
   }
  }
  const pause=()=>{cancelRestore();stop()}
@@ -108,8 +108,9 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback,onActiv
  useEffect(()=>{mounted.current=true;let disposed=false,off,offShow
   if(native)listen('bimu-voice-cancel',pause).then(fn=>{if(disposed)fn();else off=fn}).catch(()=>{})
   if(native)listen('desktop-action',()=>restore()).then(fn=>{if(disposed)fn();else offShow=fn}).catch(()=>{})
-  const hidden=()=>{if(document.hidden)pause();else restore()};document.addEventListener('visibilitychange',hidden);restore()
-  return()=>{disposed=true;off?.();offShow?.();mounted.current=false;pause();document.removeEventListener('visibilitychange',hidden)}
+  const restoreReady=()=>restore()
+  const hidden=()=>{if(document.hidden)pause();else restore()};document.addEventListener('visibilitychange',hidden);document.addEventListener('bimu-surface-ready',restoreReady);restore()
+  return()=>{disposed=true;off?.();offShow?.();mounted.current=false;pause();document.removeEventListener('visibilitychange',hidden);document.removeEventListener('bimu-surface-ready',restoreReady)}
  },[native])
  return {enabled,preferred,engaged,phase,error,last,threshold,start,stop:disable,pause,setThreshold,silenceMs,setSilenceMs:changeSilence,diagnostics,metrics,toggleDiagnostics,resetMetrics,report}
 }

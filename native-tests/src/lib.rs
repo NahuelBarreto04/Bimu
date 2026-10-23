@@ -8,3 +8,5 @@
 #[path="../../src-tauri/src/release_core.rs"]pub mod release_core;
 
 #[path="../../src-tauri/src/assistant_core.rs"]pub mod assistant_core;
+
+#[path="../../src-tauri/src/startup_core.rs"]pub mod startup_core;
