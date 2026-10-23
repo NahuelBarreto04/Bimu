@@ -8,7 +8,7 @@ function harness(overrides={}){
  const values={lock:{current:false},choosing:false,folder:null,toolsSupport:true,connected:true,model:'local',crypto:{randomUUID:()=> 'request'},active:{current:null},messages:[],mounted:{current:true},flushTimer:{current:null},archiveRef:{current:{memory:''}},setMessages:v=>state.messages=v,setSending:v=>state.sending=v,setStopping:()=>{},setError:v=>state.error=v,setNotice:()=>{},setActivity:()=>{},clearTimeout,setTimeout,client:{stream:()=>new Promise((resolve,reject)=>{finish=resolve;fail=reject})},...overrides}
  const source=readFileSync(new URL('../src/useOllama.js',import.meta.url),'utf8')
  const send=source.slice(source.indexOf('  const send=async'),source.indexOf('  return {actionProposal'))
- values.proposal={current:null};values.setActionProposal=p=>state.proposal=p
+ values.proposal={current:null};values.setActionProposal=p=>state.proposal=p;values.conversationId='conversation-1'
  const context=vm.createContext(values);vm.runInContext(send+';globalThis.send=send',context)
  return {state,send:context.send,finish:r=>finish(r),fail:e=>fail(e)}
 }

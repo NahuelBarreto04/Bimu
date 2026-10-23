@@ -1,5 +1,6 @@
 export async function routeAssistantRequest(text,{apps,ai,voice=false,onAccepted,onShowChat,onFeedback}){
  if(apps.isCommand(text)){
+  await ai.resetTools?.()
   const handled=await apps.request(text,{silent:voice,onFeedback})
   if(handled){if(handled!=='error')onAccepted?.();return handled!=='error'}
  }

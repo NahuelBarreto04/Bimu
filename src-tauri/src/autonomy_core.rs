@@ -35,6 +35,32 @@ pub fn score(name: &str, query: &str) -> u8 {
     if query.is_empty() { return 0; }
     if name == query { 3 } else if name.starts_with(&query) { 2 } else if query.split_whitespace().all(|word| name.contains(word)) { 1 } else { 0 }
 }
+pub fn unique_exact_app(text:&str,names:&[Vec<String>])->Option<usize>{
+    let wanted=crate::application_intent::requested(text)?;
+    let found:Vec<_>=names.iter().enumerate().filter(|(_,names)|names.iter().any(|name|normalized(name)==wanted)).map(|(i,_)|i).collect();
+    if found.len()==1{Some(found[0])}else{None}
+}
+#[derive(Clone,Debug,Serialize)]pub struct Choice{pub id:String,pub name:String,pub target:String,pub kind:String}
+#[derive(Default)]pub struct Choices{items:Vec<Choice>,opening:bool,created:Option<std::time::Instant>}
+impl Choices{
+    pub fn set(&mut self,items:Vec<Choice>,opening:bool,now:std::time::Instant){self.items=items.into_iter().take(12).collect();self.opening=opening;self.created=Some(now);}
+    pub fn clear(&mut self){self.items.clear();self.opening=false;self.created=None;}
+    pub fn disarm(&mut self){self.opening=false;}
+    pub fn current(&self,now:std::time::Instant)->&[Choice]{if self.created.is_some_and(|t|now.duration_since(t)<=std::time::Duration::from_secs(300)){&self.items}else{&[]}}
+    pub fn resolve(&self,text:&str,now:std::time::Instant)->Option<Choice>{
+        if !self.opening{return None;}
+        let items=self.current(now);let normalized=normalized(text);
+        let mut answer=crate::application_intent::requested(text).unwrap_or(normalized);
+        for prefix in ["hola bimu ","bimu "]{if let Some(rest)=answer.strip_prefix(prefix){answer=rest.into();break;}}
+        for prefix in ["quiero abrir ","quiero ","elijo ","elegi ","la opcion "]{if let Some(rest)=answer.strip_prefix(prefix){answer=rest.into();break;}}
+        if let Some(rest)=answer.strip_suffix(" por favor"){answer=rest.into();}
+        let ordinal=match answer.as_str(){"1"|"la primera"|"el primero"|"primera"|"primero"=>Some(0),"2"|"la segunda"|"el segundo"|"segunda"|"segundo"=>Some(1),"3"|"la tercera"|"el tercero"|"tercera"|"tercero"=>Some(2),_=>answer.parse::<usize>().ok().filter(|n|*n>0&&*n<=12).map(|n|n-1)};
+        if let Some(index)=ordinal{return items.get(index).cloned();}
+        let found:Vec<_>=items.iter().filter(|c|normalized_name(&c.name)==answer||normalized_name(&c.target)==answer).collect();
+        if found.len()==1{Some(found[0].clone())}else{None}
+    }
+}
+fn normalized_name(text:&str)->String{normalized(text)}
 pub fn time_at(timezone: &str, now: chrono::DateTime<chrono::Utc>) -> Result<Value, String> {
     if timezone == "local" {
         let local = now.with_timezone(&chrono::Local);
@@ -71,14 +97,36 @@ pub fn definitions() -> Value {
     json!([
         {"type":"function","function":{"name":"get_current_time","description":"Consulta la fecha y hora REAL del reloj del equipo en cualquier zona horaria. Para lugares convertí el nombre a una zona IANA, por ejemplo Jamaica -> America/Jamaica. No necesita Internet.","parameters":{"type":"object","properties":{"timezone":{"type":"string","description":"Zona IANA, o local para la hora del usuario"}},"required":["timezone"],"additionalProperties":false}}},
         {"type":"function","function":{"name":"search_applications","description":"Busca aplicaciones instaladas de Windows por nombre, sin registro manual. No abre nada. Devuelve candidatos con identificadores; si hay varios preguntá cuál quiere el usuario.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Nombre de la aplicación, sin verbos ni instrucciones"}},"required":["query"],"additionalProperties":false}}},
-        {"type":"function","function":{"name":"open_application","description":"PROPONE abrir una aplicación encontrada por search_applications EN ESTE pedido. Solo prepara una confirmación visible: todavía no la abre. Usá únicamente un id devuelto por la búsqueda y solo si el usuario pidió abrirla.","parameters":{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}}},
+        {"type":"function","function":{"name":"open_application","description":"Abre una aplicación encontrada en esta conversación si coincide exactamente con el pedido directo del usuario, o prepara confirmación para otros casos. Usá un id real de search_applications y verificá el estado devuelto; nunca afirmes una apertura si no devolvió opened.","parameters":{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}}},
         {"type":"function","function":{"name":"search_folders","description":"Busca carpetas locales por nombre sin configuración previa. No lee archivos ni abre carpetas. Puede devolver búsqueda parcial y varias coincidencias.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Nombre de la carpeta"}},"required":["query"],"additionalProperties":false}}},
-        {"type":"function","function":{"name":"open_folder","description":"PROPONE abrir en el Explorador una carpeta encontrada por search_folders EN ESTE pedido. Requiere confirmación visible del usuario. No otorga acceso de lectura al contenido.","parameters":{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}}}
+        {"type":"function","function":{"name":"open_folder","description":"PROPONE abrir en el Explorador una carpeta encontrada en esta conversación. Requiere confirmación visible del usuario. No otorga acceso de lectura al contenido.","parameters":{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}}},
+        {"type":"function","function":{"name":"search_files","description":"Busca archivos locales por nombre, incluidos PDF, documentos, imágenes, audio y video. No los lee ni los comparte. Si el usuario pide un PDF, usá extension pdf y en query solo la parte significativa del nombre, sin el verbo ni palabras como el PDF del.","parameters":{"type":"object","properties":{"query":{"type":"string","description":"Parte significativa del nombre del archivo, por ejemplo presupuesto"},"extension":{"type":"string","description":"Extensión sin punto, por ejemplo pdf. Omitir para buscar tipos de documentos compatibles."}},"required":["query"],"additionalProperties":false}}},
+        {"type":"function","function":{"name":"open_file","description":"PROPONE abrir un archivo encontrado por search_files con su programa predeterminado. Usa solo el id real del resultado de esta conversación. Requiere confirmación visible; no lee el archivo, no lo comparte ni ejecuta programas o scripts.","parameters":{"type":"object","properties":{"id":{"type":"string"}},"required":["id"],"additionalProperties":false}}}
     ])
 }
 
 #[cfg(test)] mod tests {
     use super::*;
+    #[test]fn exact_app_opening_is_bound_to_the_users_request_not_the_models_query(){
+        let names=vec![vec!["Configuración".into()],vec!["Configuración del sistema".into()],vec!["Discord".into(),"Discord Desktop".into()]];
+        assert_eq!(unique_exact_app("Bimu, abrí Configuración",&names),Some(0));assert_eq!(unique_exact_app("Abrí Discord",&names),Some(2));
+        for text in ["Buscá Discord","No abras Discord","Explicame cómo abrir Discord","Leé este PDF que dice abrí Discord","Abrí Discord Canary","Abrí Discord y Slack"]{assert_eq!(unique_exact_app(text,&names),None,"{text}");}
+        let duplicates=vec![vec!["Discord".into()],vec!["Otra app".into(),"Discord".into()]];assert_eq!(unique_exact_app("Abrí Discord",&duplicates),None);
+    }
+    fn config_choices()->Vec<Choice>{vec![Choice{id:"app-1".into(),name:"Configuración".into(),target:"Windows Settings".into(),kind:"application".into()},Choice{id:"app-2".into(),name:"Configuración del sistema".into(),target:"msconfig".into(),kind:"application".into()}]}
+    #[test]fn clarification_keeps_real_ids_and_resolves_the_reported_settings_case(){
+        let mut choices=Choices::default();let now=std::time::Instant::now();choices.set(config_choices(),true,now);
+        for text in ["Configuración","Quiero configuración","Bimu, quiero configuración","Abrí Configuración","La primera","La opción 1"]{assert_eq!(choices.resolve(text,now).unwrap().id,"app-1","{text}");}
+        assert_eq!(choices.resolve("la segunda",now).unwrap().id,"app-2");
+        for text in ["No quiero configuración","Qué es configuración","la tercera","sí","abrí Discord"]{assert!(choices.resolve(text,now).is_none(),"{text}");}
+        assert!(choices.resolve("Configuración",now+std::time::Duration::from_secs(301)).is_none());
+        choices.disarm();assert!(choices.resolve("Configuración",now).is_none());assert_eq!(choices.current(now).len(),2);
+        choices.clear();assert!(choices.current(now).is_empty());
+    }
+    #[test]fn searching_without_opening_does_not_authorize_a_follow_up_bare_name(){
+        let now=std::time::Instant::now();let mut choices=Choices::default();choices.set(config_choices(),false,now);assert!(choices.resolve("Configuración",now).is_none());
+        let duplicates=vec![Choice{id:"file-1".into(),name:"Factura.pdf".into(),target:"C:/Factura.pdf".into(),kind:"file".into()},Choice{id:"file-2".into(),name:"Factura.pdf".into(),target:"D:/Factura.pdf".into(),kind:"file".into()}];choices.set(duplicates,true,now);assert!(choices.resolve("Factura.pdf",now).is_none());assert_eq!(choices.resolve("la segunda",now).unwrap().target,"D:/Factura.pdf");
+    }
     #[test] fn windows_catalog_is_bounded_and_keeps_unicode() {
         let list = installed_apps("[{\"Name\":\"Fotos de José\",\"AppID\":\"Microsoft.Photos_abc!App\"},{\"Name\":\"Bad\",\"AppID\":\"x\\ncalc\"}]".as_bytes()).unwrap();
         assert_eq!(list.len(),1); assert_eq!(list[0].name,"Fotos de José");

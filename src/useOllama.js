@@ -87,6 +87,7 @@ export function useOllama(native){
     setStopping(true)
     try{await client.cancel(id)}catch(e){if(mounted.current){setStopping(false);setError('No se pudo detener: '+String(e.message||e))}}
   }
+  const resetTools=async()=>{if(native)await client.resetTools(conversationId).catch(()=>{})}
   const resolveAction=async confirm=>{
     if(lock.current||!proposal.current)return false
     const pending=proposal.current;lock.current=true;setActionBusy(true);setError('')
@@ -122,7 +123,7 @@ export function useOllama(native){
         if(active.current!==id||!mounted.current){if(event.type==='action')client.cancelAction(event.proposal.id).catch(()=>{});return}
         if(event.type==='action'){proposal.current={...event.proposal,autonomous:true};setActionProposal(proposal.current);return}
         setActivity(items=>{const key=event.name+':'+event.path;const index=items.findLastIndex(item=>item.key===key&&item.status==='running');if(event.status!=='running'&&index>=0)return items.map((item,i)=>i===index?{...event,key}:item);return [...items,{...event,key}].slice(-16)})
-      },Boolean(folder),archiveRef.current.memory)
+      },Boolean(folder),archiveRef.current.memory,conversationId)
       if(!mounted.current)return false
       clearTimeout(flushTimer.current);flushTimer.current=null;active.current=null
       partial=result.content
@@ -134,5 +135,5 @@ export function useOllama(native){
       return false
     }finally{active.current=null;lock.current=false;if(mounted.current){setSending(false);setStopping(false)}}
   }
-  return {actionProposal,actionBusy,confirmAction:()=>resolveAction(true),cancelAction:()=>resolveAction(false),chooseFiles,removeFile,recordAction,history:archive.conversations,conversationId,memory:archive.memory,storageError,newConversation,restoreConversation,renameConversation,deleteConversation,clearHistory,saveMemory,acceptDroppedFolder,folder,choosing,toolsSupport,activity,chooseFolder,revokeFolder,models,model,setModel,checking,connected,error,messages,sending,stopping,notice,refresh,send,stop,clear:newConversation}
+  return {actionProposal,resetTools,actionBusy,confirmAction:()=>resolveAction(true),cancelAction:()=>resolveAction(false),chooseFiles,removeFile,recordAction,history:archive.conversations,conversationId,memory:archive.memory,storageError,newConversation,restoreConversation,renameConversation,deleteConversation,clearHistory,saveMemory,acceptDroppedFolder,folder,choosing,toolsSupport,activity,chooseFolder,revokeFolder,models,model,setModel,checking,connected,error,messages,sending,stopping,notice,refresh,send,stop,clear:newConversation}
 }

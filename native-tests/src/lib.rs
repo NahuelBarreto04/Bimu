@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#[path="../../src-tauri/src/file_search.rs"]pub mod file_search;
 #[path="../../src-tauri/src/autonomy_core.rs"]pub mod autonomy_core;
 // Exercise the same production code without requiring a desktop WebView.
 #[path="../../src-tauri/src/documents.rs"]pub mod documents;

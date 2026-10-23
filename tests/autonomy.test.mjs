@@ -24,6 +24,34 @@ test('offline known shortcuts work and unknown voice requests explain the missin
  assert.equal(await routeAssistantRequest('Abrí Discord',{apps,ai,voice:true,onFeedback:(...args)=>feedback.push(args)}),false)
  assert.equal(calls,0);assert.match(feedback[0][1],/Conectá Ollama/)
 })
+test('spoken clarification stays in the conversation instead of going to the registered-app route',async()=>{
+ const sent=[],direct=[];const apps={isCommand:text=>registeredLaunch([{name:'Configuración',aliases:[]}],text),request:async text=>{direct.push(text);return true}}
+ const ai={connected:true,model:'m',send:async text=>{sent.push(text);return true}}
+ for(const text of ['Quiero configuración','Configuración','la primera'])await routeAssistantRequest(text,{apps,ai,voice:true})
+ assert.deepEqual(sent,['Quiero configuración','Configuración','la primera']);assert.equal(direct.length,0)
+})
+test('a new direct shortcut discards old native choices before executing',async()=>{
+ const order=[];await routeAssistantRequest('Modo trabajo',{apps:{isCommand:()=>true,request:async()=>{order.push('shortcut');return true}},ai:{resetTools:async()=>order.push('reset')}})
+ assert.deepEqual(order,['reset','shortcut'])
+})
+test('conversation scope survives follow-ups, changes for a new chat, and document proposals stay explicit',async()=>{
+ const calls=[],events=[];const client=createOllamaClient(async(command,args)=>{
+  calls.push({command,args})
+  if(command==='autonomy_reset')return
+  args.onEvent.onmessage({type:'tool',name:'search_files',path:'presupuesto',status:'done'})
+  args.onEvent.onmessage({type:'action',proposal:{id:18,kind:'file',name:'Presupuesto.pdf',target:'C:/Documents/Presupuesto.pdf'}})
+  return {content:'Confirmá el archivo.',stopped:false}
+ },()=>({}))
+ for(const id of ['chat-one','chat-one','chat-two'])await client.stream('request','m',[],()=>{},e=>events.push(e),false,'',id)
+ assert.deepEqual(calls.map(c=>c.args.conversationId),['chat-one','chat-one','chat-two']);assert.equal(events.filter(e=>e.type==='action'&&e.proposal.kind==='file').length,3)
+ assert.equal(calls.some(c=>c.command==='autonomy_confirm'),false)
+ await client.resetTools('chat-two');assert.deepEqual(calls.at(-1),{command:'autonomy_reset',args:{conversationId:'chat-two'}})
+})
+test('a directly opened native result is displayed without generating another confirmation',async()=>{
+ const calls=[],events=[],chunks=[];const client=createOllamaClient(async(command,args)=>{calls.push(command);args.onEvent.onmessage({type:'delta',content:'Se solicitó a Windows abrir Discord.'});return {content:'Se solicitó a Windows abrir Discord.',stopped:false}},()=>({}))
+ const result=await client.stream('r','m',[],text=>chunks.push(text),event=>events.push(event),false,'','chat')
+ assert.match(result.content,/abrir Discord/);assert.equal(events.length,0);assert.deepEqual(calls,['ollama_chat_stream']);assert.equal(chunks.length,1)
+})
 test('typed acceptance clears only accepted commands or prompts, never a failed request',async()=>{
  let accepted=0
  const apps={isCommand:()=>true,request:async()=> 'error'},ai={send:async()=>{throw Error('must not run')}}

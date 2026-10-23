@@ -8,20 +8,21 @@ export function createOllamaClient(call=invoke,makeChannel=()=>new Channel()){
     removeFile:id=>call('workspace_remove_file',{id}),
     revokeFolder:()=>call('workspace_revoke'),
     acceptDrop:id=>call('workspace_accept_drop',{id}),
-    async stream(requestId,model,messages,onDelta,onTool=()=>{},useWorkspace=false,memory=''){
+    async stream(requestId,model,messages,onDelta,onTool=()=>{},useWorkspace=false,memory='',conversationId=''){
       const channel=makeChannel()
       channel.onmessage=event=>{
         if(event?.type==='delta'&&typeof event.content==='string')onDelta(event.content)
-        if(event?.type==='tool'&&['list_files','read_file','get_current_time','search_applications','open_application','search_folders','open_folder'].includes(event.name)&&typeof event.path==='string'&&['running','done','error'].includes(event.status))onTool(event)
-        if(event?.type==='action'&&Number.isSafeInteger(event.proposal?.id)&&event.proposal.id>0&&['application','folder'].includes(event.proposal.kind)&&typeof event.proposal.name==='string'&&typeof event.proposal.target==='string')onTool(event)
+        if(event?.type==='tool'&&['list_files','read_file','get_current_time','search_applications','open_application','search_folders','open_folder','search_files','open_file'].includes(event.name)&&typeof event.path==='string'&&['running','done','error'].includes(event.status))onTool(event)
+        if(event?.type==='action'&&Number.isSafeInteger(event.proposal?.id)&&event.proposal.id>0&&['application','folder','file'].includes(event.proposal.kind)&&typeof event.proposal.name==='string'&&typeof event.proposal.target==='string')onTool(event)
       }
-      const result=await call('ollama_chat_stream',{requestId,model,messages,onEvent:channel,useWorkspace,memory})
+      const result=await call('ollama_chat_stream',{requestId,model,messages,onEvent:channel,useWorkspace,memory,conversationId})
       if(typeof result?.content!=='string'||typeof result.stopped!=='boolean'||(!result.stopped&&!result.content.trim()))throw new Error('El modelo devolvió una respuesta inválida o vacía.')
       return result
     },
     cancel:requestId=>call('ollama_cancel',{requestId}),
     confirmAction:id=>call('autonomy_confirm',{id}),
     cancelAction:id=>call('autonomy_cancel',{id}),
+    resetTools:conversationId=>call('autonomy_reset',{conversationId}),
     async chat(model,messages){const result=await call('ollama_chat',{model,messages});if(typeof result!=='string'||!result.trim())throw new Error('El modelo devolvió una respuesta vacía.');return result}
   }
 }

@@ -91,3 +91,6 @@ El primer paso será pulsar para hablar. La escucha continua no estará activada
 - [x] Pedidos generales por voz conectados a Ollama y herramientas generales; descubrimiento de aplicaciones instaladas y consultas de hora (v0.21; validación con el modelo del usuario pendiente).
 - [ ] Medir éxito y latencia con modelos locales en la PC del usuario; comparar candidatos antes de cambiar el modelo predeterminado.
 - [ ] Ampliar capacidades con consultas web y nuevas acciones según pruebas de la primera etapa de autonomía.
+- [x] Continuidad de resultados para aclaraciones por nombre/número dentro de la conversación (v0.22; validación del usuario pendiente).
+- [x] Apertura directa de aplicaciones con coincidencia exacta única del pedido original, conservando elección para ambigüedades (v0.22).
+- [x] Buscar documentos por nombre/tipo y proponer apertura con el programa predeterminado; PDF por voz (v0.22).
