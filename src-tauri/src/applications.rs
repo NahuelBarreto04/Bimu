@@ -13,15 +13,15 @@ fn config(app:&AppHandle)->Result<PathBuf,String>{Ok(app.path().app_config_dir()
 fn load(app:&AppHandle,r:&mut Registry)->Result<(),String>{if r.loaded{return Ok(())}let path=config(app)?;r.entries=if path.exists(){let bytes=fs::read(path).map_err(|_|"No se pudo leer la lista de aplicaciones.")?;if bytes.len()>65536{return Err("La lista de aplicaciones es demasiado grande.".into());}serde_json::from_slice(&bytes).map_err(|_|"La configuración de aplicaciones está dañada.")?}else{defaults()};validate(&r.entries)?;r.loaded=true;Ok(())}
 fn save(app:&AppHandle,entries:&[Entry])->Result<(),String>{validate(entries)?;let shortcut_names:std::collections::HashSet<_>=crate::assistant::names(app)?.iter().map(|n|normalized(n)).collect();if entries.iter().any(|e|std::iter::once(&e.name).chain(&e.aliases).any(|n|shortcut_names.contains(&normalized(n)))){return Err("Ese nombre o alias ya pertenece a un atajo rápido.".into())}let path=config(app)?;let parent=path.parent().ok_or("Ruta de configuración inválida.")?;fs::create_dir_all(parent).map_err(|_|"No se pudo guardar la configuración.")?;let temp=path.with_extension("tmp");fs::write(&temp,serde_json::to_vec_pretty(entries).map_err(|_|"No se pudo preparar la configuración.")?).map_err(|_|"No se pudo guardar la configuración.")?;fs::rename(temp,path).map_err(|_|"No se pudo actualizar la configuración.")?;Ok(())}
 pub(crate) fn launch(app:&AppHandle,entry:&Entry)->Result<(),String>{
-    if !available(entry){return Err(format!("{} no está instalada o no se encontró en la ruta registrada. Revisá Ajustes → Aplicaciones.",entry.name));}
+    if !available(entry){return Err(format!("{} no está instalada o no se encontró en la ruta registrada. Revisá Ajustes → Atajos rápidos.",entry.name));}
     match &entry.target{Target::Spotify=>app.opener().open_url("spotify:",None::<&str>).map_err(|_|"Windows no pudo abrir Spotify.".into()),Target::Exe{path}=>std::process::Command::new(path).spawn().map(|_|()).map_err(|e|format!("Windows no pudo abrir {}: {}",entry.name,e))}
 }
 #[tauri::command]pub fn apps_list(app:AppHandle,state:State<'_,Applications>)->Result<Vec<AppInfo>,String>{let mut r=state.inner().0.lock().map_err(|_|"No se pudo consultar las aplicaciones.")?;load(&app,&mut r)?;Ok(r.entries.iter().map(view).collect())}
 #[tauri::command]pub fn apps_request(text:String,app:AppHandle,state:State<'_,Applications>)->Result<Option<Proposal>,String>{
     let Some(name)=requested(&text)else{return Ok(None)};let mut r=state.inner().0.lock().map_err(|_|"No se pudo preparar la apertura.")?;load(&app,&mut r)?;
     if r.pending.is_some(){return Err("Confirmá o cancelá la apertura pendiente.".into());}
-    let entry=r.entries.iter().find(|e|normalized(&e.name)==name||e.aliases.iter().any(|a|normalized(a)==name)).cloned().ok_or("Esa aplicación no está registrada. Agregala o configurá un alias en Ajustes → Aplicaciones.")?;
-    if !available(&entry){return Err(format!("{} no está instalada o no se encontró. Revisá Ajustes → Aplicaciones.",entry.name));}
+    let entry=r.entries.iter().find(|e|normalized(&e.name)==name||e.aliases.iter().any(|a|normalized(a)==name)).cloned().ok_or("Esa aplicación no está registrada. Agregala o configurá un alias en Ajustes → Atajos rápidos.")?;
+    if !available(&entry){return Err(format!("{} no está instalada o no se encontró. Revisá Ajustes → Atajos rápidos.",entry.name));}
     if entry.remember{launch(&app,&entry)?;return Ok(Some(Proposal{status:"opened".into(),id:0,name:entry.name.clone(),target:view(&entry).target}));}
     r.counter=r.counter.wrapping_add(1);let id=r.counter;r.pending=Some(Pending{id,app_id:entry.id.clone()});Ok(Some(Proposal{status:"confirm".into(),id,name:entry.name.clone(),target:view(&entry).target}))
 }
