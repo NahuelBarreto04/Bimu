@@ -377,3 +377,8 @@ Ajustes → Actualizaciones permite buscar versiones estables, descargar el inst
 Para publicar otra versión, incrementar conjuntamente `package.json`, `package-lock.json`, `src-tauri/Cargo.toml` y `src-tauri/tauri.conf.json`. El workflow Windows corre los tests, compila NSIS y publica la release `vVERSION` en main. Una release existente no se reemplaza: los cambios posteriores requieren un número nuevo. Usa únicamente el GITHUB_TOKEN del workflow, sin claves privadas de firma adicionales. El SHA256 verifica integridad contra GitHub; no sustituye una firma de editor de Windows.
 
 Los márgenes transparentes de Windows permiten hacer clic en la ventana detrás. El área interactiva sigue el panel y la burbuja durante las transiciones y mantiene la captura al arrastrar. El workflow verifica compilación/tests Windows; el comportamiento de clics, instalación y proceso CUDA requiere validación en la PC real.
+
+
+### 0.17.2: transiciones y recepción de archivos
+
+La ventana nativa conserva un marco único para reposo, hover, inicio y ajustes. Solo se anima el contenido, incluido el personaje, evitando el cambio de origen de pantalla durante abrir/contraer. Los márgenes mantienen el paso de clics. La captura de mouse se conserva únicamente si la pulsación comenzó sobre Bimu; un archivo arrastrado desde Explorer puede volver a activar la ventana al entrar en el panel. Probar en Windows ambos tamaños, entradas/salidas de archivos, soltar/cancelar, y cambios rápidos de tamaño.

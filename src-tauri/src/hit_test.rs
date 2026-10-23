@@ -12,6 +12,14 @@ impl Region {
   (x-cx).powi(2)+(y-cy).powi(2)<=r*r
  }
 }
+#[derive(Default)]struct PointerCapture{down:bool,owned:bool}
+impl PointerCapture{
+ fn hold(&mut self,down:bool,on_bimu:bool)->bool{
+  if down&&!self.down{self.owned=on_bimu;}
+  if !down{self.owned=false;}
+  self.down=down;self.owned&&down
+ }
+}
 #[derive(Default,Clone)]pub struct HitRegions(Arc<Mutex<Vec<Region>>>);
 #[tauri::command]
 pub fn desktop_hit_regions(regions:Vec<Region>,state:State<'_,HitRegions>)->Result<(),String>{
@@ -21,16 +29,18 @@ pub fn desktop_hit_regions(regions:Vec<Region>,state:State<'_,HitRegions>)->Resu
 pub fn start(app:tauri::AppHandle){
  #[cfg(windows)]
  std::thread::spawn(move||{
-  let regions=app.state::<HitRegions>().inner().clone();let mut ignored=false;
+  let regions=app.state::<HitRegions>().inner().clone();let mut ignored=false;let mut mouse=PointerCapture::default();
   loop{
    std::thread::sleep(std::time::Duration::from_millis(20));
    let Some(window)=app.get_webview_window("main")else{break};
-   // Never change the target while a mouse button is held (including dragging).
    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState,VK_LBUTTON,VK_RBUTTON};
-   if unsafe{GetAsyncKeyState(VK_LBUTTON as i32)}<0 || unsafe{GetAsyncKeyState(VK_RBUTTON as i32)}<0{continue}
+   let down=unsafe{GetAsyncKeyState(VK_LBUTTON as i32)}<0 || unsafe{GetAsyncKeyState(VK_RBUTTON as i32)}<0;
    let (Ok(cursor),Ok(origin),Ok(scale))=(window.cursor_position(),window.inner_position(),window.scale_factor())else{continue};
    let x=(cursor.x-origin.x as f64)/scale;let y=(cursor.y-origin.y as f64)/scale;
    let desired=regions.0.lock().map(|r|!r.is_empty()&&!r.iter().any(|a|a.contains(x,y))).unwrap_or(false);
+   // Freeze only a press that began ON Bimu. Explorer drags must be able to
+   // re-enable the window when the pointer enters it while a button is held.
+   if mouse.hold(down,!desired&&!ignored){continue}
    if desired!=ignored && window.set_ignore_cursor_events(desired).is_ok(){ignored=desired}
   }
  });
@@ -38,5 +48,7 @@ pub fn start(app:tauri::AppHandle){
 }
 #[cfg(test)]mod tests{
  use super::*;
+ #[test]fn external_drags_can_enter_and_leave_while_held(){let mut p=PointerCapture::default();assert!(!p.hold(true,false));assert!(!p.hold(true,true));assert!(!p.hold(true,false));assert!(!p.hold(false,false));}
+ #[test]fn only_bimu_press_keeps_capture_until_release(){let mut p=PointerCapture::default();assert!(p.hold(true,true));assert!(p.hold(true,false));assert!(!p.hold(false,false));assert!(!p.hold(true,false));}
  #[test]fn rounded_regions_leave_corners_transparent(){let r=Region{x:10.,y:20.,width:100.,height:50.,radii:[20.;4]};assert!(r.contains(60.,45.));assert!(!r.contains(10.,20.));assert!(!r.contains(9.,45.));assert!(r.contains(10.,45.));assert!(r.contains(45.,55.));}
 }

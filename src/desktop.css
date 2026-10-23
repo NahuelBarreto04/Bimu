@@ -201,3 +201,10 @@ html[data-voice-side=right] .desktop .wake-bubble::after{right:auto;left:-9px;tr
 .wake-diagnostics{margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:12px}.wake-diagnostics dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;font-size:10px}.wake-diagnostics dd{margin:0;text-align:right}.wake-diagnostics>div{display:flex;flex-wrap:wrap;gap:6px}
 
 .native-services{padding:16px;margin-bottom:12px}.native-services p{font-size:10px;color:var(--muted);line-height:1.7}.native-services>div,.native-services details>div{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.native-services button{font:inherit;font-size:10px;background:rgba(var(--accent),.12);border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin:3px;color:var(--ink)}.native-services label{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px 0;font-size:11px}.native-services pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;user-select:text;font-size:9px}.native-services progress{width:100%}.native-service-status{font-size:11px;color:var(--ink)}
+
+/* A stable native frame and one shared timeline prevent avatar jumps. */
+:is(html:not([data-receive]),html[data-receive=idle]) .desktop .canvas-wrap{
+ animation:none!important;
+ transition:left var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),top var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),width var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),height var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1)!important;
+}
+@media(prefers-reduced-motion:reduce){:is(html:not([data-receive]),html[data-receive=idle]) .desktop .canvas-wrap{transition:none!important}}

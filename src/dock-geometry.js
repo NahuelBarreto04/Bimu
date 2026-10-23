@@ -53,3 +53,15 @@ export function voiceEnvelope(area,frame,target,scale=1){
   const space=left?Math.min(gap,frame.x-area.x):Math.min(gap,area.x+area.width-frame.x-frame.width)
   return {side:left?'left':'right',frame:left?{...frame,x:frame.x-space,width:frame.width+space}:{...frame,width:frame.width+space}}
 }
+
+// One OS frame for all UI states. Opening/collapsing moves DOM elements only.
+export function desktopEnvelope(area,edge,size,scale,fraction){
+ const rect=(state,tab)=>{
+  const [w,h]=notchSize(edge,state,size,tab)
+  const width=Math.min(Math.round(w*scale),area.width),height=Math.min(Math.round(h*scale),area.height)
+  return {...dockPosition(area,width,height,edge,fraction),width,height}
+ }
+ const frame=[rect('idle'),rect('peek'),rect('open','home'),rect('open','settings')].reduce(unionRects)
+ const pad=Math.round(224*scale),x=Math.max(area.x,frame.x-pad),right=Math.min(area.x+area.width,frame.x+frame.width+pad)
+ return {...frame,x,width:right-x}
+}
