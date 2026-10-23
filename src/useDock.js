@@ -24,6 +24,18 @@ export function useDock({native,expanded,hovered,tab,size,voiceVisible,onError})
       root.style.setProperty('--notch-width',w+'px');root.style.setProperty('--notch-height',h+'px')
     }
     if(!native){setFrame(0,0,wantedW,wantedH);return}
+    // Update animation endpoints before paint. The OS frame is already fixed,
+    // so opening/closing must not wait for an asynchronous monitor lookup.
+    const cached=monitorRef.current
+    if(cached&&nativeFrame.current){
+      const scale=cached.scaleFactor,a=cached.workArea,area={x:a.position.x,y:a.position.y,width:a.size.width,height:a.size.height}
+      const frame=desktopEnvelope(area,edge,size,scale,fraction)
+      if(['x','y','width','height'].every(k=>nativeFrame.current[k]===frame[k])){
+        const w=Math.min(wantedW,area.width/scale),h=Math.min(wantedH,area.height/scale)
+        const target=dockPosition(area,Math.round(w*scale),Math.round(h*scale),edge,fraction)
+        setFrame((target.x-frame.x)/scale,(target.y-frame.y)/scale,w,h)
+      }
+    }
     const ticket=++revision.current
     let finishTimer,frame1,frame2
     const valid=()=>ticket===revision.current
@@ -38,7 +50,7 @@ export function useDock({native,expanded,hovered,tab,size,voiceVisible,onError})
       const pos=dockPosition({x:area.position.x,y:area.position.y,width:area.size.width,height:area.size.height},Math.round(width*scale),Math.round(height*scale),edge,fraction)
       const target={...pos,width:Math.round(width*scale),height:Math.round(height*scale)}
       const frame=desktopEnvelope({x:area.position.x,y:area.position.y,width:area.size.width,height:area.size.height},edge,size,scale,fraction)
-      root.dataset.voiceSide=target.x-area.position.x>=224*scale?'left':'right' 
+      root.dataset.voiceSide=target.x-area.position.x>=224*scale?'left':'right'
       const localX=(target.x-frame.x)/scale,localY=(target.y-frame.y)/scale
       const sameFrame=nativeFrame.current&&['x','y','width','height'].every(k=>nativeFrame.current[k]===frame[k])
       if(shown.current&&sameFrame){

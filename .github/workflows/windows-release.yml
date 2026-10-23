@@ -7,7 +7,7 @@ permissions:
   contents: write
 concurrency:
   group: windows-release
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: windows-latest
@@ -20,6 +20,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
+          cache-on-failure: true
           workspaces: |
             src-tauri -> target
             native-tests -> target
@@ -60,6 +61,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          $headCommit = gh api repos/$env:GITHUB_REPOSITORY/git/ref/heads/main --jq '.object.sha'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not verify branch head' }
+          if ($headCommit.Trim() -ne $env:GITHUB_SHA) { Write-Host 'A newer commit is being built; skipping this obsolete release.'; exit 0 }
           $tag = "v$env:BIMU_VERSION"
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {

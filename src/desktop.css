@@ -208,3 +208,7 @@ html[data-voice-side=right] .desktop .wake-bubble::after{right:auto;left:-9px;tr
  transition:left var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),top var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),width var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1),height var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1)!important;
 }
 @media(prefers-reduced-motion:reduce){:is(html:not([data-receive]),html[data-receive=idle]) .desktop .canvas-wrap{transition:none!important}}
+
+/* Resolve avatar endpoints from target dimensions, not a parent's in-flight size. */
+:is(html:not([data-receive]),html[data-receive=idle]) .desktop.compact .canvas-wrap{top:calc((var(--notch-height,54px) - 54px)/2)!important}
+:is(html[data-edge=left],html[data-edge=right]):is(:not([data-receive]),[data-receive=idle]) .desktop.compact .canvas-wrap{left:calc((var(--notch-width,116px) - 64px)/2)!important;top:7px!important}
