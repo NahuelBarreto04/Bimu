@@ -364,3 +364,16 @@ npm run voice:start:gpu
 Las DLL CUDA se incluyen en el paquete oficial; se necesita un controlador NVIDIA compatible. Confirmar en la terminal `ggml_cuda` y el nombre de la GPU: iniciar en modo GPU no demuestra por sí solo que se haya utilizado. No se cambia a CPU silenciosamente desde el script. Si faltan DLL, falla el controlador o no alcanza la VRAM, detener y ejecutar `npm run voice:start` (CPU). Ambos modos usan 127.0.0.1:8081; no iniciarlos simultáneamente. Ollama no cambia y puede competir por VRAM con Whisper.
 
 Comparar con la misma espera de 0,7 s y los mismos pedidos desde Ajustes → Decí «Bimu» → Medir la escucha, reiniciando la medición. Base observada en CPU: 17,6 s / 12 frases ≈ 1,47 s de procesamiento medio; máximo 2,33 s. Realizar un pedido de calentamiento antes de medir cada modo. La aceleración real está pendiente de validar en Windows.
+
+
+## Bimu 0.17: instalación, voz integrada y actualizaciones
+
+Descargar una vez `Bimu_0.17.0_x64-setup.exe` desde GitHub Releases y ejecutarlo con el usuario habitual. Mantiene el identificador de la app para conservar datos. No desinstalar borrando los datos de usuario. Windows puede advertir que el editor es desconocido: este instalador todavía no tiene certificado Authenticode.
+
+Desde Ajustes → Motor de voz se puede preparar CPU o NVIDIA CUDA, iniciar/detener y consultar los registros. Reutiliza `%LOCALAPPDATA%\Bimu\voice`, el modelo y las descargas anteriores. Detener una vez el servidor que se hubiera iniciado manualmente. Bimu inicia el motor preparado al abrirse (opción desactivable), lo detiene al salir y nunca mata servidores externos. Abrir el motor no activa la escucha del micrófono. La preparación inicial necesita conexión y puede tardar varios minutos; la transcripción posterior es local.
+
+Ajustes → Actualizaciones permite buscar versiones estables, descargar el instalador del repositorio oficial y verificar su tamaño y SHA256 publicado por GitHub. El botón de instalación vuelve a verificar el archivo, detiene el Whisper propio, abre el instalador interactivo y cierra Bimu. No usa instalación silenciosa. Abrir Bimu al terminar. Las compilaciones de desarrollo permiten comprobar/descargar, pero no lanzar instalación sobre `tauri dev`.
+
+Para publicar otra versión, incrementar conjuntamente `package.json`, `package-lock.json`, `src-tauri/Cargo.toml` y `src-tauri/tauri.conf.json`. El workflow Windows corre los tests, compila NSIS y publica la release `vVERSION` en main. Una release existente no se reemplaza: los cambios posteriores requieren un número nuevo. Usa únicamente el GITHUB_TOKEN del workflow, sin claves privadas de firma adicionales. El SHA256 verifica integridad contra GitHub; no sustituye una firma de editor de Windows.
+
+Los márgenes transparentes de Windows permiten hacer clic en la ventana detrás. El área interactiva sigue el panel y la burbuja durante las transiciones y mantiene la captura al arrastrar. El workflow verifica compilación/tests Windows; el comportamiento de clics, instalación y proceso CUDA requiere validación en la PC real.

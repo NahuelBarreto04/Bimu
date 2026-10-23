@@ -1,5 +1,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod ollama;
+mod hit_test;
+mod voice_engine;
+mod release_core;
+mod updates;
 mod workspace;
 mod voice;
 mod applications;
@@ -11,6 +15,7 @@ use tauri::{Emitter, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
+    app.state::<voice_engine::VoiceEngine>().shutdown();
     app.exit(0);
 }
 
@@ -23,8 +28,13 @@ fn main() {
         .manage(workspace::DropInbox::default())
         .manage(ollama::StreamRequests::default())
         .manage(voice::VoiceState::default())
-        .invoke_handler(tauri::generate_handler![quit_app, applications::apps_list, applications::apps_request, applications::apps_confirm, applications::apps_cancel, applications::apps_add, applications::apps_update, applications::apps_remove, workspace::workspace_choose_files, workspace::workspace_remove_file, voice::voice_status, voice::voice_transcribe, voice::voice_cancel, ollama::ollama_models, ollama::ollama_chat, ollama::ollama_chat_stream, ollama::ollama_cancel, ollama::ollama_capabilities, workspace::workspace_choose, workspace::workspace_revoke, workspace::workspace_stage_drop, workspace::workspace_accept_drop, workspace::workspace_discard_drop])
+        .manage(hit_test::HitRegions::default())
+        .manage(voice_engine::VoiceEngine::default())
+        .manage(updates::Updates::default())
+        .invoke_handler(tauri::generate_handler![quit_app, hit_test::desktop_hit_regions, voice_engine::voice_engine_status, voice_engine::voice_engine_start, voice_engine::voice_engine_stop, voice_engine::voice_engine_prepare, voice_engine::voice_engine_auto, voice_engine::voice_engine_log, updates::updates_check, updates::updates_download, updates::updates_install, applications::apps_list, applications::apps_request, applications::apps_confirm, applications::apps_cancel, applications::apps_add, applications::apps_update, applications::apps_remove, workspace::workspace_choose_files, workspace::workspace_remove_file, voice::voice_status, voice::voice_transcribe, voice::voice_cancel, ollama::ollama_models, ollama::ollama_chat, ollama::ollama_chat_stream, ollama::ollama_cancel, ollama::ollama_capabilities, workspace::workspace_choose, workspace::workspace_revoke, workspace::workspace_stage_drop, workspace::workspace_accept_drop, workspace::workspace_discard_drop])
         .setup(|app| {
+            hit_test::start(app.handle().clone());
+            voice_engine::autostart(app.handle().clone());
             let show = MenuItem::with_id(app, "show", "Mostrar mascota", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Personalizar", true, None::<&str>)?;
             let greet = MenuItem::with_id(app, "greet", "Saludar", true, None::<&str>)?;
@@ -61,6 +71,7 @@ fn main() {
                 let _ = window.hide();
             }
         })
-        .run(tauri::generate_context!())
-        .expect("No se pudo iniciar la mascota");
+        .build(tauri::generate_context!())
+        .expect("No se pudo iniciar Bimu")
+        .run(|app,event|{if let tauri::RunEvent::Exit=event{app.state::<voice_engine::VoiceEngine>().shutdown();}});
 }

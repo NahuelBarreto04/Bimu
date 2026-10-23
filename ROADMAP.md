@@ -58,9 +58,12 @@ El primer paso será pulsar para hablar. La escucha continua no estará activada
 
 ## Escritorio
 
-- [ ] Click-through en márgenes transparentes.
+- [x] Click-through de márgenes mediante regiones y seguimiento nativo del cursor (0.17; validación manual Windows pendiente).
 - [ ] Selector de monitor y pruebas con distintos DPI.
-- [ ] Instalador de Windows y verificaciones nativas automatizadas.
+- [x] Pipeline Windows para pruebas nativas e instalador NSIS (0.17).
+- [x] Gestión de Whisper CPU/GPU desde Ajustes, inicio automático opcional y cierre de procesos propios (0.17).
+- [x] Buscar/descargar releases estables y lanzar instalador verificado desde la app (0.17).
+- [ ] Validar instalación/actualización real y clics en márgenes en Windows.
 
 
 ## Documentos múltiples · beta 0.15

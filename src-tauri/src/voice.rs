@@ -10,8 +10,9 @@ pub struct VoiceState(pub Mutex<Requests>);
 pub struct Requests{active:Option<(String,watch::Sender<bool>)>,pending:Option<String>}
 fn client()->Result<reqwest::Client,String>{reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).connect_timeout(Duration::from_secs(3)).timeout(Duration::from_secs(180)).build().map_err(|_|"No se pudo iniciar la transcripción local.".into())}
 #[tauri::command]
-pub async fn voice_status()->Result<(),String>{
-    let response=client()?.get(format!("{BASE}/health")).timeout(Duration::from_secs(4)).send().await.map_err(|_|"No se encuentra Whisper local. Iniciá whisper-server en 127.0.0.1:8081 (Ajustes → Voz).")?;
+pub async fn voice_status(engine:State<'_,crate::voice_engine::VoiceEngine>)->Result<(),String>{
+    crate::voice_engine::ensure(&engine).await?;
+    let response=client()?.get(format!("{BASE}/health")).timeout(Duration::from_secs(4)).send().await.map_err(|_|"No se encuentra Whisper local. Iniciá el motor desde Ajustes → Motor de voz.")?;
     if response.status().as_u16()==503{return Err("Whisper todavía está cargando el modelo. Esperá y volvé a comprobar.".into());}
     if !response.status().is_success(){return Err("El motor de voz local no está disponible.".into());}
     let status:Value=response.json().await.map_err(|_|"El servicio local no respondió como whisper.cpp.")?;
