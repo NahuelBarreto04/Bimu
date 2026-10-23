@@ -1,4 +1,4 @@
-# Bimu · Beta v0.19.0
+# Bimu · Beta v0.19.1
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -406,3 +406,14 @@ Ejemplo: nombre Modo trabajo → Slack → https://mail.google.com (Chrome) → 
 La búsqueda recorre carpetas habituales del perfil y discos locales fijos/extraíbles; no utiliza Ollama ni lee el contenido de archivos. Tiene un límite de 15 segundos, 300.000 entradas y 50 coincidencias. No recorre red, carpetas del sistema, dependencias, enlaces/junctions ni ubicaciones sin acceso; carpetas de nube con puntos de reanálisis pueden quedar fuera. Si llega al límite lo indica: no equivale a haber revisado toda la PC. La lista solo permite abrir resultados reales de la búsqueda vigente; se vuelve a comprobar la carpeta al abrir.
 
 Pruebas Windows: crear/editar/reordenar una rutina con app, Gmail/Jira y carpeta; ejecutar desde botón, chat y voz con/sin confirmación; reiniciar y verificar persistencia; probar una app quitada o carpeta movida y revisar fallos parciales; buscar dos carpetas del mismo nombre y elegir la correcta; cancelar durante la búsqueda; acotar a una ubicación. Los instaladores siguen usando el mecanismo de actualización existente.
+
+
+## v0.19.1 · Perfiles de Chrome y correcciones visuales
+
+Las acciones de tipo Aplicación (Chrome) y Página web con Chrome permiten elegir un perfil detectado por nombre y directorio. Se leen solo los metadatos de perfiles de la instalación estándar en `%LOCALAPPDATA%\Google\Chrome\User Data\Local State`; no se consultan cookies ni sesiones. Abrí el perfil una vez en Chrome si no aparece y pulsá Volver a detectar perfiles. Usá el mismo perfil en Gmail y Jira. Elegir Sin especificar perfil conserva el comportamiento anterior. Los atajos existentes siguen siendo compatibles.
+
+El backend vuelve a comprobar que el perfil exista al guardar y ejecutar; no acepta rutas de perfil arbitrarias ni crea perfiles nuevos si desaparecen. Las instalaciones de Chrome con directorios de datos personalizados no se detectan en esta versión.
+
+El avatar sigue la posición real de su tarjeta de Inicio cuando aparecen resultados y al desplazarse por el panel; se recorta al área visible. El lienzo 3D y el comportamiento compacto/drop se conservan. Los desplegables tienen esquema de color y opciones opacas con contraste en los temas claro y oscuro.
+
+Prueba Windows: abrir una carpeta desde voz y desplazar Inicio; comprobar personaje dentro de su tarjeta y regreso al notch; abrir desplegables en ambos temas; elegir Trabajo en Chrome para Gmail/Jira, guardar, reiniciar y ejecutar el atajo.

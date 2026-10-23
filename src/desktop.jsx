@@ -14,6 +14,7 @@ import {ConversationHistory} from './ConversationPanels'
 import {useVoice} from './useVoice'
 import {useHitRegions} from './useHitRegions'
 import {VoiceControls,VoiceStatus} from './VoicePanels'
+import {useHomeAvatar} from './useHomeAvatar'
 import {useAssistantActions} from './useAssistantActions'
 import {AssistantResults} from './AssistantPanels'
 import {useApplications} from './useApplications'
@@ -51,6 +52,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   useEffect(()=>()=>clearTimeout(noticeTimer.current),[])
   const registry=useApplications({native:nativeMode,onResult:ai.recordAction})
   const actions=useAssistantActions({native:nativeMode,onResult:ai.recordAction,onFeedback:voiceFeedback,onActivity:onInteract,onShow:()=>{onExpand(true)}})
+  useHomeAvatar(expanded&&tab==='home')
   const apps={...registry,busy:registry.busy||actions.busy,pending:registry.pending||actions.pending,
     isCommand:text=>actions.isCommand(text)||registry.isCommand(text),
     request:async(text,options)=>actions.isCommand(text)?actions.request(text,options):registry.request(text,options),
