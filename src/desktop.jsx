@@ -55,6 +55,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   },onFeedback:voiceFeedback,onActivity:onInteract})
 
   const drop=useDropZone({native:nativeMode,busy:ai.sending||ai.choosing||voice.active||voice.detecting||apps.busy||!!apps.pending,reception:receiveRef})
+  useEffect(()=>{if(drop.active)onInteract?.()},[drop.active,onInteract])
   const [service,setService]=useState(null)
   const [hovered,setHovered]=useState(false)
   const hoverTimer=useRef()
@@ -99,6 +100,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
     if(!nativeMode)return
     let disposed=false;let off
     listen('desktop-action',({payload})=>{
+      onInteract?.()
       if(payload==='center'){dockCallbacks.current.center();dockCallbacks.current.reanchor()}
       if(payload==='show')dockCallbacks.current.reanchor()
       if(payload==='settings'){onExpand(true);setTab('settings')}
@@ -106,7 +108,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
       if(payload==='greet')callbacks.current.onGreet()
     }).then(fn=>{if(disposed)fn();else off=fn}).catch(e=>setError(String(e)))
     return()=>{disposed=true;off?.()}
-  },[onExpand])
+  },[onExpand,onInteract])
   const collapse=()=>{setHovered(false);onExpand(false);setTab('home')}
   const openNotch=()=>{if(!dock.consumeDrag()){clearTimeout(hoverTimer.current);setTab('home');onExpand(true)}}
   const submitMessage=async()=>{if(voice.active||ai.sending||ai.choosing||apps.busy||apps.pending)return;const text=draft;const handled=await apps.request(text);if(handled){if(handled!=='error')setDraft(current=>current===text?'':current);return}await ai.send(text,()=>setDraft(current=>current===text?'':current))}
