@@ -5,7 +5,7 @@ use tauri_plugin_opener::OpenerExt;
 use crate::{autonomy_core::*, application_registry::{Entry, available}};
 
 #[derive(Clone)] enum Destination { Registered(Entry), Installed(String), Folder(PathBuf), File(PathBuf) }
-#[derive(Clone)] struct Candidate { id: String, name: String, label: String, destination: Destination, aliases: Vec<String> }
+#[derive(Clone)] struct Candidate { id: String, name: String, label: String, destination: Destination, aliases: Vec<String>, approximate:bool }
 struct Conversation { id:String, model:String, used:Instant, session:Arc<Mutex<Session>> }
 #[derive(Default)] pub struct Autonomy(Mutex<Confirmations<Destination>>,Mutex<Option<Conversation>>);
 #[derive(Default)] pub struct Session {
@@ -71,20 +71,30 @@ impl Session {
             let candidate=self.candidate(&choice.kind,&choice.id).ok_or("Los resultados cambiaron. Volvé a buscar.")?;
             return self.open(app,candidate,&choice.kind,choice.kind=="application",cancel).map(Some);
         }
+        if self.choices.pending(Instant::now())&&(selection_reply(text)||self.choices.named_reply(text,Instant::now())){
+            let options=self.choices.current(Instant::now()).iter().enumerate().map(|(i,c)|format!("{}. {} — {}",i+1,c.name,c.target)).collect::<Vec<_>>().join("\n");
+            return Ok(Some(json!({"status":"choose","message":format!("La elección no identifica un único resultado. Elegí el número de una de estas opciones:\n\n{}",options)})));
+        }
+        if selection_reply(text){self.choices.disarm();return Ok(Some(json!({"status":"selection_missing","message":"No tengo una lista de resultados vigente para esa elección. Repetí el pedido completo, por ejemplo: abrí Discord. No se abrió ninguna aplicación."})));}
         // Keep the data for interpretation, but only the immediate explicit choice can open directly.
         self.choices.disarm();
         Ok(None)
     }
+    pub fn direct(&mut self,app:&AppHandle,plan:&DirectRequest,cancel:&Arc<AtomicBool>)->Result<Value,String>{
+        let result=resolve_direct(plan,|tool,args|self.execute(app,tool,args,cancel));
+        if cancel.load(Ordering::Relaxed){self.choices.clear();return Err("Consulta cancelada.".into());}
+        result
+    }
     fn open(&mut self,app:&AppHandle,candidate:Candidate,kind:&str,direct:bool,cancel:&Arc<AtomicBool>)->Result<Value,String>{
         if self.acted{return Err("Ya se procesó una apertura en este pedido.".into());}
         if cancel.load(Ordering::Relaxed){return Err("Consulta cancelada.".into());}
-        self.acted=true;self.choices.clear();
+        self.acted=true;self.choices.clear();let approximate=candidate.approximate;
         if direct&&kind=="application"{
             launch(app,candidate.destination)?;
             return Ok(json!({"status":"opened","name":candidate.name,"target":candidate.label,"message":format!("Se solicitó a Windows abrir {}.",candidate.name)}));
         }
         let state=app.state::<Autonomy>();let proposal=state.0.lock().map_err(|_|"Hay una acción en curso.")?.propose(kind.into(),candidate.name,candidate.label,candidate.destination,Instant::now())?;
-        Ok(json!({"status":"confirmation_required","proposal":proposal,"message":"Todavía no se abrió. Confirmá el destino en la interfaz."}))
+        Ok(json!({"status":"confirmation_required","approximate":approximate,"proposal":proposal,"message":"Todavía no se abrió. Confirmá el destino en la interfaz."}))
     }
     fn choice_result(&mut self,kind:&str,candidates:&[Candidate],opening:bool,incomplete:bool)->Value{
         self.choices.set(candidates.iter().map(|c|Self::choice(c,kind)).collect(),opening,Instant::now());
@@ -109,10 +119,10 @@ impl Session {
             "search_applications"=>{
                 let q=query(&args,"query")?;
                 if self.apps.is_none(){
-                    let mut apps:Vec<_>=crate::applications::configured(app)?.into_iter().filter(available).map(|entry|Candidate{id:String::new(),name:entry.name.clone(),label:crate::application_registry::view(&entry).target,aliases:entry.aliases.clone(),destination:Destination::Registered(entry)}).collect();
+                    let mut apps:Vec<_>=crate::applications::configured(app)?.into_iter().filter(available).map(|entry|Candidate{id:String::new(),name:entry.name.clone(),label:crate::application_registry::view(&entry).target,aliases:entry.aliases.clone(),approximate:false,destination:Destination::Registered(entry)}).collect();
                     for entry in windows_apps(cancel)?{
                         if apps.iter().any(|a|crate::application_intent::normalized(&a.name)==crate::application_intent::normalized(&entry.name)){continue;}
-                        apps.push(Candidate{id:String::new(),name:entry.name,label:format!("Aplicación de Windows · {}",entry.app_id),aliases:vec![],destination:Destination::Installed(entry.app_id)});
+                        apps.push(Candidate{id:String::new(),name:entry.name,label:format!("Aplicación de Windows · {}",entry.app_id),approximate:false,aliases:vec![],destination:Destination::Installed(entry.app_id)});
                     }
                     for(i,a)in apps.iter_mut().enumerate(){a.id=format!("app-{i}");}self.apps=Some(apps);
                 }
@@ -131,16 +141,16 @@ impl Session {
                 let q=query(&args,"query")?;let result=crate::assistant_core::search_folders(crate::assistant::roots(),&q,cancel,Duration::from_secs(15),300000);
                 if result.cancelled{return Err("Búsqueda cancelada.".into());}
                 self.sequence+=1;
-                let total=result.matches.len();self.folders=result.matches.into_iter().take(12).enumerate().map(|(i,f)|Candidate{id:format!("folder-{}-{i}",self.sequence),name:f.name,label:f.path.display().to_string(),destination:Destination::Folder(f.path),aliases:vec![]}).collect();
-                let mut response=self.choice_result("folder",&self.folders.clone(),opening,result.incomplete||total>12);response["query"]=json!(q);response["total"]=json!(total);response["skipped"]=json!(result.skipped);Ok(response)
+                let total=result.matches.len();self.folders=result.matches.into_iter().take(12).enumerate().map(|(i,f)|Candidate{id:format!("folder-{}-{i}",self.sequence),name:f.name,label:f.path.display().to_string(),destination:Destination::Folder(f.path),aliases:vec![],approximate:false}).collect();
+                let mut response=self.choice_result("folder",&self.folders.clone(),opening,result.incomplete||total>12);response["query"]=json!(q);response["total"]=json!(total);response["skipped"]=json!(result.skipped);response["visited"]=json!(result.visited);Ok(response)
             },
             "search_files"=>{
                 let q=query(&args,"query")?;let ext=args.get("extension").filter(|v|!v.is_null()).map(|v|v.as_str().ok_or("La extensión debe ser texto.")).transpose()?;
                 let result=crate::file_search::search_files(crate::assistant::roots(),&q,ext,cancel,Duration::from_secs(15),300000)?;
                 if result.cancelled{return Err("Búsqueda cancelada.".into());}
                 self.sequence+=1;
-                let total=result.matches.len();self.files=result.matches.into_iter().take(12).enumerate().map(|(i,f)|Candidate{id:format!("file-{}-{i}",self.sequence),name:f.name,label:f.path.display().to_string(),destination:Destination::File(f.path),aliases:vec![]}).collect();
-                let mut response=self.choice_result("file",&self.files.clone(),opening,result.incomplete||total>12);response["query"]=json!(q);response["total"]=json!(total);response["skipped"]=json!(result.skipped);response["note"]=json!("Solo se buscaron nombres. Abrir no comparte el archivo con el modelo ni lee su contenido.");Ok(response)
+                let total=result.matches.len();self.files=result.matches.into_iter().take(12).enumerate().map(|(i,f)|Candidate{id:format!("file-{}-{i}",self.sequence),approximate:crate::file_search::filename_quality(&f.name,&q)==1,name:f.name,label:f.path.display().to_string(),destination:Destination::File(f.path),aliases:vec![]}).collect();
+                let mut response=self.choice_result("file",&self.files.clone(),opening,result.incomplete||total>12);response["query"]=json!(q);response["total"]=json!(total);response["skipped"]=json!(result.skipped);response["visited"]=json!(result.visited);response["note"]=json!("Solo se buscaron nombres. Abrir no comparte el archivo con el modelo ni lee su contenido.");Ok(response)
             },
             "open_application"|"open_folder"|"open_file"=>{
                 let id=query(&args,"id")?;let kind=match name{"open_application"=>"application","open_folder"=>"folder",_=>"file"};

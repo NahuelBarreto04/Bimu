@@ -94,3 +94,5 @@ El primer paso será pulsar para hablar. La escucha continua no estará activada
 - [x] Continuidad de resultados para aclaraciones por nombre/número dentro de la conversación (v0.22; validación del usuario pendiente).
 - [x] Apertura directa de aplicaciones con coincidencia exacta única del pedido original, conservando elección para ambigüedades (v0.22).
 - [x] Buscar documentos por nombre/tipo y proponer apertura con el programa predeterminado; PDF por voz (v0.22).
+- [x] Pedidos directos con búsqueda nativa obligatoria antes del modelo, respuestas basadas en resultados reales y diagnóstico visible (v0.23; validación del usuario pendiente).
+- [x] Sugerencias de archivos con separadores o errores de dictado pequeños, siempre confirmadas con nombre y destino reales (v0.23).

@@ -40,12 +40,51 @@ pub fn unique_exact_app(text:&str,names:&[Vec<String>])->Option<usize>{
     let found:Vec<_>=names.iter().enumerate().filter(|(_,names)|names.iter().any(|name|normalized(name)==wanted)).map(|(i,_)|i).collect();
     if found.len()==1{Some(found[0])}else{None}
 }
+#[derive(Debug,PartialEq)]pub struct DirectRequest{pub tool:&'static str,pub query:String,pub extension:Option<String>}
+fn remove_name_prefix(text:&str)->&str{
+    ["que se llama ","que se llame ","con el nombre ","con nombre ","de nombre ","llamado ","llamada ","del ","de "].iter().find_map(|prefix|text.strip_prefix(prefix)).unwrap_or(text)
+}
+pub fn direct_request(text:&str)->Option<DirectRequest>{
+    let requested=crate::application_intent::requested(text)?;
+    let mut name=requested.as_str();
+    for prefix in ["el ","la ","un ","una ","mi "]{if let Some(rest)=name.strip_prefix(prefix){name=rest;break;}}
+    if name=="carpeta"||name.starts_with("carpeta "){return Some(DirectRequest{tool:"search_folders",query:remove_name_prefix(name.strip_prefix("carpeta").unwrap().trim()).into(),extension:None});}
+    let mut file=false;
+    for prefix in ["archivo ","documento ","imagen ","video ","audio "]{if let Some(rest)=name.strip_prefix(prefix){file=true;name=remove_name_prefix(rest);break;}}
+    let words:Vec<_>=name.split_whitespace().collect();let mut extension=None;
+    if let Some(first)=words.first(){if crate::file_search::allowed_extension(first){file=true;extension=Some(first.to_string());name=remove_name_prefix(name.strip_prefix(*first).unwrap().trim());}}
+    if extension.is_none(){if let Some((stem,last))=name.rsplit_once(' '){if crate::file_search::allowed_extension(last){file=true;extension=Some(last.into());name=stem;}}}
+    if file{Some(DirectRequest{tool:"search_files",query:remove_name_prefix(name).trim().into(),extension})}
+    else{Some(DirectRequest{tool:"search_applications",query:requested,extension:None})}
+}
+// Production direct requests use this same dispatcher. No language model can turn a
+// failed search into a fabricated choice or replace its real result with prose.
+pub fn resolve_direct(plan:&DirectRequest,mut execute:impl FnMut(&str,Value)->Result<Value,String>)->Result<Value,String>{
+    if plan.query.is_empty(){return Ok(json!({"status":"not_found","message":"Decime el nombre del archivo o carpeta que querés abrir."}));}
+    let mut args=json!({"query":plan.query});if let Some(extension)=&plan.extension{args["extension"]=json!(extension);}
+    let output=execute(plan.tool,args)?;
+    if output["status"]=="ready_to_open"{
+        let tool=match output["kind"].as_str(){Some("application")=>"open_application",Some("folder")=>"open_folder",Some("file")=>"open_file",_=>return Err("Tipo de apertura inválido.".into())};
+        return execute(tool,json!({"id":output["id"]}));
+    }
+    if output["status"]=="choose"{return Ok(output);}
+    let matches=output["matches"].as_array().ok_or("La búsqueda no devolvió resultados válidos.")?;
+    if !matches.is_empty(){return Err("La búsqueda no pudo preparar la elección del destino.".into());}
+    let partial=output["incomplete"].as_bool().unwrap_or(false);
+    Ok(json!({"status":"not_found","message":format!("No encontré coincidencias para «{}» en las ubicaciones recorridas.{}{} Revisá que el nombre reconocido sea el que querías buscar.",plan.query,if partial{" La búsqueda llegó a su límite y es parcial."}else{""},if plan.tool=="search_files"{" Se buscaron nombres de documentos locales; no se leyó su contenido."}else{""}),"query":plan.query,"visited":output["visited"],"skipped":output["skipped"],"incomplete":partial}))
+}
+pub fn selection_reply(text:&str)->bool{
+    let n=normalized(text);let n=n.strip_prefix("bimu ").unwrap_or(&n);
+    matches!(n,"la primera"|"el primero"|"la segunda"|"el segundo"|"la tercera"|"el tercero")||n.strip_prefix("la opcion ").unwrap_or(n).parse::<usize>().is_ok_and(|n|n>0&&n<=12)
+}
 #[derive(Clone,Debug,Serialize)]pub struct Choice{pub id:String,pub name:String,pub target:String,pub kind:String}
 #[derive(Default)]pub struct Choices{items:Vec<Choice>,opening:bool,created:Option<std::time::Instant>}
 impl Choices{
     pub fn set(&mut self,items:Vec<Choice>,opening:bool,now:std::time::Instant){self.items=items.into_iter().take(12).collect();self.opening=opening;self.created=Some(now);}
     pub fn clear(&mut self){self.items.clear();self.opening=false;self.created=None;}
     pub fn disarm(&mut self){self.opening=false;}
+    pub fn pending(&self,now:std::time::Instant)->bool{self.opening&&!self.current(now).is_empty()}
+    pub fn named_reply(&self,text:&str,now:std::time::Instant)->bool{let n=normalized(text);let n=n.strip_prefix("bimu ").unwrap_or(&n);let n=n.strip_prefix("quiero ").or_else(||n.strip_prefix("elijo ")).unwrap_or(n);self.current(now).iter().any(|c|normalized(&c.name)==n)}
     pub fn current(&self,now:std::time::Instant)->&[Choice]{if self.created.is_some_and(|t|now.duration_since(t)<=std::time::Duration::from_secs(300)){&self.items}else{&[]}}
     pub fn resolve(&self,text:&str,now:std::time::Instant)->Option<Choice>{
         if !self.opening{return None;}
@@ -107,6 +146,30 @@ pub fn definitions() -> Value {
 
 #[cfg(test)] mod tests {
     use super::*;
+    #[test]fn direct_requests_use_the_native_search_without_waiting_for_a_model_tool_call(){
+        let discord=direct_request("Bimu, abrí Discord").unwrap();assert_eq!(discord.tool,"search_applications");assert_eq!(discord.query,"discord");
+        let mut calls=vec![];
+        let result=resolve_direct(&discord,|tool,args|{calls.push(tool.to_string());match tool{
+            "search_applications"=>{assert_eq!(args["query"],"discord");Ok(json!({"status":"ready_to_open","kind":"application","id":"real-windows-id"}))},
+            "open_application"=>{assert_eq!(args["id"],"real-windows-id");Ok(json!({"status":"opened","message":"Apertura solicitada a Windows."}))},
+            _=>panic!("No debe invocar otro circuito")
+        }}).unwrap();assert_eq!(result["status"],"opened");assert_eq!(calls,vec!["search_applications","open_application"]);
+        for text in ["No abras Discord","Explicá cómo abrir Discord","El PDF dice abrí Discord"]{assert!(direct_request(text).is_none());}
+    }
+    #[test]fn direct_pdf_names_are_extracted_before_search_and_never_become_app_queries(){
+        for text in ["Abrí el PDF que se llama CB SofiaLopez EN.","Bimu, abrí el archivo PDF llamado CB SofiaLopez EN","Abrí CB SofiaLopez EN.pdf"]{
+            let plan=direct_request(text).unwrap();assert_eq!(plan.tool,"search_files", "{text}");assert_eq!(plan.extension.as_deref(),Some("pdf"));assert_eq!(plan.query,"cb sofialopez en");
+        }
+        let folder=direct_request("Abrí la carpeta llamada Fotos de viajes").unwrap();assert_eq!(folder.tool,"search_folders");assert_eq!(folder.query,"fotos de viajes");
+        let generic=direct_request("Abrí el archivo que se llama factura").unwrap();assert_eq!(generic.tool,"search_files");assert_eq!(generic.query,"factura");
+    }
+    #[test]fn native_no_match_partial_searches_and_errors_cannot_be_rewritten_by_the_model(){
+        let plan=direct_request("Abrí el PDF del presupuesto").unwrap();let mut called=0;
+        let result=resolve_direct(&plan,|tool,_|{called+=1;assert_eq!(tool,"search_files");Ok(json!({"matches":[],"incomplete":true,"visited":123,"skipped":2}))}).unwrap();
+        assert_eq!(called,1);assert_eq!(result["status"],"not_found");assert!(result["message"].as_str().unwrap().contains("parcial"));assert_eq!(result["visited"],123);
+        assert_eq!(resolve_direct(&plan,|_,_|Err("Windows no disponible".into())).unwrap_err(),"Windows no disponible");
+        let result=resolve_direct(&plan,|_,_|Ok(json!({"status":"choose","matches":[{"id":"one","name":"Factura.pdf"},{"id":"two","name":"Factura.pdf"}],"message":"Lista real"}))).unwrap();assert_eq!(result["message"],"Lista real");
+    }
     #[test]fn exact_app_opening_is_bound_to_the_users_request_not_the_models_query(){
         let names=vec![vec!["Configuración".into()],vec!["Configuración del sistema".into()],vec!["Discord".into(),"Discord Desktop".into()]];
         assert_eq!(unique_exact_app("Bimu, abrí Configuración",&names),Some(0));assert_eq!(unique_exact_app("Abrí Discord",&names),Some(2));

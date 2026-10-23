@@ -266,3 +266,4 @@ html[data-edge=right]:is(:not([data-receive]),[data-receive=idle]) .desktop.comp
 .microphone-meter.detecting>span{background:#8fcdb1}.microphone-meter>i{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
 .calibration-actions{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.microphone-level progress{display:block;width:100%;accent-color:rgb(var(--accent));margin:10px 0}
 .wake-settings>label>output{font-variant-numeric:tabular-nums;white-space:nowrap}.wake-settings>label>input[type=range]{min-width:0;flex:1;accent-color:rgb(var(--accent))}
+.tool-activity li{flex-wrap:wrap}.tool-activity li .tool-detail{flex:0 0 100%;white-space:normal;overflow-wrap:anywhere;line-height:1.5}

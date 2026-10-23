@@ -52,6 +52,11 @@ test('a directly opened native result is displayed without generating another co
  const result=await client.stream('r','m',[],text=>chunks.push(text),event=>events.push(event),false,'','chat')
  assert.match(result.content,/abrir Discord/);assert.equal(events.length,0);assert.deepEqual(calls,['ollama_chat_stream']);assert.equal(chunks.length,1)
 })
+test('native search diagnostics retain the actual query and failure detail for inspection',async()=>{
+ const events=[];const client=createOllamaClient(async(_,args)=>{args.onEvent.onmessage({type:'tool',name:'search_files',path:'cb sofialopez en',status:'running'});args.onEvent.onmessage({type:'tool',name:'search_files',path:'cb sofialopez en',status:'error',detail:'Windows no pudo consultar la ubicación.'});throw Error('Windows no pudo consultar la ubicación.')},()=>({}))
+ await assert.rejects(client.stream('r','m',[],()=>{},event=>events.push(event)),/Windows no pudo/)
+ assert.equal(events.at(-1).path,'cb sofialopez en');assert.equal(events.at(-1).detail,'Windows no pudo consultar la ubicación.')
+})
 test('typed acceptance clears only accepted commands or prompts, never a failed request',async()=>{
  let accepted=0
  const apps={isCommand:()=>true,request:async()=> 'error'},ai={send:async()=>{throw Error('must not run')}}
