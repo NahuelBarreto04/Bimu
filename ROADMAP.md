@@ -81,5 +81,5 @@ El primer paso será pulsar para hablar. La escucha continua no estará activada
 ## Etapas acordadas · v0.18
 
 - [x] Etapa 1: submenús, preferencia de escucha, transparencia, descanso tras 10 minutos y versión en Actualizaciones.
-- [ ] Etapa 2: atajos rápidos con varias apps, páginas y carpetas; búsqueda nativa de carpetas por nombre.
+- [x] Etapa 2: atajos rápidos con varias apps, páginas y carpetas; búsqueda nativa de carpetas por nombre.
 - [ ] Etapa 3: actualización y reinicio desde Bimu sin recorrer el asistente de instalación.

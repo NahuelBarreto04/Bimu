@@ -1,4 +1,4 @@
-# Bimu · Beta v0.18.0
+# Bimu · Beta v0.19.0
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -393,3 +393,16 @@ La ventana nativa conserva un marco único para reposo, hover, inicio y ajustes.
 - La versión instalada se muestra en Actualizaciones. Se quitó la leyenda de acompañamiento y la versión del pie.
 
 Prueba manual Windows: activar escucha y reiniciar; apagar y reiniciar; ocultar/mostrar; comprobar error con micrófono no disponible; cambiar tema/transparencia y reiniciar; visitar seis submenús en los cuatro bordes; esperar diez minutos y llamar «Bimu»; verificar que la escucha siga activa y el personaje despierte. Atajos compuestos, búsqueda global de carpetas y actualización sin asistente quedan pendientes.
+
+
+## v0.19.0 · Atajos rápidos y carpetas
+
+En Ajustes → Atajos rápidos creá una rutina con nombre, otras frases y entre 1 y 12 acciones. Cada acción puede abrir una aplicación registrada, una página http/https con navegador predeterminado o elegido, o una carpeta seleccionada con Windows. Podés ordenar las acciones, editar/eliminar el atajo y pedir confirmación o autorizar ejecución directa. «Bimu, modo trabajo» y «Ejecutá modo trabajo» usan el mismo atajo. Las aplicaciones anteriores permanecen en Aplicaciones disponibles, dentro del mismo submenú. Para Slack u otra app personalizada, registrá su ejecutable desde allí.
+
+Ejemplo: nombre Modo trabajo → Slack → https://mail.google.com (Chrome) → dirección de tu Jira (Chrome). Se solicitan aperturas en ese orden; no espera a que cada aplicación termine de cargar, no inicia sesiones ni controla las páginas. Cada paso tiene su resultado, incluidos fallos parciales. Los comandos de voz conservan la regla de no agregarse al historial.
+
+«Bimu, buscá una carpeta llamada fotos de viajes en mi PC y abrila» busca nombres de directorios sin registrarlos. Con una única coincidencia exacta en una búsqueda terminada solicita abrirla; múltiples coincidencias, coincidencias parciales o búsqueda incompleta muestran rutas para elegir. Se puede cancelar y volver a buscar dentro de una ubicación elegida.
+
+La búsqueda recorre carpetas habituales del perfil y discos locales fijos/extraíbles; no utiliza Ollama ni lee el contenido de archivos. Tiene un límite de 15 segundos, 300.000 entradas y 50 coincidencias. No recorre red, carpetas del sistema, dependencias, enlaces/junctions ni ubicaciones sin acceso; carpetas de nube con puntos de reanálisis pueden quedar fuera. Si llega al límite lo indica: no equivale a haber revisado toda la PC. La lista solo permite abrir resultados reales de la búsqueda vigente; se vuelve a comprobar la carpeta al abrir.
+
+Pruebas Windows: crear/editar/reordenar una rutina con app, Gmail/Jira y carpeta; ejecutar desde botón, chat y voz con/sin confirmación; reiniciar y verificar persistencia; probar una app quitada o carpeta movida y revisar fallos parciales; buscar dos carpetas del mismo nombre y elegir la correcta; cancelar durante la búsqueda; acotar a una ubicación. Los instaladores siguen usando el mecanismo de actualización existente.

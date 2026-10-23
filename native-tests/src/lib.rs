@@ -6,3 +6,5 @@
 #[path="../../src-tauri/src/application_registry.rs"]pub mod application_registry;
 
 #[path="../../src-tauri/src/release_core.rs"]pub mod release_core;
+
+#[path="../../src-tauri/src/assistant_core.rs"]pub mod assistant_core;

@@ -14,6 +14,8 @@ import {ConversationHistory} from './ConversationPanels'
 import {useVoice} from './useVoice'
 import {useHitRegions} from './useHitRegions'
 import {VoiceControls,VoiceStatus} from './VoicePanels'
+import {useAssistantActions} from './useAssistantActions'
+import {AssistantResults} from './AssistantPanels'
 import {useApplications} from './useApplications'
 import {ApplicationConfirmation} from './ApplicationPanels'
 import {useWakeListener} from './useWakeListener'
@@ -47,11 +49,18 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   const noticeTimer=useRef()
   const voiceFeedback=(state,text)=>{clearTimeout(noticeTimer.current);setVoiceNotice({state,text});noticeTimer.current=setTimeout(()=>setVoiceNotice(null),6000)}
   useEffect(()=>()=>clearTimeout(noticeTimer.current),[])
-  const apps=useApplications({native:nativeMode,onResult:ai.recordAction})
+  const registry=useApplications({native:nativeMode,onResult:ai.recordAction})
+  const actions=useAssistantActions({native:nativeMode,onResult:ai.recordAction,onFeedback:voiceFeedback,onActivity:onInteract,onShow:()=>{onExpand(true)}})
+  const apps={...registry,busy:registry.busy||actions.busy,pending:registry.pending||actions.pending,
+    isCommand:text=>actions.isCommand(text)||registry.isCommand(text),
+    request:async(text,options)=>actions.isCommand(text)?actions.request(text,options):registry.request(text,options),
+    confirm:remember=>actions.pending?actions.confirm(remember):registry.confirm(remember),
+    cancel:()=>actions.pending?actions.cancel():registry.cancel()}
+
   const voice=useVoice({native:nativeMode,enabled:expanded&&tab==='chat',busy:ai.sending||ai.choosing||apps.busy||!!apps.pending,onTranscript:text=>{const merged=draft.trim()?draft+'\n'+text:text;if(merged.length>16000)throw Error('El borrador no tiene espacio suficiente. Acortalo antes de volver a grabar.');setDraft(merged)}})
   const wake=useWakeListener({native:nativeMode,device:voice.device,busy:ai.sending||ai.choosing||apps.busy||!!apps.pending||voice.active||voice.detecting,onRequest:async text=>{
     if(apps.isCommand(text)){await apps.request(text,{silent:true,onFeedback:voiceFeedback});return}
-    voiceFeedback('error','No entendí el comando. Probá: “Bimu, abrí Spotify”.')
+    voiceFeedback('error','No entendí el pedido. Probá: “Bimu, modo trabajo” o “buscá una carpeta llamada fotos”.')
   },onFeedback:voiceFeedback,onActivity:onInteract})
 
   const drop=useDropZone({native:nativeMode,busy:ai.sending||ai.choosing||voice.active||voice.detecting||apps.busy||!!apps.pending,reception:receiveRef})
@@ -91,11 +100,11 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   },[expanded])
   useEffect(()=>{if(expanded)setHovered(false)},[expanded])
   useEffect(()=>{
-    if(!expanded||tab!=='home'||drop.active)return
+    if(!expanded||tab!=='home'||drop.active||actions.searching||actions.search||actions.pending||actions.error)return
     let timer;const restart=()=>{clearTimeout(timer);timer=setTimeout(()=>onExpand(false),20000)}
     restart();window.addEventListener('pointermove',restart);window.addEventListener('pointerdown',restart);window.addEventListener('keydown',restart)
     return()=>{clearTimeout(timer);window.removeEventListener('pointermove',restart);window.removeEventListener('pointerdown',restart);window.removeEventListener('keydown',restart)}
-  },[expanded,tab,onExpand,drop.active])
+  },[expanded,tab,onExpand,drop.active,actions.searching,actions.search,actions.pending,actions.error])
   useEffect(()=>{
     if(!nativeMode)return
     let disposed=false;let off
@@ -112,10 +121,10 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   const collapse=()=>{setHovered(false);onExpand(false);setTab('home')}
   const openNotch=()=>{if(!dock.consumeDrag()){clearTimeout(hoverTimer.current);setTab('home');onExpand(true)}}
   const submitMessage=async()=>{if(voice.active||ai.sending||ai.choosing||apps.busy||apps.pending)return;const text=draft;const handled=await apps.request(text);if(handled){if(handled!=='error')setDraft(current=>current===text?'':current);return}await ai.send(text,()=>setDraft(current=>current===text?'':current))}
-  const openQuickChat=e=>{e.preventDefault();clearTimeout(hoverTimer.current);setTab('chat');onExpand(true);if(ai.connected&&ai.model)submitMessage()}
+  const openQuickChat=e=>{e.preventDefault();clearTimeout(hoverTimer.current);setTab('chat');onExpand(true);if(apps.isCommand(draft)||(ai.connected&&ai.model))submitMessage()}
   const chooseTab=id=>{setTab(id);setService(null)}
   return <>
-    <WakeIndicator wake={wake} notice={voiceNotice} pending={apps.pending?.silent?apps.pending:null} onConfirm={()=>{setVoiceNotice({state:'success',text:'Abriendo aplicación…'});apps.confirm(false).then(ok=>voiceFeedback(ok?'success':'error',ok?'Se solicitó la apertura.':'No pude abrir la aplicación. Revisá su configuración.')).catch(()=>voiceFeedback('error','No pude abrir la aplicación.'))}} onCancel={()=>{apps.cancel();voiceFeedback('idle','Apertura cancelada.')}}/>
+    <WakeIndicator wake={wake} notice={voiceNotice} pending={apps.pending?.silent?apps.pending:null} onConfirm={()=>{setVoiceNotice({state:'success',text:'Ejecutando pedido…'});apps.confirm(false).then(ok=>voiceFeedback(ok?'success':'error',ok?'Se solicitó la apertura.':'Revisá el resultado del pedido.')).catch(()=>voiceFeedback('error','No pude abrir la aplicación.'))}} onCancel={()=>{apps.cancel();voiceFeedback('idle','Apertura cancelada.')}}/>
     {drop.active&&<section className="drop-surface" aria-label="Recibir archivos o carpeta"><div className="drop-outline"/>{drop.stage==='hover'&&<><FolderOpen className="drop-folder-icon" size={23}/><p className="drop-invitation">Soltá los archivos. Yo los recibo.</p></>}{drop.stage==='preparing'&&<p className="drop-preparing" role="status"><LoaderCircle size={14}/> Preparando el contenido…</p>}{drop.stage==='ready'&&<div className="drop-ready"><strong title={drop.preview.name}>{drop.preview.name}</strong><small>{drop.preview.kind==='files'?`${drop.preview.ready}/${drop.preview.entries} archivos listos`:`${drop.preview.truncated?'Más de ':''}${drop.preview.entries} elementos visibles`} · solo lectura</small>{drop.preview.kind==='files'&&<details className="drop-file-list" onToggle={e=>{if(e.currentTarget.open&&!expanded)onExpand(true)}}><summary>Ver archivos</summary>{drop.preview.items.map((item,i)=><p key={i}>{item.name}: {item.detail}</p>)}</details>}<p>¿Qué querés hacer?</p><div><button disabled={drop.accepting||(drop.preview.kind==='files'&&!drop.preview.ready)} onClick={async()=>{if(await drop.accept(ai.acceptDroppedFolder)){setHovered(false);setTab('chat');onExpand(true)}}}>{drop.accepting?'Recibiendo…':'Usar en el chat'}</button><button disabled={drop.accepting} onClick={drop.reset}>Cancelar</button></div></div>}{drop.stage==='error'&&<div className="drop-error" role="alert"><p>{drop.error}</p><button onClick={drop.reset}>Entendido</button></div>}</section>}
     {!expanded&&!drop.active&&<button className="notch-surface" aria-label="Abrir compañero" {...dock.handlers} onClick={openNotch}>
       <span className="notch-avatar-slot" aria-hidden="true"/>
@@ -133,6 +142,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
         <div className="window-actions"><IconButton title={dock.lateral?"Mover sobre el borde vertical":"Mover sobre el borde horizontal"} {...dock.handlers}><Grip size={16}/></IconButton><IconButton title={resolvedTheme==='dark'?'Cambiar a claro':'Cambiar a oscuro'} onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</IconButton><IconButton title="Volver a pequeño" onClick={collapse}><ArrowDownLeft size={16}/></IconButton><IconButton title="Ocultar en la bandeja" onClick={()=>{voice.cancel();wake.pause();safe(()=>getCurrentWindow().hide())}}><Minus size={16}/></IconButton></div>
       </header>
       <div className={'hub-body view-'+tab}>
+        <AssistantResults actions={actions}/>{actions.pending&&!actions.pending.silent&&tab!=='chat'&&<ApplicationConfirmation apps={apps}/>}
         {tab==='home'&&<>
           <div className="home-grid"><section className="companion-card glass-card"><div className="companion-copy"><span className="micro-label"><i className="status-dot"/> TU COMPAÑERO</span><h1>{ai.sending?'Estoy pensando…':mood==='sleepy'?'Un momento de calma.':'Acá, con vos.'}</h1><p>{mood==='sleepy'?'Descansando un poquito.':'Un pequeño espacio para tus grandes ideas.'}</p><div className="gesture-buttons"><button onClick={onGreet}><Hand size={14}/> Saludar</button><button onClick={onRest}><Moon size={14}/> Descansar</button></div></div></section>
           <section className="services-card glass-card"><div className="section-line"><span className="micro-label">TU ESPACIO</span><button className="text-link" onClick={()=>chooseTab('connections')}>Configurar <ArrowUpRight size={12}/></button></div><div className="service-pills">{SERVICES.map(({id,name,icon:Icon,color})=><button key={id} onClick={()=>{chooseTab('connections');setService(id)}}><span style={{color}}><Icon size={15}/></span>{name}<span className="empty-dot"/></button>)}</div></section></div>
@@ -148,7 +158,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
           <ApplicationConfirmation apps={apps}/><VoiceStatus voice={voice}/><form className="composer glass-card" onSubmit={e=>{e.preventDefault();submitMessage()}}><textarea disabled={voice.active} aria-label="Borrador de mensaje" value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();submitMessage()}}} maxLength={16000} placeholder="Escribile a Bimu…" rows={2}/><div><small>{ai.sending?'Generando respuesta…':ai.connected&&ai.model?'Enter para enviar · Shift+Enter para otra línea':'Conectá Ollama para enviar'}</small><div className="send-controls"><VoiceControls voice={voice} busy={ai.sending||ai.choosing||apps.busy||!!apps.pending||wake.enabled}/>{ai.sending?<button type="button" className="stop-generation" disabled={ai.stopping} onClick={ai.stop}>{ai.stopping?'Deteniendo…':'Detener'}</button>:<IconButton title="Enviar mensaje" type="submit" disabled={voice.active||ai.choosing||apps.busy||!!apps.pending||(!apps.isCommand(draft)&&(!ai.connected||!ai.model))||!draft.trim()}><Send size={16}/></IconButton>}</div></div></form>
         </section>}
         {tab==='connections'&&<section><div className="page-heading"><span className="micro-label">TODO EN SU LUGAR</span><h1>Conectá tu mundo.</h1><p>Un espacio para tu IA y las herramientas que usás.</p></div><div className="connection-grid">{SERVICES.map(({id,name,desc,icon:Icon,color})=><button key={id} className={'connection-tile glass-card '+(service===id?'chosen':'')} onClick={()=>setService(id)} aria-pressed={service===id}><span className="service-icon" style={{color}}><Icon size={23}/></span><span><strong>{name}</strong><small>{desc}</small></span><span className="state-badge">{id==='ollama'&&ai.connected?'Conectado':'Pendiente'}</span></button>)}</div><OllamaPanel ai={ai}/><div className="connection-note glass-card"><Plug size={18}/><div><strong>{service==='ollama'?'Tu IA en tu equipo':service?SERVICES.find(s=>s.id===service)?.name+': conexión pendiente':'Conectá tu modelo local'}</strong><p>{service==='ollama'?'Elegí un modelo instalado en el panel de Ollama. El historial se mantiene durante esta sesión.':service?'Esta integración todavía no está disponible. Por ahora no se solicita ninguna cuenta.':'Ollama ya puede conectarse. Las demás integraciones siguen pendientes.'}</p></div></div></section>}
-        {tab==='settings'&&<SettingsPanels theme={theme} setTheme={setTheme} tint={tint} setTint={setTint} opacity={opacity} setOpacity={setOpacity} dock={dock} setHovered={setHovered} config={config} onConfig={onConfig} pinned={pinned} setPinned={setPinned} safe={safe} voice={voice} wake={wake} ai={ai} apps={apps} personalization={personalization}/> }
+        {tab==='settings'&&<SettingsPanels theme={theme} setTheme={setTheme} tint={tint} setTint={setTint} opacity={opacity} setOpacity={setOpacity} dock={dock} setHovered={setHovered} config={config} onConfig={onConfig} pinned={pinned} setPinned={setPinned} safe={safe} voice={voice} wake={wake} ai={ai} apps={apps} actions={actions} personalization={personalization}/> }
       </div>
       <footer className="hub-footer"><span><span className="mini-star">✧</span> Mi pequeño compañero</span></footer>
     </section>}

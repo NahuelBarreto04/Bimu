@@ -1,6 +1,6 @@
 [package]
 name = "mascota-companero"
-version = "0.18.0"
+version = "0.19.0"
 description = "Mi pequeño compañero de escritorio"
 authors = ["Mariano"]
 edition = "2021"
@@ -30,4 +30,4 @@ semver = "1"
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"
 
-windows-sys = { version = "0.59", features = ["Win32_UI_Input_KeyboardAndMouse"] }
+windows-sys = { version = "0.59", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_Storage_FileSystem"] }

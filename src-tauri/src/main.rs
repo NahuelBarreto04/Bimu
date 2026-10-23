@@ -7,6 +7,8 @@ mod updates;
 mod workspace;
 mod voice;
 mod applications;
+mod assistant;
+mod assistant_core;
 mod documents;
 mod workspace_core;
 mod application_intent;
@@ -24,6 +26,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(applications::Applications::default())
+        .manage(assistant::Assistant::default())
         .manage(workspace::Workspace::default())
         .manage(workspace::DropInbox::default())
         .manage(ollama::StreamRequests::default())
@@ -31,7 +34,7 @@ fn main() {
         .manage(hit_test::HitRegions::default())
         .manage(voice_engine::VoiceEngine::default())
         .manage(updates::Updates::default())
-        .invoke_handler(tauri::generate_handler![quit_app, hit_test::desktop_hit_regions, voice_engine::voice_engine_status, voice_engine::voice_engine_start, voice_engine::voice_engine_stop, voice_engine::voice_engine_prepare, voice_engine::voice_engine_auto, voice_engine::voice_engine_log, updates::updates_check, updates::updates_download, updates::updates_install, applications::apps_list, applications::apps_request, applications::apps_confirm, applications::apps_cancel, applications::apps_add, applications::apps_update, applications::apps_remove, workspace::workspace_choose_files, workspace::workspace_remove_file, voice::voice_status, voice::voice_transcribe, voice::voice_cancel, ollama::ollama_models, ollama::ollama_chat, ollama::ollama_chat_stream, ollama::ollama_cancel, ollama::ollama_capabilities, workspace::workspace_choose, workspace::workspace_revoke, workspace::workspace_stage_drop, workspace::workspace_accept_drop, workspace::workspace_discard_drop])
+        .invoke_handler(tauri::generate_handler![assistant::shortcuts_list, assistant::shortcuts_save, assistant::shortcuts_remove, assistant::shortcuts_request, assistant::shortcuts_confirm, assistant::shortcuts_cancel, assistant::assistant_pick_folder, assistant::folders_search, assistant::folders_open, assistant::folders_cancel, quit_app, hit_test::desktop_hit_regions, voice_engine::voice_engine_status, voice_engine::voice_engine_start, voice_engine::voice_engine_stop, voice_engine::voice_engine_prepare, voice_engine::voice_engine_auto, voice_engine::voice_engine_log, updates::updates_check, updates::updates_download, updates::updates_install, applications::apps_list, applications::apps_request, applications::apps_confirm, applications::apps_cancel, applications::apps_add, applications::apps_update, applications::apps_remove, workspace::workspace_choose_files, workspace::workspace_remove_file, voice::voice_status, voice::voice_transcribe, voice::voice_cancel, ollama::ollama_models, ollama::ollama_chat, ollama::ollama_chat_stream, ollama::ollama_cancel, ollama::ollama_capabilities, workspace::workspace_choose, workspace::workspace_revoke, workspace::workspace_stage_drop, workspace::workspace_accept_drop, workspace::workspace_discard_drop])
         .setup(|app| {
             hit_test::start(app.handle().clone());
             voice_engine::autostart(app.handle().clone());
