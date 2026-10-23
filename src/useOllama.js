@@ -14,6 +14,8 @@ export function useOllama(native){
   const [messages,setMessages]=useState(()=>initial.state.conversations.find(c=>c.id===initial.state.activeId)?.messages||[]),[sending,setSending]=useState(false),[stopping,setStopping]=useState(false),[notice,setNotice]=useState('')
   const [folder,setFolder]=useState(null),[choosing,setChoosing]=useState(false),[toolsSupport,setToolsSupport]=useState(null),[activity,setActivity]=useState([]),[capabilityRevision,setCapabilityRevision]=useState(0)
   const lock=useRef(false),scan=useRef(false),active=useRef(null),flushTimer=useRef(),mounted=useRef(true)
+  const [actionProposal,setActionProposal]=useState(null),[actionBusy,setActionBusy]=useState(false)
+  const proposal=useRef(null)
   const skipInitialSave=useRef(true)
   useEffect(()=>{
     if(skipInitialSave.current){skipInitialSave.current=false;return}
@@ -48,7 +50,7 @@ export function useOllama(native){
     catch(e){if(mounted.current){setConnected(false);setModels([]);setError(String(e.message||e))}}
     finally{scan.current=false;if(mounted.current)setChecking(false)}
   }
-  useEffect(()=>{mounted.current=true;if(native)refresh();return()=>{mounted.current=false;clearTimeout(flushTimer.current);const id=active.current;active.current=null;if(id)client.cancel(id).catch(()=>{})}},[native])
+  useEffect(()=>{mounted.current=true;if(native)refresh();return()=>{mounted.current=false;clearTimeout(flushTimer.current);const id=active.current;active.current=null;if(id)client.cancel(id).catch(()=>{});if(proposal.current)client.cancelAction(proposal.current.id).catch(()=>{})}},[native])
   useEffect(()=>{try{localStorage.setItem('bimu-model',model)}catch{setStorageError('No se pudieron guardar las preferencias en este equipo.')}},[model])
   useEffect(()=>{
     if(!native||!connected||!model){setToolsSupport(null);return}
@@ -85,9 +87,22 @@ export function useOllama(native){
     setStopping(true)
     try{await client.cancel(id)}catch(e){if(mounted.current){setStopping(false);setError('No se pudo detener: '+String(e.message||e))}}
   }
+  const resolveAction=async confirm=>{
+    if(lock.current||!proposal.current)return false
+    const pending=proposal.current;lock.current=true;setActionBusy(true);setError('')
+    try{
+      const result=confirm?await client.confirmAction(pending.id):(await client.cancelAction(pending.id),'Apertura cancelada. No se abrió el destino.')
+      if(mounted.current)setMessages(items=>[...items.slice(-39),{role:'assistant',content:result}])
+      return true
+    }catch(e){
+      await client.cancelAction(pending.id).catch(()=>{})
+      if(mounted.current){setError(String(e.message||e));setMessages(items=>[...items.slice(-39),{role:'assistant',content:'No se pudo solicitar la apertura. '+String(e.message||e)}])}
+      return false
+    }finally{proposal.current=null;lock.current=false;if(mounted.current){setActionProposal(null);setActionBusy(false)}}
+  }
   const send=async(text,onAccepted)=>{
     const content=text.trim()
-    if(lock.current||choosing||!content)return false
+    if(lock.current||choosing||proposal.current||!content)return false
     if(folder&&folder.kind!=='files'&&toolsSupport!==true){setError(toolsSupport===null?'Esperá mientras se comprueba el soporte de herramientas.':'Este modelo no admite herramientas o no se pudo comprobar. Elegí otro o quitá la carpeta para conversar.');return false}
     if(!connected||!model){setError('Conectá Ollama y elegí un modelo antes de enviar.');return false}
     lock.current=true;setSending(true);setStopping(false);setError('');setNotice('');setActivity([])
@@ -104,7 +119,8 @@ export function useOllama(native){
         partial+=delta
         if(!flushTimer.current)flushTimer.current=setTimeout(()=>{flushTimer.current=null;if(active.current===id&&mounted.current)setMessages(snapshot(false))},32)
       },event=>{
-        if(active.current!==id||!mounted.current)return
+        if(active.current!==id||!mounted.current){if(event.type==='action')client.cancelAction(event.proposal.id).catch(()=>{});return}
+        if(event.type==='action'){proposal.current={...event.proposal,autonomous:true};setActionProposal(proposal.current);return}
         setActivity(items=>{const key=event.name+':'+event.path;const index=items.findLastIndex(item=>item.key===key&&item.status==='running');if(event.status!=='running'&&index>=0)return items.map((item,i)=>i===index?{...event,key}:item);return [...items,{...event,key}].slice(-16)})
       },Boolean(folder),archiveRef.current.memory)
       if(!mounted.current)return false
@@ -118,5 +134,5 @@ export function useOllama(native){
       return false
     }finally{active.current=null;lock.current=false;if(mounted.current){setSending(false);setStopping(false)}}
   }
-  return {chooseFiles,removeFile,recordAction,history:archive.conversations,conversationId,memory:archive.memory,storageError,newConversation,restoreConversation,renameConversation,deleteConversation,clearHistory,saveMemory,acceptDroppedFolder,folder,choosing,toolsSupport,activity,chooseFolder,revokeFolder,models,model,setModel,checking,connected,error,messages,sending,stopping,notice,refresh,send,stop,clear:newConversation}
+  return {actionProposal,actionBusy,confirmAction:()=>resolveAction(true),cancelAction:()=>resolveAction(false),chooseFiles,removeFile,recordAction,history:archive.conversations,conversationId,memory:archive.memory,storageError,newConversation,restoreConversation,renameConversation,deleteConversation,clearHistory,saveMemory,acceptDroppedFolder,folder,choosing,toolsSupport,activity,chooseFolder,revokeFolder,models,model,setModel,checking,connected,error,messages,sending,stopping,notice,refresh,send,stop,clear:newConversation}
 }

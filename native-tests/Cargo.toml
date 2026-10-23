@@ -7,6 +7,8 @@ publish=false
 serde={version="1",features=["derive"]}
 serde_json="1"
 semver="1"
+chrono="0.4"
+chrono-tz="0.10"
 pdf-extract="0.12.1"
 calamine="0.31"
 quick-xml="0.38"

@@ -88,4 +88,6 @@ El primer paso será pulsar para hablar. La escucha continua no estará activada
 
 - [x] Medidor de micrófono, calibración de ruido, sensibilidad ampliada y amplificación limitada para voz baja.
 - [x] Pestaña lateral compacta con chat rápido que se despliega hacia adentro.
-- [ ] Pedidos generales por voz conectados a Ollama y herramientas generales; descubrimiento de aplicaciones instaladas y consultas de hora.
+- [x] Pedidos generales por voz conectados a Ollama y herramientas generales; descubrimiento de aplicaciones instaladas y consultas de hora (v0.21; validación con el modelo del usuario pendiente).
+- [ ] Medir éxito y latencia con modelos locales en la PC del usuario; comparar candidatos antes de cambiar el modelo predeterminado.
+- [ ] Ampliar capacidades con consultas web y nuevas acciones según pruebas de la primera etapa de autonomía.

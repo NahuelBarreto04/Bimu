@@ -1,13 +1,13 @@
 import {useEffect,useRef,useState} from 'react'
 import {invoke} from '@tauri-apps/api/core'
-import {looksLikeLaunch} from './application-intent'
+import {registeredLaunch} from './application-intent'
 export function useApplications({native,onResult}){
  const [items,setItems]=useState([]),[pending,setPending]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState('')
  const lock=useRef(false),current=useRef(null),mounted=useRef(true),callback=useRef(onResult);callback.current=onResult
  const refresh=async()=>{if(!native)return;try{const entries=await invoke('apps_list');if(mounted.current){setItems(entries);setError('')}}catch(e){if(mounted.current)setError(String(e.message||e))}}
  useEffect(()=>{mounted.current=true;refresh();return()=>{mounted.current=false;if(current.current)invoke('apps_cancel',{id:current.current.id}).catch(()=>{})}},[native])
  const request=async (text,options={})=>{
-  if(!looksLikeLaunch(text))return false
+  if(!registeredLaunch(items,text))return false
   if(!native){setError('Abrí la aplicación de escritorio para abrir otras aplicaciones.');return true}
   if(lock.current||current.current)return true
   lock.current=true;setBusy(true);setError('')
@@ -22,5 +22,5 @@ export function useApplications({native,onResult}){
  }
  const cancel=async()=>{const proposal=current.current;if(!proposal||lock.current)return;try{await invoke('apps_cancel',{id:proposal.id});current.current=null;setPending(null);if(!proposal.silent)callback.current(proposal.text,'Apertura cancelada.')}catch(e){setError(String(e.message||e))}}
  const change=async(command,args)=>{if(lock.current||current.current)return;lock.current=true;setBusy(true);setError('');try{const list=await invoke(command,args);if(list)setItems(list)}catch(e){setError(String(e.message||e))}finally{lock.current=false;setBusy(false)}}
- return {items,pending,busy,error,refresh,request,confirm,cancel,add:()=>change('apps_add'),update:(id,name,aliases,remember)=>change('apps_update',{id,name,aliases,remember}),remove:id=>change('apps_remove',{id}),isCommand:looksLikeLaunch}
+ return {items,pending,busy,error,refresh,request,confirm,cancel,add:()=>change('apps_add'),update:(id,name,aliases,remember)=>change('apps_update',{id,name,aliases,remember}),remove:id=>change('apps_remove',{id}),isCommand:text=>registeredLaunch(items,text)}
 }

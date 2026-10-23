@@ -51,7 +51,7 @@ test('no abre aplicaciones a partir de las transcripciones ambiguas reportadas',
 })
 function applicationsHarness(invoke){
  const slots=[];let cursor=0;const effects=[],recorded=[]
- const context=vm.createContext({useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=initial;return [slots[i],v=>{slots[i]=typeof v==='function'?v(slots[i]):v}]},useRef:initial=>{const i=cursor++;if(!(i in slots))slots[i]={current:initial};return slots[i]},useEffect:fn=>effects.push(fn),invoke,looksLikeLaunch:t=>/^abrí /.test(t)})
+ const context=vm.createContext({useState:initial=>{const i=cursor++;if(!(i in slots))slots[i]=initial;return [slots[i],v=>{slots[i]=typeof v==='function'?v(slots[i]):v}]},useRef:initial=>{const i=cursor++;if(!(i in slots))slots[i]={current:initial};return slots[i]},useEffect:fn=>effects.push(fn),invoke,registeredLaunch:(_items,t)=>/^abrí /.test(t)})
  const code=readFileSync(new URL('../src/useApplications.js',import.meta.url),'utf8').replace(/^import .*$/gm,'').replace('export function','function')
  vm.runInContext(code+';globalThis.hook=useApplications',context)
  const render=()=>{cursor=0;return context.hook({native:true,onResult:(...args)=>recorded.push(args)})}
