@@ -212,3 +212,11 @@ html[data-voice-side=right] .desktop .wake-bubble::after{right:auto;left:-9px;tr
 /* Resolve avatar endpoints from target dimensions, not a parent's in-flight size. */
 :is(html:not([data-receive]),html[data-receive=idle]) .desktop.compact .canvas-wrap{top:calc((var(--notch-height,54px) - 54px)/2)!important}
 :is(html[data-edge=left],html[data-edge=right]):is(:not([data-receive]),[data-receive=idle]) .desktop.compact .canvas-wrap{left:calc((var(--notch-width,116px) - 64px)/2)!important;top:7px!important}
+
+/* Keep the WebGL drawing buffer and camera aspect stable throughout dock transitions.
+   Only the presentation wrapper scales; ResizeObserver never sees intermediate sizes. */
+.desktop .canvas-wrap .mascot-viewport{position:absolute;width:152px;height:160px;left:50%;top:50%;transform:translate(-50%,-50%) scale(1);transform-origin:center;transition:transform var(--dock-duration,260ms) cubic-bezier(.22,1,.36,1)}
+html .desktop.compact .mascot-viewport{transform:translate(-50%,-50%) scale(.3375)}
+:is(html[data-edge=left],html[data-edge=right]) .desktop.expanded .mascot-viewport{transform:translate(-50%,-50%) scale(.7)}
+html[data-receive]:not([data-receive=idle]) .desktop .mascot-viewport{transform:translate(-50%,-50%) scale(.3375)}
+@media(prefers-reduced-motion:reduce){.desktop .canvas-wrap .mascot-viewport{transition:none}}

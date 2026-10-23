@@ -85,7 +85,7 @@ export function useOllama(native){
     setStopping(true)
     try{await client.cancel(id)}catch(e){if(mounted.current){setStopping(false);setError('No se pudo detener: '+String(e.message||e))}}
   }
-  const send=async(text)=>{
+  const send=async(text,onAccepted)=>{
     const content=text.trim()
     if(lock.current||choosing||!content)return false
     if(folder&&folder.kind!=='files'&&toolsSupport!==true){setError(toolsSupport===null?'Esperá mientras se comprueba el soporte de herramientas.':'Este modelo no admite herramientas o no se pudo comprobar. Elegí otro o quitá la carpeta para conversar.');return false}
@@ -96,6 +96,7 @@ export function useOllama(native){
     const context=[...previous,{role:'user',content}]
     let partial=''
     setMessages(context)
+    onAccepted?.()
     const snapshot=interrupted=>[...context,{role:'assistant',content:partial,interrupted}]
     try{
       const result=await client.stream(id,model,context.map(({role,content})=>({role,content})),delta=>{
@@ -113,7 +114,7 @@ export function useOllama(native){
       if(result.stopped)setNotice('Generación detenida. Podés seguir conversando.');if(result.stopped)setActivity(items=>items.map(item=>item.status==='running'?{...item,status:'stopped'}:item))
       return true
     }catch(e){
-      if(mounted.current){clearTimeout(flushTimer.current);flushTimer.current=null;setMessages(partial.trim()?snapshot(true):previous);setError(String(e.message||e));setActivity(items=>items.map(item=>item.status==='running'?{...item,status:'error'}:item))}
+      if(mounted.current){clearTimeout(flushTimer.current);flushTimer.current=null;setMessages(partial.trim()?snapshot(true):context);setError(String(e.message||e));setActivity(items=>items.map(item=>item.status==='running'?{...item,status:'error'}:item))}
       return false
     }finally{active.current=null;lock.current=false;if(mounted.current){setSending(false);setStopping(false)}}
   }
