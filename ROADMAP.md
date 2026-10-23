@@ -76,3 +76,10 @@ El primer paso será pulsar para hablar. La escucha continua no estará activada
 - [ ] Validar contexto automático de adjuntos y nombres originales en Windows (beta 0.16).
 - [ ] OCR de PDF escaneado e imágenes.
 - [ ] Paginación/búsqueda para documentos y planillas grandes.
+
+
+## Etapas acordadas · v0.18
+
+- [x] Etapa 1: submenús, preferencia de escucha, transparencia, descanso tras 10 minutos y versión en Actualizaciones.
+- [ ] Etapa 2: atajos rápidos con varias apps, páginas y carpetas; búsqueda nativa de carpetas por nombre.
+- [ ] Etapa 3: actualización y reinicio desde Bimu sin recorrer el asistente de instalación.

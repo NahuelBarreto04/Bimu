@@ -4,8 +4,12 @@ import {listen} from '@tauri-apps/api/event'
 import {pcmToWav,microphoneError,normalizeTranscript} from './voice-audio'
 import {wakeIntent,ARM_WINDOW_MS} from './wake-policy'
 import {emptyWakeMetrics,addWakeMetric,loadWakeSettings} from './wake-metrics'
-export function useWakeListener({native,device,busy,onRequest,onFeedback}){
+export function useWakeListener({native,device,busy,onRequest,onFeedback,onActivity}){
  const [settings]=useState(loadWakeSettings)
+ const [preferred,setPreferred]=useState(()=>{try{return localStorage.getItem('bimu-wake-enabled')==='true'}catch{return false}})
+ const wanted=useRef(preferred),restoreTimer=useRef(),restoreEpoch=useRef(0)
+ const remember=value=>{wanted.current=value;setPreferred(value);try{localStorage.setItem('bimu-wake-enabled',String(value))}catch{setError('No se pudo guardar la preferencia de escucha en este equipo.')}}
+ const cancelRestore=()=>{restoreEpoch.current++;clearTimeout(restoreTimer.current)}
  const [silenceMs,setSilenceMs]=useState(settings.silenceMs)
  const [diagnostics,setDiagnostics]=useState(false),[metrics,setMetrics]=useState(emptyWakeMetrics)
  const diagnosticsRef=useRef(false),metricsEpoch=useRef(0)
@@ -15,8 +19,8 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback}){
  const report=kind=>setMetrics(s=>({...s,[kind]:s[kind]+1}))
  const [engaged,setEngaged]=useState(false)
  const [enabled,setEnabled]=useState(false),[phase,setPhase]=useState('off'),[error,setError]=useState(''),[last,setLast]=useState(''),[threshold,setThresholdState]=useState(settings.threshold)
- const active=useRef(false),resources=useRef(null),epoch=useRef(0),job=useRef(0),request=useRef(null),processing=useRef(false),speechActive=useRef(false),armedForPhrase=useRef(false),armedUntil=useRef(0),armTimer=useRef(),mounted=useRef(true),latest=useRef({device,busy,onRequest,onFeedback,threshold,silenceMs}),cooldown=useRef(0)
- latest.current={device,busy,onRequest,onFeedback,threshold,silenceMs}
+ const active=useRef(false),resources=useRef(null),epoch=useRef(0),job=useRef(0),request=useRef(null),processing=useRef(false),speechActive=useRef(false),armedForPhrase=useRef(false),armedUntil=useRef(0),armTimer=useRef(),mounted=useRef(true),latest=useRef({device,busy,onRequest,onFeedback,onActivity,threshold,silenceMs}),cooldown=useRef(0)
+ latest.current={device,busy,onRequest,onFeedback,onActivity,threshold,silenceMs}
  const configure=enabled=>resources.current?.node?.port.postMessage({type:'config',enabled,threshold:latest.current.threshold,silenceMs:latest.current.silenceMs})
  const abortJob=()=>{job.current++;processing.current=false;speechActive.current=false;armedForPhrase.current=false;const id=request.current;request.current=null;if(id)invoke('voice_cancel',{requestId:id}).catch(()=>{})}
  const stop=()=>{
@@ -45,6 +49,7 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback}){
    if(latest.current.busy)return
    const intent=wakeIntent(normalizeTranscript(text),phraseArmed)
    record({kind:intent.kind,audioMs,processingMs:performance.now()-started},metricToken);measured=true
+   if(['arm','request','cancel'].includes(intent.kind))latest.current.onActivity?.()
    if(intent.kind==='arm'){setEngaged(true);armedUntil.current=Date.now()+ARM_WINDOW_MS;clearTimeout(armTimer.current);armTimer.current=setTimeout(()=>{armedUntil.current=0;setEngaged(false);if(active.current&&!processing.current&&!speechActive.current){latest.current.onFeedback?.('warning','No te escuché. Decí “Bimu” para intentarlo otra vez.');ready()}},ARM_WINDOW_MS)}
    if(intent.kind==='arm')latest.current.onFeedback?.('idle','Te escucho…')
    if(intent.kind==='ignore'&&phraseArmed)latest.current.onFeedback?.('error','No entendí el pedido. Probá otra vez.')
@@ -59,7 +64,8 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback}){
   }catch(e){if(valid()&&!measured)record({kind:'error',audioMs,processingMs:performance.now()-started},metricToken);if(valid()&&phraseArmed&&/No se reconocieron palabras|No se detectó suficiente audio/i.test(String(e.message||e)))latest.current.onFeedback?.('warning','No te escuché. Probá otra vez.');if(valid()&&!/No se reconocieron palabras|No se detectó suficiente audio/i.test(String(e.message||e))){setError(microphoneError(e));latest.current.onFeedback?.('error',microphoneError(e));stop()}}
   finally{if(valid()){request.current=null;processing.current=false;if(!armedUntil.current)setEngaged(false);ready()}}
  }
- const start=async()=>{
+ const start=async({automatic=false}={})=>{
+  if(!automatic){cancelRestore();remember(true)}
   if(active.current)return
   if(!native){setError('Abrí Bimu en el escritorio para activar la escucha local.');return}
   if(latest.current.busy){setError('Terminá la operación actual antes de activar la escucha.');return}
@@ -80,14 +86,30 @@ export function useWakeListener({native,device,busy,onRequest,onFeedback}){
    ready()
   }catch(e){stream?.getTracks().forEach(t=>t.stop());context?.close().catch(()=>{});if(active.current&&epoch.current===session){setError(microphoneError(e));latest.current.onFeedback?.('error',microphoneError(e));stop()}}
  }
+ const restore=async(attempt=0,token=++restoreEpoch.current)=>{
+  if(!native||!wanted.current||document.hidden||active.current||token!==restoreEpoch.current)return
+  setPhase('waiting')
+  try{
+   if(latest.current.busy)throw Error('Terminá la operación actual para reactivar la escucha.')
+   await invoke('voice_status')
+   if(mounted.current&&wanted.current&&!document.hidden&&token===restoreEpoch.current)await start({automatic:true})
+  }catch(e){
+   if(!mounted.current||!wanted.current||token!==restoreEpoch.current)return
+   if(attempt<19)restoreTimer.current=setTimeout(()=>restore(attempt+1,token),3000)
+   else{setPhase('off');setError('La escucha está guardada, pero no pudo iniciarse: '+String(e.message||e))}
+  }
+ }
+ const pause=()=>{cancelRestore();stop()}
+ const disable=()=>{remember(false);pause()}
  const setThreshold=value=>{const n=Math.max(.002,Math.min(.025,Number(value)));if(!Number.isFinite(n))return;setThresholdState(n);latest.current.threshold=n;if(active.current&&!request.current&&!speechActive.current)configure(!latest.current.busy)}
  useEffect(()=>{try{localStorage.setItem('bimu-wake-settings',JSON.stringify({threshold,silenceMs}))}catch{}},[threshold,silenceMs])
  const changeSilence=value=>{const n=Number(value);if(![700,1200,1600].includes(n))return;setSilenceMs(n);latest.current.silenceMs=n;if(active.current&&!processing.current&&!speechActive.current)ready()}
  useEffect(()=>{if(!active.current)return;if(busy){setEngaged(false);abortJob();armedUntil.current=0;clearTimeout(armTimer.current);configure(false);setPhase('paused')}else if(resources.current?.node)ready()},[busy])
- useEffect(()=>{mounted.current=true;let disposed=false,off
-  if(native)listen('bimu-voice-cancel',stop).then(fn=>{if(disposed)fn();else off=fn}).catch(()=>{})
-  const hidden=()=>{if(document.hidden)stop()};document.addEventListener('visibilitychange',hidden)
-  return()=>{disposed=true;off?.();mounted.current=false;stop();document.removeEventListener('visibilitychange',hidden)}
+ useEffect(()=>{mounted.current=true;let disposed=false,off,offShow
+  if(native)listen('bimu-voice-cancel',pause).then(fn=>{if(disposed)fn();else off=fn}).catch(()=>{})
+  if(native)listen('desktop-action',()=>restore()).then(fn=>{if(disposed)fn();else offShow=fn}).catch(()=>{})
+  const hidden=()=>{if(document.hidden)pause();else restore()};document.addEventListener('visibilitychange',hidden);restore()
+  return()=>{disposed=true;off?.();offShow?.();mounted.current=false;pause();document.removeEventListener('visibilitychange',hidden)}
  },[native])
- return {enabled,engaged,phase,error,last,threshold,start,stop,setThreshold,silenceMs,setSilenceMs:changeSilence,diagnostics,metrics,toggleDiagnostics,resetMetrics,report}
+ return {enabled,preferred,engaged,phase,error,last,threshold,start,stop:disable,pause,setThreshold,silenceMs,setSilenceMs:changeSilence,diagnostics,metrics,toggleDiagnostics,resetMetrics,report}
 }

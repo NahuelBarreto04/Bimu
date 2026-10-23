@@ -5,6 +5,7 @@ import { RoundedBox, ContactShadows } from '@react-three/drei'
 import * as THREE from 'three'
 import { RotateCcw, Sparkles } from 'lucide-react'
 import './styles.css'
+import {useIdleRest} from './useIdleRest'
 import {gazeTarget} from './dock-geometry'
 import { DesktopControls, desktopMode } from './desktop.jsx'
 
@@ -111,10 +112,12 @@ function App(){
   const [mood,setMood]=useState('idle'); const [celebrate,setCelebrate]=useState(false); const greetingTimer=useRef()
   useEffect(()=>()=>clearTimeout(greetingTimer.current),[])
   useEffect(()=>{localStorage.setItem('mascot-v1',JSON.stringify(config))},[config])
+  const rest=()=>{clearTimeout(greetingTimer.current);setCelebrate(false);setMood('sleepy')}
+  const interact=useIdleRest({enabled:desktopMode,busy:thinking,onRest:rest,onWake:()=>setMood('idle')})
   const tap=()=>{clearTimeout(greetingTimer.current);setMood('idle');setCelebrate(true);greetingTimer.current=window.setTimeout(()=>setCelebrate(false),2800)}
   const personalization=(<aside className="panel"><div className="panel-title"><div><span className="eyebrow">PERSONALIZACIÓN</span><h2>Hacela tuya</h2></div><Sparkles size={20}/></div><p>Sin género ni apariencia predefinida. Elegí lo que más te guste.</p><h3>Color del cuerpo</h3><div className="swatches">{COLORS.map(color=><button key={color} aria-label={'Color '+color} title={color} className={'swatch '+(config.color===color?'selected':'')} style={{background:color}} onClick={()=>setConfig(c=>({...c,color}))}/>)}</div><h3>Accesorios</h3><div className="accessories">{OPTIONS.map(a=><button key={a.id} className={'accessory '+(config.accessory===a.id?'selected':'')} onClick={()=>setConfig(c=>({...c,accessory:a.id}))}><span>{a.symbol}</span><small>{a.name}</small></button>)}</div><div className="panel-footer"><button className="reset" onClick={()=>{setConfig(DEFAULT);setMood('idle')}}><RotateCcw size={15}/> Restablecer</button><span>Guardado automático</span></div></aside>)
   return <main className={desktopMode ? "app desktop "+(desktopExpanded?"expanded":"compact") : "app"}>
-    {desktopMode&&<DesktopControls reception={reception} expanded={desktopExpanded} onExpand={setDesktopExpanded} personalization={personalization} mood={mood} onThinking={setThinking} config={config} onConfig={setConfig} onRest={()=>{setCelebrate(false);setMood('sleepy')}} onGreet={tap}/>}
+    {desktopMode&&<DesktopControls onInteract={interact} reception={reception} expanded={desktopExpanded} onExpand={setDesktopExpanded} personalization={personalization} mood={mood} onThinking={setThinking} config={config} onConfig={setConfig} onRest={rest} onGreet={tap}/>}
     <header><div className="brand"><span className="brand-dot"/> <span>Mi pequeño compañero</span></div><span className="version">PROTOTIPO · 0.16</span></header>
     <section className="workspace"><div className="stage"><div className="eyebrow">TU COMPAÑERO DE ESCRITORIO</div><h1>Un poquito de compañía.</h1><p>Una criatura pequeña, expresiva y completamente tuya.</p><div className="canvas-wrap"><div className="mascot-viewport"><Canvas resize={{offsetSize:true}} gl={{alpha:true}} shadows camera={{position:[0,0.45,6.6],fov:35}} dpr={[1,2]}><ambientLight intensity={2.1}/><directionalLight position={[-3,5,6]} intensity={2.4} color="#fff6eb"/><directionalLight position={[4,2,-2]} intensity={0.8} color="#ffffff"/><Mascot reception={reception} thinking={thinking} config={config} mood={mood} celebrate={celebrate} onTap={desktopMode?()=>{setDesktopExpanded(true);tap()}:tap}/><ContactShadows position={[0,-1.04,0]} opacity={0.26} scale={5} blur={2.6} far={3}/></Canvas></div></div><div className="hint">Mové el cursor, esperá un parpadeo o hacé clic sobre la mascota ✨</div><div className="moods"><button onClick={()=>setMood('idle')} className={mood==='idle'?'active':''}>☺ Normal</button><button onClick={tap}>✦ Saludar</button><button onClick={()=>{clearTimeout(greetingTimer.current);setCelebrate(false);setMood('sleepy')}} className={mood==='sleepy'?'active':''}>☾ Descansar</button></div></div>
     {!desktopMode&&personalization}</section><footer>Prototipo visual · La conexión con Ollama llegará en la próxima etapa.</footer>

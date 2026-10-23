@@ -4,31 +4,31 @@ import { getCurrentWindow, LogicalSize, PhysicalPosition, currentMonitor } from 
 import { listen } from '@tauri-apps/api/event'
 import { Home, MessageCircle, PanelsTopLeft, Settings2, Grip, ArrowDownLeft, ArrowUpRight, Minus, Sun, Moon, Monitor, Hand, Sparkles, Plug, Github, Globe, Cpu, ArrowRight, Send, Check, Palette, Pin, Crosshair, Power, X, FolderOpen, LoaderCircle } from 'lucide-react'
 import './desktop.css'
+import {SettingsPanels} from './SettingsPanels'
+import {readOpacity} from './ui-preferences'
 import {useDock} from './useDock'
 import {useOllama} from './useOllama'
 import {useDropZone} from './useDropZone'
 import {MessageContent} from './MessageContent'
-import {ConversationHistory,MemoryPanel} from './ConversationPanels'
+import {ConversationHistory} from './ConversationPanels'
 import {useVoice} from './useVoice'
-import {NativeServices} from './NativeServices'
 import {useHitRegions} from './useHitRegions'
-import {VoiceControls,VoiceStatus,VoiceSettings} from './VoicePanels'
+import {VoiceControls,VoiceStatus} from './VoicePanels'
 import {useApplications} from './useApplications'
-import {ApplicationConfirmation,ApplicationSettings} from './ApplicationPanels'
+import {ApplicationConfirmation} from './ApplicationPanels'
 import {useWakeListener} from './useWakeListener'
-import {WakeIndicator,WakeSettings} from './WakePanels'
+import {WakeIndicator} from './WakePanels'
 
 export const nativeMode=isTauri()
 export const desktopMode=nativeMode||new URLSearchParams(location.search).get('desktop')==='1'
 if(desktopMode)document.documentElement.classList.add('desktop-root')
 if(desktopMode&&!nativeMode)document.documentElement.classList.add('desktop-preview')
 const sizes={S:[80,85],M:[100,105],L:[125,130]}
-const TINTS=[['iris','Lavanda','#ac9bf2'],['ocean','Océano','#80bce5'],['sage','Salvia','#94c5b1'],['peach','Durazno','#e3ae95']]
 const SERVICES=[{id:'ollama',name:'Ollama',desc:'Tu inteligencia, en tu equipo.',icon:Cpu,color:'#a6cfbf'}, {id:'github',name:'GitHub',desc:'Repositorios y actividad.',icon:Github,color:'#bba9e8'}, {id:'vercel',name:'Vercel',desc:'Tus proyectos y despliegues.',icon:Globe,color:'#97bbdf'}, {id:'n8n',name:'n8n',desc:'Automatizaciones a tu manera.',icon:PanelsTopLeft,color:'#e7b58e'}]
 const saved=(key,fallback)=>{try{return localStorage.getItem(key)||fallback}catch{return fallback}}
 function IconButton({title,children,...props}){return <button type="button" className="icon-button" title={title} aria-label={title} {...props}>{children}</button>}
 
-export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpand,personalization,mood,onThinking,reception}) {
+export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpand,personalization,mood,onThinking,reception,onInteract}) {
   const [tab,setTab]=useState('home')
   useHitRegions(nativeMode)
   const ai=useOllama(nativeMode)
@@ -38,6 +38,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   useEffect(()=>{onThinking?.(ai.sending)},[ai.sending,onThinking])
   useEffect(()=>{chatEnd.current?.scrollIntoView?.({block:'end',behavior:ai.sending?'auto':'smooth'})},[ai.messages,ai.sending,tab])
   const [theme,setTheme]=useState(()=>saved('companion-theme','dark'))
+  const [opacity,setOpacity]=useState(readOpacity)
   const [tint,setTint]=useState(()=>saved('companion-tint','iris'))
   const [pinned,setPinned]=useState(()=>saved('mascot-pinned','true')!=='false')
   const [systemDark,setSystemDark]=useState(()=>matchMedia('(prefers-color-scheme: dark)').matches)
@@ -51,7 +52,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   const wake=useWakeListener({native:nativeMode,device:voice.device,busy:ai.sending||ai.choosing||apps.busy||!!apps.pending||voice.active||voice.detecting,onRequest:async text=>{
     if(apps.isCommand(text)){await apps.request(text,{silent:true,onFeedback:voiceFeedback});return}
     voiceFeedback('error','No entendí el comando. Probá: “Bimu, abrí Spotify”.')
-  },onFeedback:voiceFeedback})
+  },onFeedback:voiceFeedback,onActivity:onInteract})
 
   const drop=useDropZone({native:nativeMode,busy:ai.sending||ai.choosing||voice.active||voice.detecting||apps.busy||!!apps.pending,reception:receiveRef})
   const [service,setService]=useState(null)
@@ -69,6 +70,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   },[theme,tint,resolvedTheme])
   useEffect(()=>{safe(()=>getCurrentWindow().setAlwaysOnTop(pinned));localStorage.setItem('mascot-pinned',String(pinned))},[pinned])
   useEffect(()=>{localStorage.setItem('companion-draft',draft)},[draft])
+  useEffect(()=>{document.documentElement.style.setProperty('--ui-opacity',String(opacity/100));try{localStorage.setItem('bimu-ui-opacity',String(opacity))}catch{}},[opacity])
   useEffect(()=>{document.documentElement.dataset.view=tab},[tab])
   useEffect(()=>{document.documentElement.dataset.receiveLayout=expanded?'panel':'notch'},[expanded])
   const dock=useDock({native:nativeMode,expanded,hovered:hovered||drop.active,tab,size:config.size,voiceVisible:!!voiceNotice||!!apps.pending?.silent,onError:setError})
@@ -126,7 +128,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
     {expanded&&<section className="glass-shell" inert={drop.active?true:undefined} aria-label="Panel del compañero">
       <header className="hub-header">
         <nav className="hub-tabs" aria-label="Navegación principal">{[[Home,'home','Inicio'],[MessageCircle,'chat','Chat'],[Plug,'connections','Conexiones'],[Settings2,'settings','Ajustes']].map(([Icon,id,label])=><button key={id} title={label} aria-label={label} aria-current={tab===id?'page':undefined} className={tab===id?'selected':''} onClick={()=>chooseTab(id)}><Icon size={16}/><span>{label}</span></button>)}</nav>
-        <div className="window-actions"><IconButton title={dock.lateral?"Mover sobre el borde vertical":"Mover sobre el borde horizontal"} {...dock.handlers}><Grip size={16}/></IconButton><IconButton title={resolvedTheme==='dark'?'Cambiar a claro':'Cambiar a oscuro'} onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</IconButton><IconButton title="Volver a pequeño" onClick={collapse}><ArrowDownLeft size={16}/></IconButton><IconButton title="Ocultar en la bandeja" onClick={()=>{voice.cancel();wake.stop();safe(()=>getCurrentWindow().hide())}}><Minus size={16}/></IconButton></div>
+        <div className="window-actions"><IconButton title={dock.lateral?"Mover sobre el borde vertical":"Mover sobre el borde horizontal"} {...dock.handlers}><Grip size={16}/></IconButton><IconButton title={resolvedTheme==='dark'?'Cambiar a claro':'Cambiar a oscuro'} onClick={()=>setTheme(resolvedTheme==='dark'?'light':'dark')}>{resolvedTheme==='dark'?<Sun size={16}/>:<Moon size={16}/>}</IconButton><IconButton title="Volver a pequeño" onClick={collapse}><ArrowDownLeft size={16}/></IconButton><IconButton title="Ocultar en la bandeja" onClick={()=>{voice.cancel();wake.pause();safe(()=>getCurrentWindow().hide())}}><Minus size={16}/></IconButton></div>
       </header>
       <div className={'hub-body view-'+tab}>
         {tab==='home'&&<>
@@ -144,9 +146,9 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
           <ApplicationConfirmation apps={apps}/><VoiceStatus voice={voice}/><form className="composer glass-card" onSubmit={e=>{e.preventDefault();submitMessage()}}><textarea disabled={voice.active} aria-label="Borrador de mensaje" value={draft} onChange={e=>setDraft(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();submitMessage()}}} maxLength={16000} placeholder="Escribile a Bimu…" rows={2}/><div><small>{ai.sending?'Generando respuesta…':ai.connected&&ai.model?'Enter para enviar · Shift+Enter para otra línea':'Conectá Ollama para enviar'}</small><div className="send-controls"><VoiceControls voice={voice} busy={ai.sending||ai.choosing||apps.busy||!!apps.pending||wake.enabled}/>{ai.sending?<button type="button" className="stop-generation" disabled={ai.stopping} onClick={ai.stop}>{ai.stopping?'Deteniendo…':'Detener'}</button>:<IconButton title="Enviar mensaje" type="submit" disabled={voice.active||ai.choosing||apps.busy||!!apps.pending||(!apps.isCommand(draft)&&(!ai.connected||!ai.model))||!draft.trim()}><Send size={16}/></IconButton>}</div></div></form>
         </section>}
         {tab==='connections'&&<section><div className="page-heading"><span className="micro-label">TODO EN SU LUGAR</span><h1>Conectá tu mundo.</h1><p>Un espacio para tu IA y las herramientas que usás.</p></div><div className="connection-grid">{SERVICES.map(({id,name,desc,icon:Icon,color})=><button key={id} className={'connection-tile glass-card '+(service===id?'chosen':'')} onClick={()=>setService(id)} aria-pressed={service===id}><span className="service-icon" style={{color}}><Icon size={23}/></span><span><strong>{name}</strong><small>{desc}</small></span><span className="state-badge">{id==='ollama'&&ai.connected?'Conectado':'Pendiente'}</span></button>)}</div><OllamaPanel ai={ai}/><div className="connection-note glass-card"><Plug size={18}/><div><strong>{service==='ollama'?'Tu IA en tu equipo':service?SERVICES.find(s=>s.id===service)?.name+': conexión pendiente':'Conectá tu modelo local'}</strong><p>{service==='ollama'?'Elegí un modelo instalado en el panel de Ollama. El historial se mantiene durante esta sesión.':service?'Esta integración todavía no está disponible. Por ahora no se solicita ninguna cuenta.':'Ollama ya puede conectarse. Las demás integraciones siguen pendientes.'}</p></div></div></section>}
-        {tab==='settings'&&<section className="settings-view"><div className="page-heading"><span className="micro-label">A TU MANERA</span><h1>Un espacio muy tuyo.</h1><p>Elegí cómo se ve y cómo te acompaña.</p></div><section className="appearance-card glass-card"><div className="section-line"><h2><Palette size={16}/> Apariencia</h2><span className="micro-label">GUARDADO AUTOMÁTICO</span></div><div className="theme-picker" aria-label="Tema">{[[Sun,'light','Claro'],[Moon,'dark','Oscuro'],[Monitor,'system','Sistema']].map(([Icon,id,label])=><button key={id} className={theme===id?'selected':''} aria-pressed={theme===id} onClick={()=>setTheme(id)}><Icon size={15}/>{label}{theme===id&&<Check size={13}/>}</button>)}</div><div className="tint-row"><span>Tinte del cristal</span><div>{TINTS.map(([id,label,color])=><button key={id} style={{'--swatch':color}} title={label} aria-label={label} aria-pressed={tint===id} className={tint===id?'selected':''} onClick={()=>setTint(id)}>{tint===id&&<Check size={12}/>}</button>)}</div></div></section><section className="behavior-card glass-card"><h2><Pin size={16}/> En tu escritorio</h2><label>Borde del monitor<select aria-label="Borde del monitor" value={dock.edge} onChange={e=>{setHovered(false);dock.setEdge(e.target.value)}}><option value="top">Arriba</option><option value="bottom">Abajo</option><option value="left">Izquierda</option><option value="right">Derecha</option></select></label><p className="dock-help">{dock.lateral?'Deslizá el notch verticalmente sobre este borde.':'Deslizá el notch horizontalmente sobre este borde.'} Se imanta al centro cuando lo acercás.</p><span className="dock-alignment">{dock.centered?'✧ Centrado en el borde':'Posición personalizada'}</span><label>Tamaño en reposo<select value={config.size} onChange={e=>onConfig(c=>({...c,size:e.target.value}))}><option value="S">Pequeño</option><option value="M">Mediano</option><option value="L">Grande</option></select></label><label>Siempre visible<input type="checkbox" checked={pinned} onChange={e=>setPinned(e.target.checked)}/></label><div className="settings-actions"><button onClick={dock.center}><Crosshair size={14}/> Centrar en el borde</button><button onClick={()=>safe(()=>invoke('quit_app'))}><Power size={14}/> Cerrar aplicación</button></div></section><NativeServices native={nativeMode} voiceBusy={voice.active||wake.enabled||ai.sending||apps.busy||!!apps.pending}/><ApplicationSettings apps={apps}/><WakeSettings wake={wake}/><VoiceSettings voice={{...voice,active:voice.active||wake.enabled}}/><MemoryPanel ai={ai}/>{ai.storageError&&<p className="ollama-error" role="alert">{ai.storageError}</p>}{personalization}</section>}
+        {tab==='settings'&&<SettingsPanels theme={theme} setTheme={setTheme} tint={tint} setTint={setTint} opacity={opacity} setOpacity={setOpacity} dock={dock} setHovered={setHovered} config={config} onConfig={onConfig} pinned={pinned} setPinned={setPinned} safe={safe} voice={voice} wake={wake} ai={ai} apps={apps} personalization={personalization}/> }
       </div>
-      <footer className="hub-footer"><span><span className="mini-star">✧</span> Mi pequeño compañero</span><span>{tab==='home'?'Un poquito de compañía.':'Hecho para acompañarte.'}<span className="version-tag"> BETA · 0.17</span></span></footer>
+      <footer className="hub-footer"><span><span className="mini-star">✧</span> Mi pequeño compañero</span></footer>
     </section>}
     {error&&<div className="desktop-error" role="alert"><span>{error}</span><IconButton title="Cerrar aviso" onClick={()=>setError('')}><X size={14}/></IconButton></div>}
   </>

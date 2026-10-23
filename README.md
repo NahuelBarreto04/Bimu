@@ -1,4 +1,4 @@
-# Bimu · Beta v0.16
+# Bimu · Beta v0.18.0
 
 Tauri 2 + React + Three.js para Windows. Conserva temas claro/oscuro/sistema, cuatro tintes, avatar personalizable y menú Inicio/Chat/Conexiones/Ajustes.
 
@@ -326,7 +326,7 @@ Los adjuntos son una instantánea de texto al compartirlos: no dan acceso a arch
 
 También admite decir solo “Bimu”: cuando el indicador pase a “Te escucho”, hay 8 segundos para comenzar un segundo pedido. “Bimu, cancelá” desarma esa espera. Durante el reconocimiento hay una pausa de escucha, por eso la primera prueba conviene hacerla con nombre y pedido en una sola frase.
 
-El indicador verde del notch significa escucha activa; ámbar indica reconocimiento o pausa por otra operación. Clic en el indicador desactiva el modo y libera el micrófono. **Ocultar la ventana, cerrarla a la bandeja o reiniciar la app lo apaga**. El modo no se activa automáticamente al reiniciar. Para cambiar de micrófono o volver al dictado manual, desactivá primero la escucha.
+El indicador verde del notch significa escucha activa; ámbar indica reconocimiento o pausa por otra operación. Clic en el indicador desactiva el modo y libera el micrófono. **Bimu recuerda si activaste la escucha y la recupera al reiniciar**. Ocultar la ventana o cerrarla a la bandeja libera el micrófono sin borrar esa elección; mostrarla vuelve a activar la escucha guardada. Desactivarla con × o desde Ajustes guarda la preferencia apagada. Para cambiar de micrófono o volver al dictado manual, desactivá primero la escucha.
 
 Es una implementación **experimental de VAD + Whisper**, no un detector dedicado y liviano de palabra clave. El VAD corre en un AudioWorklet, conserva 450 ms previos al inicio de voz, termina tras 900 ms de silencio y limita cada frase a 15 segundos. Las frases con voz se transcriben localmente para detectar si empiezan con Bimu; el resto se descarta sin agregarse al borrador o historial. No se envía audio a un servicio externo. Puede consumir CPU y la latencia depende de Whisper y del equipo. Solo hay una transcripción en curso: mientras se reconoce, no se encolan más grabaciones.
 
@@ -370,7 +370,7 @@ Comparar con la misma espera de 0,7 s y los mismos pedidos desde Ajustes → Dec
 
 Descargar una vez `Bimu_0.17.1_x64-setup.exe` desde GitHub Releases y ejecutarlo con el usuario habitual. Mantiene el identificador de la app para conservar datos. No desinstalar borrando los datos de usuario. Windows puede advertir que el editor es desconocido: este instalador todavía no tiene certificado Authenticode.
 
-Desde Ajustes → Motor de voz se puede preparar CPU o NVIDIA CUDA, iniciar/detener y consultar los registros. Reutiliza `%LOCALAPPDATA%\Bimu\voice`, el modelo y las descargas anteriores. Detener una vez el servidor que se hubiera iniciado manualmente. Bimu inicia el motor preparado al abrirse (opción desactivable), lo detiene al salir y nunca mata servidores externos. Abrir el motor no activa la escucha del micrófono. La preparación inicial necesita conexión y puede tardar varios minutos; la transcripción posterior es local.
+Desde Ajustes → Configuración de Voz se puede preparar CPU o NVIDIA CUDA, iniciar/detener y consultar los registros. Reutiliza `%LOCALAPPDATA%\Bimu\voice`, el modelo y las descargas anteriores. Detener una vez el servidor que se hubiera iniciado manualmente. Bimu inicia el motor preparado al abrirse (opción desactivable), lo detiene al salir y nunca mata servidores externos. Abrir el motor no activa la escucha del micrófono. La preparación inicial necesita conexión y puede tardar varios minutos; la transcripción posterior es local.
 
 Ajustes → Actualizaciones permite buscar versiones estables, descargar el instalador del repositorio oficial y verificar su tamaño y SHA256 publicado por GitHub. El botón de instalación vuelve a verificar el archivo, detiene el Whisper propio, abre el instalador interactivo y cierra Bimu. No usa instalación silenciosa. Abrir Bimu al terminar. Las compilaciones de desarrollo permiten comprobar/descargar, pero no lanzar instalación sobre `tauri dev`.
 
@@ -382,3 +382,14 @@ Los márgenes transparentes de Windows permiten hacer clic en la ventana detrás
 ### 0.17.2: transiciones y recepción de archivos
 
 La ventana nativa conserva un marco único para reposo, hover, inicio y ajustes. Solo se anima el contenido, incluido el personaje, evitando el cambio de origen de pantalla durante abrir/contraer. Los márgenes mantienen el paso de clics. La captura de mouse se conserva únicamente si la pulsación comenzó sobre Bimu; un archivo arrastrado desde Explorer puede volver a activar la ventana al entrar en el panel. Probar en Windows ambos tamaños, entradas/salidas de archivos, soltar/cancelar, y cambios rápidos de tamaño.
+
+
+## v0.18.0 · Ajustes y preferencias
+
+- Seis submenús: Apariencia de UI, Apariencia de Bimu, Configuración de Voz, Configuración de la app, Aplicaciones y Actualizaciones. Memoria permanece en Configuración de la app; el motor Whisper se administra en Configuración de Voz.
+- Transparencia de fondos configurable de 0 a 65%, guardada en este equipo. Textos, controles y personaje conservan su opacidad.
+- La escucha «Bimu» recuerda la activación/desactivación explícita. Al abrir espera al motor local; si falta el motor muestra un error recuperable. No repite solicitudes de permiso al micrófono tras un rechazo. Ocultar pausa y mostrar recupera la preferencia; un error no la borra.
+- Tras diez minutos sin interacción con Bimu se activa la animación de descanso. Interactuar o una invocación reconocida lo despierta; la escucha no se detiene. El ruido y las frases sin activación no reinician el descanso. No se duerme durante una respuesta del chat.
+- La versión instalada se muestra en Actualizaciones. Se quitó la leyenda de acompañamiento y la versión del pie.
+
+Prueba manual Windows: activar escucha y reiniciar; apagar y reiniciar; ocultar/mostrar; comprobar error con micrófono no disponible; cambiar tema/transparencia y reiniciar; visitar seis submenús en los cuatro bordes; esperar diez minutos y llamar «Bimu»; verificar que la escucha siga activa y el personaje despierte. Atajos compuestos, búsqueda global de carpetas y actualización sin asistente quedan pendientes.
