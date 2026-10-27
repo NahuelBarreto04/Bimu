@@ -3,3 +3,13 @@ dist/
 src-tauri/target/
 src-tauri/gen/
 native-tests/target/
+
+# Local credentials and signing material (examples may be committed).
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
