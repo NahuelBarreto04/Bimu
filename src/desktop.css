@@ -439,6 +439,21 @@ html[data-notch=peek] .desktop.compact .notch-surface,.quick-shell,.desktop .gla
 
 
 /* A short directional carousel: the next page enters as the previous page recedes. */
-.notch-player{overflow:hidden}.notch-page.enter-from-right{animation:page-enter-right 280ms cubic-bezier(.22,1,.36,1) both}.notch-page.enter-from-left{animation:page-enter-left 280ms cubic-bezier(.22,1,.36,1) both}.notch-page-ghost{position:absolute;z-index:0;pointer-events:none;transform-origin:center;will-change:transform,opacity}.notch-page-ghost.moving-left{animation:page-leave-left 280ms cubic-bezier(.22,1,.36,1) both}.notch-page-ghost.moving-right{animation:page-leave-right 280ms cubic-bezier(.22,1,.36,1) both}@keyframes page-enter-right{from{opacity:.35;transform:translateX(26%) scale(.88)}to{opacity:1;transform:translateX(0) scale(1)}}@keyframes page-enter-left{from{opacity:.35;transform:translateX(-26%) scale(.88)}to{opacity:1;transform:translateX(0) scale(1)}}@keyframes page-leave-left{to{opacity:0;transform:translateX(-26%) scale(.88)}}@keyframes page-leave-right{to{opacity:0;transform:translateX(26%) scale(.88)}}@media(prefers-reduced-motion:reduce){.notch-page,.notch-page-ghost{animation:none!important}}
+.notch-player{overflow:hidden}.notch-page.enter-from-right{animation:page-enter-right 280ms cubic-bezier(.22,1,.36,1) backwards}.notch-page.enter-from-left{animation:page-enter-left 280ms cubic-bezier(.22,1,.36,1) backwards}.notch-page-ghost{position:absolute;z-index:0;pointer-events:none;transform-origin:center;will-change:transform,opacity}.notch-page-ghost.moving-left{animation:page-leave-left 280ms cubic-bezier(.22,1,.36,1) both}.notch-page-ghost.moving-right{animation:page-leave-right 280ms cubic-bezier(.22,1,.36,1) both}@keyframes page-enter-right{from{opacity:.35;transform:translateX(26%) scale(.88)}to{opacity:1;transform:translateX(0) scale(1)}}@keyframes page-enter-left{from{opacity:.35;transform:translateX(-26%) scale(.88)}to{opacity:1;transform:translateX(0) scale(1)}}@keyframes page-leave-left{to{opacity:0;transform:translateX(-26%) scale(.88)}}@keyframes page-leave-right{to{opacity:0;transform:translateX(26%) scale(.88)}}@media(prefers-reduced-motion:reduce){.notch-page,.notch-page-ghost{animation:none!important}}
 
 html[data-notch=peek][data-edge=top] .desktop.compact .notch-surface{border-radius:0 0 29px 29px}html[data-notch=peek][data-edge=bottom] .desktop.compact .notch-surface{border-radius:29px 29px 0 0}html[data-notch=peek] .player-track{margin-top:5px}html[data-notch=peek] .player-timeline{margin-top:5px}html[data-notch=peek] .player-controls{margin-top:3px}
+/* The active line can wrap fully; the scroll position follows it smoothly. */
+html[data-lyrics=true][data-notch=peek] .lyrics-panel{display:block;overflow:hidden;padding:0 9px 0 13px}
+.lyrics-scroll{height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;overscroll-behavior:contain}
+.lyrics-lines{display:flex;flex-direction:column;justify-content:flex-start;padding:30px 0}
+html[data-lyrics=true][data-notch=peek] .lyrics-lines p{flex:none;overflow-wrap:anywhere;white-space:normal;padding:5px 0;transition:opacity .24s ease,color .24s ease}
+.lyrics-lines p:not(.active){opacity:.4}.lyrics-lines p.active{opacity:1}
+.compact-lyric-transition{animation:lyric-appear .24s ease both}@keyframes lyric-appear{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.compact-lyric-transition{animation:none}.lyrics-lines p{transition:none!important}}
+/* A narrow handle leaves the underlying window usable until hovered. */
+html[data-notch=retracted] .desktop.compact .notch-surface{border-radius:0 0 7px 7px;padding:0;overflow:hidden}
+html[data-notch=retracted][data-edge=bottom] .desktop.compact .notch-surface{border-radius:7px 7px 0 0}
+html[data-notch=retracted][data-edge=left] .desktop.compact .notch-surface{border-radius:0 7px 7px 0}
+html[data-notch=retracted][data-edge=right] .desktop.compact .notch-surface{border-radius:7px 0 0 7px}
+html[data-notch=retracted] .notch-surface>*{opacity:0;pointer-events:none}
+html[data-notch=retracted] .desktop.compact .notch-surface::before,html[data-notch=retracted] .desktop.compact .notch-surface::after{display:none}

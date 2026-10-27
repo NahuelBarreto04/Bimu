@@ -2,13 +2,13 @@ import {useEffect,useLayoutEffect,useRef,useState} from 'react'
 import {getCurrentWindow,LogicalSize,PhysicalPosition,currentMonitor,primaryMonitor,cursorPosition} from '@tauri-apps/api/window'
 import {EDGES,isLateral,notchSize,dockPosition,slideOffset,transitionDuration,unionRects,desktopEnvelope} from './dock-geometry'
 const initial=()=>{try{const d=JSON.parse(localStorage.getItem('companion-dock')||'{}');return {edge:EDGES.includes(d.edge)?d.edge:'top',offsets:Object.fromEntries(EDGES.map(e=>[e,Number.isFinite(d.offsets?.[e])?Math.max(0,Math.min(1,d.offsets[e])):.5]))}}catch{return {edge:'top',offsets:{top:.5,bottom:.5,left:.5,right:.5}}}}
-export function useDock({native,expanded,hovered,preview=false,tab,size,receiving=false,voiceVisible,onError}){
+export function useDock({native,expanded,hovered,preview=false,retracted=false,tab,size,receiving=false,voiceVisible,onError}){
   const [dock,setDock]=useState(initial)
   const [dragging,setDragging]=useState(false)
   const [refresh,setRefresh]=useState(0)
   const shown=useRef(false),lastState=useRef(null),lastTab=useRef(null),nativeFrame=useRef(null)
   const monitorRef=useRef(null),queue=useRef(Promise.resolve()),revision=useRef(0),dragRef=useRef(null),suppressClick=useRef(false),moveRevision=useRef(0)
-  const edge=dock.edge, lateral=isLateral(edge),state=expanded?'open':hovered||dragging?'peek':preview?'anticipate':'idle'
+  const edge=dock.edge, lateral=isLateral(edge),state=expanded?'open':hovered||dragging?'peek':preview?'anticipate':retracted?'retracted':'idle'
   const fraction=dock.offsets[edge]
   useEffect(()=>{localStorage.setItem('companion-dock',JSON.stringify(dock))},[dock])
   useLayoutEffect(()=>{
@@ -137,5 +137,5 @@ export function useDock({native,expanded,hovered,preview=false,tab,size,receivin
     onPointerCancel:()=>{dragRef.current=null;moveRevision.current++;setDragging(false)},
     onLostPointerCapture:()=>{dragRef.current=null;moveRevision.current++;setDragging(false)}
   }
-  return {edge,lateral,state,dragging,center,reanchor,setEdge:edge=>{if(EDGES.includes(edge))setDock(d=>({...d,edge}))},centered:Math.abs(fraction-.5)<.0001,handlers,consumeDrag:()=>{const moved=suppressClick.current;suppressClick.current=false;return moved}}
+  return {edge,lateral,state,dragging,fraction,center,reanchor,setEdge:edge=>{if(EDGES.includes(edge))setDock(d=>({...d,edge}))},centered:Math.abs(fraction-.5)<.0001,handlers,consumeDrag:()=>{const moved=suppressClick.current;suppressClick.current=false;return moved}}
 }
