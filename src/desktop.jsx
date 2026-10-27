@@ -51,9 +51,10 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   const [clock,setClock]=useState(()=>new Date())
   useEffect(()=>{const timer=setInterval(()=>setClock(new Date()),10000);return()=>clearInterval(timer)},[])
   const [media,setMedia]=useState(null),[mediaError,setMediaError]=useState('')
-  const refreshMedia=async()=>{if(!nativeMode)return;try{setMedia(await invoke('media_state'));setMediaError('')}catch(e){setMedia(null);setMediaError(String(e))}}
-  useEffect(()=>{if(!nativeMode)return;let active=true,busy=false;const update=async()=>{if(busy)return;busy=true;try{const result=await invoke('media_state');if(active){setMedia(result);setMediaError('')}}catch(e){if(active){setMedia(null);setMediaError(String(e))}}finally{busy=false}};update();const timer=setInterval(update,3000);return()=>{active=false;clearInterval(timer)}},[])
-  const mediaAction=async action=>{try{await invoke('media_control',{action});await refreshMedia()}catch(e){setMediaError(String(e))}}
+  const mediaRef=useRef(null),mediaRevision=useRef(0),mediaMounted=useRef(true)
+  const refreshMedia=async()=>{if(!nativeMode)return;const revision=++mediaRevision.current;try{const next=await invoke('media_state',{includeCover:false});if(!mediaMounted.current||revision!==mediaRevision.current)return;const previous=mediaRef.current;const same=next&&previous&&next.title===previous.title&&next.artist===previous.artist;const value=next?{...next,cover:same?previous.cover:null}:null;mediaRef.current=value;setMedia(value);setMediaError('');if(next&&(!same||!previous.cover)){const art=await invoke('media_state',{includeCover:true});if(!mediaMounted.current||!art||!mediaRef.current||art.title!==mediaRef.current.title||art.artist!==mediaRef.current.artist)return;const merged={...mediaRef.current,cover:art.cover};mediaRef.current=merged;setMedia(merged)}}catch(e){if(mediaMounted.current&&revision===mediaRevision.current)setMediaError(String(e))}}
+  useEffect(()=>{if(!nativeMode)return;mediaMounted.current=true;refreshMedia();const timer=setInterval(refreshMedia,1500);return()=>{mediaMounted.current=false;mediaRevision.current++;clearInterval(timer)}},[])
+  const mediaAction=async action=>{mediaRevision.current++;if(action==='toggle'&&mediaRef.current){const next={...mediaRef.current,playing:!mediaRef.current.playing};mediaRef.current=next;setMedia(next)}try{await invoke('media_control',{action});setTimeout(refreshMedia,250)}catch(e){setMediaError(String(e));refreshMedia()}}
   const timeText=value=>{const n=Math.max(0,Math.floor(Number(value)||0));return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`}
   const [systemStatus,setSystemStatus]=useState(null)
   const [online,setOnline]=useState(()=>navigator.onLine)

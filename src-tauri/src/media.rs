@@ -18,12 +18,12 @@ async fn current() -> windows::core::Result<windows::Media::Control::GlobalSyste
 }
 
 #[tauri::command]
-pub async fn media_state() -> Result<Option<MediaState>, String> {
-    tauri::async_runtime::spawn_blocking(|| tauri::async_runtime::block_on(media_state_inner()))
+pub async fn media_state(include_cover: bool) -> Result<Option<MediaState>, String> {
+    tauri::async_runtime::spawn_blocking(move || tauri::async_runtime::block_on(media_state_inner(include_cover)))
         .await.map_err(|e| e.to_string())?
 }
 
-async fn media_state_inner() -> Result<Option<MediaState>, String> {
+async fn media_state_inner(include_cover: bool) -> Result<Option<MediaState>, String> {
     #[cfg(windows)] {
         use base64::{engine::general_purpose::STANDARD, Engine};
         use windows::{Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus, Storage::Streams::DataReader};
@@ -34,7 +34,7 @@ async fn media_state_inner() -> Result<Option<MediaState>, String> {
         let artist = props.Artist().map(|v| v.to_string_lossy()).unwrap_or_default();
         let playing = session.GetPlaybackInfo().and_then(|v| v.PlaybackStatus()).map(|v| v == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing).unwrap_or(false);
         let (position,duration) = session.GetTimelineProperties().map(|v| (v.Position().map(|x| x.Duration as f64/10_000_000.0).unwrap_or(0.0), v.EndTime().map(|x| x.Duration as f64/10_000_000.0).unwrap_or(0.0))).unwrap_or((0.0,0.0));
-        let cover = if let Ok(reference) = props.Thumbnail() {
+        let cover = if include_cover { if let Ok(reference) = props.Thumbnail() {
             if let Ok(op) = reference.OpenReadAsync() {
                 if let Ok(stream) = op.await {
                     let size = stream.Size().unwrap_or(0);
@@ -50,10 +50,10 @@ async fn media_state_inner() -> Result<Option<MediaState>, String> {
                     } else { None }
                 } else { None }
             } else { None }
-        } else { None };
+        } else { None } } else { None };
         return Ok(Some(MediaState { title, artist, playing, position, duration, cover }))
     }
-    #[cfg(not(windows))] { Ok(None) }
+    #[cfg(not(windows))] { let _ = include_cover; Ok(None) }
 }
 
 #[tauri::command]
