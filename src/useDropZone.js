@@ -4,10 +4,11 @@ import {listen} from '@tauri-apps/api/event'
 import {getCurrentWindow,cursorPosition} from '@tauri-apps/api/window'
 import {clamp} from './dock-geometry'
 const EMPTY={stage:'idle',preview:null,error:''}
-export function useDropZone({native,busy,reception}){
+export function useDropZone({native,busy,reception,shelfMode=false,onShelf}){
   const [state,setState]=useState(EMPTY),[accepting,setAccepting]=useState(false)
   const current=useRef(EMPTY),sequence=useRef(0),ticket=useRef(null),leaveTimer=useRef(),lastMove=useRef(0),moving=useRef(false),busyRef=useRef(busy)
   busyRef.current=busy
+  const shelfRef=useRef({shelfMode,onShelf});shelfRef.current={shelfMode,onShelf}
   const update=next=>{current.current=next;setState(next)}
   const discard=id=>{if(native&&id!=null)invoke('workspace_discard_drop',{id}).catch(()=>{})}
   const reset=()=>{sequence.current++;clearTimeout(leaveTimer.current);discard(ticket.current);ticket.current=null;update(EMPTY);reception.current.target=[0,0]}
@@ -61,6 +62,11 @@ export function useDropZone({native,busy,reception}){
       if(busyRef.current){update({stage:'error',preview:null,error:'Terminá o cancelá la operación actual antes de compartir contenido.'});return}
       update({stage:'preparing',preview:null,error:''})
       try{
+        if(shelfRef.current.shelfMode){
+          const items=await invoke('shelf_accept_drop',{id})
+          if(disposed||sequence.current!==op)return
+          ticket.current=null;update(EMPTY);shelfRef.current.onShelf?.(items);return
+        }
         const wait=matchMedia('(prefers-reduced-motion: reduce)').matches?0:280
         const [preview]=await Promise.all([invoke('workspace_stage_drop',{id}),new Promise(resolve=>setTimeout(resolve,wait))])
         if(disposed||sequence.current!==op)return

@@ -42,6 +42,13 @@ pub fn workspace_remove_file(id:String,state:State<'_,Workspace>)->Result<Option
 #[derive(Clone)]pub enum Prepared{Folder(PathBuf),Files(Vec<SharedDocument>)}
 #[derive(Default)]pub struct DropState{ticket:u64,paths:Vec<PathBuf>,prepared:Option<Prepared>,items:Vec<FileInfo>}
 #[derive(Default)]pub struct DropInbox(pub Mutex<DropState>);
+#[tauri::command]
+pub fn shelf_accept_drop(id:u64,app:AppHandle,inbox:State<'_,DropInbox>)->Result<Vec<crate::shelf::ShelfItem>,String>{
+    let mut drop=inbox.inner().0.lock().map_err(|_|"No se pudo recibir el arrastre.")?;
+    if drop.ticket!=id{return Err("El arrastre ya no está disponible.".into())}
+    let result=crate::shelf::add_paths(&app,drop.paths.clone())?;
+    drop.paths.clear();drop.prepared=None;drop.ticket=drop.ticket.wrapping_add(1);Ok(result)
+}
 #[derive(Serialize)]pub struct DropPreview{id:u64,name:String,entries:usize,truncated:bool,kind:String,items:Vec<FileInfo>,ready:usize}
 pub fn handle_drag(window:&tauri::Window,event:&tauri::DragDropEvent){
     use tauri::Emitter;
