@@ -6,7 +6,7 @@ export function useDock({native,expanded,hovered,tab,size,receiving=false,voiceV
   const [dock,setDock]=useState(initial)
   const [dragging,setDragging]=useState(false)
   const [refresh,setRefresh]=useState(0)
-  const shown=useRef(false),lastState=useRef(null),nativeFrame=useRef(null)
+  const shown=useRef(false),lastState=useRef(null),lastTab=useRef(null),nativeFrame=useRef(null)
   const monitorRef=useRef(null),queue=useRef(Promise.resolve()),revision=useRef(0),dragRef=useRef(null),suppressClick=useRef(false),moveRevision=useRef(0)
   const edge=dock.edge, lateral=isLateral(edge),state=expanded?'open':hovered||dragging?'peek':'idle'
   const fraction=dock.offsets[edge]
@@ -14,8 +14,10 @@ export function useDock({native,expanded,hovered,tab,size,receiving=false,voiceV
   useLayoutEffect(()=>{
     const root=document.documentElement
     const previous=lastState.current
-    const duration=transitionDuration(previous,state,matchMedia('(prefers-reduced-motion: reduce)').matches)
+    const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches
+    const duration=previous===state&&state==='peek'&&lastTab.current!==tab&&!reduced?220:transitionDuration(previous,state,reduced)
     lastState.current=state
+    lastTab.current=tab
     root.dataset.edge=edge;root.dataset.notch=state;root.dataset.dragging=String(dragging);root.dataset.centered=String(Math.abs(fraction-.5)<.0001)
     root.style.setProperty('--dock-duration',duration+'ms')
     const [wantedW,wantedH]=notchSize(edge,state,size,tab,receiving)

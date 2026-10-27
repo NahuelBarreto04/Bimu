@@ -14,6 +14,7 @@ for(const area of [{x:0,y:0,width:1920,height:1040},{x:-2560,y:-200,width:2560,h
 assert.equal(slideOffset(.45,85,1920),.5);assert.equal(slideOffset(.45,180,3840,2),.5);assert.notEqual(slideOffset(.45,200,1920),.5)
 assert.equal(slideOffset(.5,-9999,1920),0);assert.equal(slideOffset(.5,9999,1920),1)
 assert.ok(notchSize('top','peek')[0]>notchSize('top','idle')[0])
+assert.ok(notchSize('top','peek','M','lyrics')[1]>notchSize('top','peek','M','home')[1])
 for(const edge of ['left','right']){
  const idle=notchSize(edge,'idle'),peek=notchSize(edge,'peek')
  assert.ok(idle[0]<=80&&idle[1]<=100,'a small side tab at rest')

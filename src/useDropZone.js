@@ -21,6 +21,8 @@ export function useDropZone({native,busy,reception,shelfMode=false,onShelf}){
       const rect=document.querySelector('.desktop')?.getBoundingClientRect();if(!rect)return
       const nx=clamp(((point.x-origin.x)/scale-rect.left)/Math.max(1,rect.width)*2-1,-1,1)
       const ny=clamp(((point.y-origin.y)/scale-rect.top)/Math.max(1,rect.height)*2-1,-1,1)
+      document.documentElement.style.setProperty('--drop-spot-x',((nx+1)*50)+'%')
+      document.documentElement.style.setProperty('--drop-spot-y',((ny+1)*50)+'%')
       reception.current.target=[nx,ny]
       document.documentElement.style.setProperty('--drop-x',nx*Math.max(0,Math.min(95,rect.width/2-48))+'px')
       document.documentElement.style.setProperty('--drop-y',ny*Math.max(0,Math.min(65,rect.height/2-38))+'px')

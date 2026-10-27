@@ -359,3 +359,12 @@ html[data-receive-layout=notch] .drop-outline{inset:13px 24px 12px;border:1px da
 html[data-receive=preparing] .drop-shelf-icon svg{animation:drop-spin 1s linear infinite}
 @keyframes drop-light{from{transform:translateX(-9px);opacity:.28}to{transform:translateX(9px);opacity:.52}}
 @media(prefers-reduced-motion:reduce){html[data-receive-layout=notch] .drop-surface::before,html[data-receive-layout=notch] .drop-surface::after,html[data-receive=preparing] .drop-shelf-icon svg{animation:none}.notch-pagination button{transition:none!important}}
+
+/* Soft light follows the drag pointer inside the compact notch. */
+html[data-receive-layout=notch] .drop-surface::before,html[data-receive-layout=notch] .drop-surface::after{left:var(--drop-spot-x,50%);top:var(--drop-spot-y,50%);right:auto;bottom:auto;animation:none;transition:left 110ms ease-out,top 110ms ease-out;transform:translate(-50%,-50%)}
+html[data-receive-layout=notch] .drop-surface::before{width:180px;height:130px;opacity:.48}
+html[data-receive-layout=notch] .drop-surface::after{width:115px;height:95px;opacity:.34;transform:translate(-30%,-30%)}
+.player-controls{position:relative}.player-controls .lyrics-toggle{position:absolute;left:0;color:#b5bbc7}.player-controls .lyrics-toggle[aria-pressed=true]{color:#fff}
+.lyrics-panel{height:142px;overflow:auto;scrollbar-width:thin;margin:8px 0 0;padding:4px 12px;border-top:1px solid #30333b;text-align:center;color:#aeb5c2}
+.lyrics-panel>p{font-size:10px;line-height:1.5;padding:30px 0}.lyrics-lines p{font-size:11px;line-height:1.5;margin:0;padding:5px 0;opacity:.55;transition:opacity .2s,color .2s}.lyrics-lines p.active{color:#fff;opacity:1;font-weight:700}
+@media(prefers-reduced-motion:reduce){html[data-receive-layout=notch] .drop-surface::before,html[data-receive-layout=notch] .drop-surface::after,.lyrics-lines p{transition:none}}
