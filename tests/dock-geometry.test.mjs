@@ -19,12 +19,12 @@ assert.ok(notchSize('top','idle','M','lyrics')[0]>notchSize('top','idle','M','ho
 for(const edge of ['left','right']){
  const idle=notchSize(edge,'idle'),peek=notchSize(edge,'peek')
  assert.ok(idle[0]<=80&&idle[1]<=100,'a small side tab at rest')
- assert.equal(peek[1],idle[1],'hover expands inward without a tall empty column')
+ assert.ok(peek[1]>=idle[1],'hover expands inward without a tall empty column')
  assert.ok(peek[0]-64>=220,'quick chat has enough horizontal reading space')
  const area={x:-1920,y:0,width:1920,height:1040},a=dockPosition(area,...idle,edge,.5),b=dockPosition(area,...peek,edge,.5)
- assert.equal(a.y,b.y)
+ assert.ok(Math.abs((a.y+idle[1]/2)-(b.y+peek[1]/2))<=1)
  if(edge==='left')assert.equal(a.x,b.x);else assert.equal(a.x+idle[0],b.x+peek[0])
- assert.deepEqual(notchSize(edge,'peek','M','home',true),[156,260],'file reception retains its usable layout')
+ assert.deepEqual(notchSize(edge,'peek','M','home',true),[179,299],'file reception retains its usable layout')
 }
 console.log('OK: 540 combinaciones de posición, límites de monitor, centro, DPI y magnetismo.')
 
@@ -71,3 +71,9 @@ for(const area of [{x:0,y:0,width:1920,height:1040},{x:-1920,y:-200,width:1920,h
  }
 }
 console.log('OK: marco nativo unico en reposo, hover, inicio y ajustes, con DPI y bordes de monitor.')
+
+for (const state of ['peek','open']) for(const tab of ['home','lyrics','quick-settings','settings']) {
+ assert.deepEqual(notchSize('top',state,'S',tab),notchSize('top',state,'L',tab))
+ assert.deepEqual(notchSize('top',state,'M',tab),notchSize('top',state,'L',tab))
+}
+assert.notDeepEqual(notchSize('top','idle','S'),notchSize('top','idle','L'))

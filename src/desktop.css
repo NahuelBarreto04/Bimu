@@ -469,3 +469,25 @@ html[data-notch=retracted] .desktop.compact .notch-surface::before,html[data-not
 @keyframes audio-bar-color{from{background:#fff}to{background:var(--audio-accent,#b39af5)}}
 html[data-theme=light] .audio-equalizer b{box-shadow:0 0 1px #30303a}
 @media(prefers-reduced-motion:reduce){.audio-equalizer b{animation:none;transition:none}}
+
+/* The face nods gently; the sound meter remains anchored to the notch. */
+.notch-face{position:relative;display:flex;align-items:center;flex:none}
+.desktop.compact .bimu-eyes.bimu-listening{gap:5px;animation:bimu-listen-nod 1.5s ease-in-out infinite;transform-origin:center center}
+.bimu-eyes.bimu-listening i,html[data-notch=peek] .bimu-eyes.bimu-listening i{width:8px;height:7px}
+@keyframes bimu-listen-nod{0%,100%{transform:translateY(0) scaleY(1)}50%{transform:translateY(1px) scaleY(.94)}}
+.audio-equalizer{left:100%;bottom:0;gap:2px;height:13px;margin-left:2px}
+.audio-equalizer b{width:3px;height:13px}
+@media(prefers-reduced-motion:reduce){.desktop.compact .bimu-eyes.bimu-listening{animation:none}}
+/* Battery ring is also legible in the compact settings header. */
+.battery-status{width:23px;height:23px;right:10px;gap:0;color:inherit}
+.battery-ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);fill:none;stroke-width:2.3}
+.battery-track{stroke:currentColor;opacity:.18}.battery-progress-ring{stroke-linecap:round}
+.battery-status small{font-size:7px;font-weight:750;line-height:1;letter-spacing:-.4px;color:inherit}
+.battery-bolt{position:relative;color:inherit;stroke-width:2.2}
+.quick-settings-status .battery-status{width:23px;height:23px;inset:-2px}
+.notch-move-button{position:absolute;left:57px;top:7px;width:20px;height:20px;display:grid;place-items:center;padding:0;border:0;border-radius:7px;background:transparent;color:inherit;opacity:.65;cursor:grab;touch-action:none;z-index:3}
+.notch-move-button:hover{background:#8883;opacity:1}.notch-move-button:active{cursor:grabbing}
+.custom-color{display:inline-flex;align-items:center;gap:6px;font-size:10px;cursor:pointer;color:inherit}
+.custom-color input{width:25px;height:25px;padding:2px;border:1px solid #8888;border-radius:50%;background:transparent;cursor:pointer}
+.custom-color input::-webkit-color-swatch-wrapper{padding:0}.custom-color input::-webkit-color-swatch{border:0;border-radius:50%}
+html[data-theme=light] .desktop.compact .notch-clock,html[data-theme=light] .player-heading time{color:#232532}
