@@ -392,3 +392,14 @@ html[data-lyrics=true][data-notch=peek] .lyrics-panel{overflow:hidden;display:fl
 .lyrics-lines{width:100%}.lyrics-lines p{font-family:ui-rounded,'Arial Rounded MT Bold',system-ui,sans-serif;font-weight:700}
 html[data-lyrics=true][data-notch=peek] .lyrics-lines p{font-size:13px;line-height:1.25;padding:4px 0}
 .lyrics-lines p.active{font-weight:850;color:#fff;opacity:1}
+
+/* Quick modes in the compact notch. */
+.quick-modes{margin-top:7px;max-height:96px;overflow-y:auto;scrollbar-width:thin}
+.quick-modes-heading{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;font-size:11px}
+.quick-modes-heading button{border:0;border-radius:8px;padding:4px 8px;background:#292d35;color:#e5e8ef;font-size:9px}
+.quick-modes-list{display:flex;gap:7px;overflow-x:auto;scrollbar-width:thin;padding-bottom:3px}
+.quick-mode{display:flex;align-items:center;gap:7px;flex:0 0 auto;width:145px;min-width:0;border:1px solid #383d48;border-radius:12px;background:#1e222b;text-align:left;padding:8px;color:#fff}
+.quick-mode:hover{background:#303743}.quick-mode>span:nth-child(2){flex:1;min-width:0}.quick-mode strong,.quick-mode small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.quick-mode strong{font-size:10px}.quick-mode small{font-size:9px;color:#a8afbb;margin-top:2px}.quick-mode>svg{opacity:.7;flex:none}
+.quick-mode-icon{width:28px;height:28px;display:grid;place-items:center;border-radius:9px;color:#d8c2ff;background:#403355;flex:none}
+.quick-modes-empty{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px dashed #484b54;border-radius:12px;color:#b7beca;font-size:10px;line-height:1.4}.quick-modes-empty svg{color:#d8c2ff;flex:none}
+.quick-mode-result,.quick-mode-error{margin:5px 0 0;font-size:9px;line-height:1.35;color:#b5e4c8}.quick-mode-result span{display:block;color:#ffc1ba;overflow-wrap:anywhere}.quick-mode-error,.quick-mode-result.has-error strong{color:#ffc1ba}

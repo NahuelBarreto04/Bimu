@@ -10,8 +10,8 @@ import {isTauri} from '@tauri-apps/api/core'
 const nativeMode=isTauri()
 const TINTS=[['iris','Lavanda','#ac9bf2'],['ocean','Océano','#80bce5'],['sage','Salvia','#94c5b1'],['peach','Durazno','#e3ae95']]
 const SECTIONS=[['ui','Apariencia de UI',Palette],['mascot','Apariencia de Bimu',Sparkles],['voice','Configuración de Voz',Mic],['app','Configuración de la app',Pin],['apps','Atajos rápidos',PanelsTopLeft],['updates','Actualizaciones',Download]]
-export function SettingsPanels({theme,setTheme,tint,setTint,opacity,setOpacity,dock,setHovered,config,onConfig,pinned,setPinned,safe,voice,wake,ai,apps,actions,startup,personalization}){
- const [section,setSection]=useState('ui')
+export function SettingsPanels({theme,setTheme,tint,setTint,opacity,setOpacity,dock,setHovered,config,onConfig,pinned,setPinned,safe,voice,wake,ai,apps,actions,startup,personalization,initialSection='ui'}){
+ const [section,setSection]=useState(initialSection)
  return <section className="settings-view"><div className="page-heading"><span className="micro-label">A TU MANERA</span><h1>Ajustes</h1><p>Elegí cómo se ve y cómo te acompaña.</p></div>
  <nav className="settings-menu" aria-label="Secciones de ajustes">{SECTIONS.map(([id,label,Icon])=><button key={id} className={section===id?'selected':''} aria-current={section===id?'page':undefined} aria-controls="settings-content" onClick={()=>setSection(id)}><Icon size={16}/><span>{label}</span></button>)}</nav>
  <div id="settings-content" className="settings-content" role="region" aria-label={SECTIONS.find(item=>item[0]===section)[1]}>

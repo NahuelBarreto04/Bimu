@@ -30,6 +30,15 @@ test('shortcut confirmation executes once, keeps voice out of history and report
 test('typed shortcuts record their result and cancellation never executes the routine',async()=>{
  let confirmed=0;const h=harness(async cmd=>{if(cmd==='shortcuts_list')return [work];if(cmd==='shortcuts_request')return {status:'confirm',...work,results:[]};if(cmd==='shortcuts_confirm'){confirmed++;return {...work,results:[{ok:true}]}}});await flush();await h.render().request('Modo trabajo');await h.render().cancel();assert.equal(confirmed,0);assert.equal(h.render().pending,null);await h.render().request('Modo trabajo');await h.render().confirm(false);assert.equal(h.records.length,1)
 })
+test('a mode button executes the selected id directly without voice, AI or a confirmation request',async()=>{
+ const calls=[];const h=harness(async(cmd,args)=>{calls.push({cmd,args});if(cmd==='shortcuts_list')return [work];if(cmd==='shortcuts_run_button')return {...work,status:'opened',results:[{name:'Slack',ok:true},{name:'Gmail',ok:false,detail:'No disponible'}]}})
+ await flush();const result=await h.render().runButton('work')
+ assert.equal(result.results.length,2);assert.equal(result.results[1].ok,false)
+ assert.equal(calls.filter(c=>c.cmd==='shortcuts_run_button').length,1)
+ assert.equal(calls.find(c=>c.cmd==='shortcuts_run_button').args.id,'work')
+ assert.equal(calls.some(c=>c.cmd==='shortcuts_request'||c.cmd==='shortcuts_confirm'),false)
+ assert.equal(h.records.length,0)
+})
 test('canceled search discards late results and never opens a returned path from the frontend',async()=>{
  let complete;const calls=[];const h=harness(async(cmd,args)=>{calls.push({cmd,args});if(cmd==='shortcuts_list')return [];if(cmd==='folders_search')return new Promise(r=>complete=r)});await flush();const pending=h.render().request('Buscá una carpeta llamada fotos y abrila');assert.equal(h.render().searching,true);await h.render().cancelSearch();complete({matches:[{id:'old',path:'C:/Fotos'}],cancelled:false});await pending;assert.equal(h.render().search,null);assert.equal(calls.some(c=>c.cmd==='folders_open'),false)
 })
