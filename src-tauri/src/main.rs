@@ -23,6 +23,7 @@ mod media;
 mod shelf;
 mod lyrics;
 mod weather;
+mod caps_lock;
 use tauri::{Emitter, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
 #[tauri::command]
@@ -54,6 +55,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![weather::weather_detect_location, weather::weather_search_city, weather::weather_forecast, lyrics::lyrics_lookup, shelf::shelf_list, shelf::shelf_remove, shelf::shelf_open, workspace::shelf_accept_drop, media::media_state, media::media_control, system_status::system_status, autonomy::autonomy_reset, autonomy::autonomy_confirm, autonomy::autonomy_cancel, startup::startup_sync, startup::startup_set, assistant::chrome_profiles, assistant::shortcuts_list, assistant::shortcuts_run_button, assistant::shortcuts_save, assistant::shortcuts_remove, assistant::shortcuts_request, assistant::shortcuts_confirm, assistant::shortcuts_cancel, assistant::assistant_pick_folder, assistant::folders_search, assistant::folders_open, assistant::folders_cancel, quit_app, hit_test::desktop_hit_regions, voice_engine::voice_engine_status, voice_engine::voice_engine_start, voice_engine::voice_engine_stop, voice_engine::voice_engine_prepare, voice_engine::voice_engine_auto, voice_engine::voice_engine_log, updates::updates_check, updates::updates_download, updates::updates_install, applications::apps_list, applications::apps_request, applications::apps_confirm, applications::apps_cancel, applications::apps_add, applications::apps_update, applications::apps_remove, workspace::workspace_choose_files, workspace::workspace_remove_file, voice::voice_status, voice::voice_transcribe, voice::voice_cancel, ollama::ollama_models, ollama::ollama_chat, ollama::ollama_chat_stream, ollama::ollama_cancel, ollama::ollama_capabilities, workspace::workspace_choose, workspace::workspace_revoke, workspace::workspace_stage_drop, workspace::workspace_accept_drop, workspace::workspace_discard_drop])
         .setup(|app| {
             hit_test::start(app.handle().clone());
+            caps_lock::start(app.handle().clone());
             voice_engine::autostart(app.handle().clone());
             let show = MenuItem::with_id(app, "show", "Mostrar mascota", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "Personalizar", true, None::<&str>)?;
