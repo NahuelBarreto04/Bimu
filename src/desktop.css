@@ -368,3 +368,17 @@ html[data-receive-layout=notch] .drop-surface::after{width:115px;height:95px;opa
 .lyrics-panel{height:142px;overflow:auto;scrollbar-width:thin;margin:8px 0 0;padding:4px 12px;border-top:1px solid #30333b;text-align:center;color:#aeb5c2}
 .lyrics-panel>p{font-size:10px;line-height:1.5;padding:30px 0}.lyrics-lines p{font-size:11px;line-height:1.5;margin:0;padding:5px 0;opacity:.55;transition:opacity .2s,color .2s}.lyrics-lines p.active{color:#fff;opacity:1;font-weight:700}
 @media(prefers-reduced-motion:reduce){html[data-receive-layout=notch] .drop-surface::before,html[data-receive-layout=notch] .drop-surface::after,.lyrics-lines p{transition:none}}
+
+/* Compact lyrics appear beside the player and remain visible at rest. */
+html[data-lyrics=true][data-notch=peek] .notch-player>.player-track,
+html[data-lyrics=true][data-notch=peek] .notch-player>.player-timeline,
+html[data-lyrics=true][data-notch=peek] .notch-player>.player-controls{width:calc(50% - 12px)}
+html[data-lyrics=true][data-notch=peek] .lyrics-panel{position:absolute;top:27px;bottom:13px;right:35px;left:50%;height:auto;margin:0;padding:0 9px 0 13px;border-top:0;border-left:1px solid #30333b;text-align:left;overflow:auto}
+html[data-lyrics=true][data-notch=peek] .lyrics-lines p{font-size:11px;line-height:1.35;padding:4px 0}
+.lyrics-error{font-size:10px;line-height:1.4}.lyrics-error button{border:1px solid #5b606c;border-radius:8px;padding:4px 9px;background:#242832;color:white;cursor:pointer}
+.compact-lyric{position:absolute;z-index:6;top:0;right:calc(100% + 10px);height:27px;width:210px;padding:0 12px;display:flex;align-items:center;gap:7px;border-radius:0 0 12px 12px;background:#090a0d;color:#fff;font-size:10px;font-weight:600;pointer-events:none}
+.compact-lyric svg{flex:none;opacity:.6}.compact-lyric span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+html[data-notch=peek] .compact-lyric,html[data-notch=open] .compact-lyric{display:none}
+html[data-voice-side=right] .compact-lyric{right:auto;left:calc(100% + 10px)}
+html[data-edge=bottom] .compact-lyric{top:auto;bottom:0;border-radius:12px 12px 0 0}
+:is(html[data-edge=left],html[data-edge=right]) .compact-lyric{display:none}
