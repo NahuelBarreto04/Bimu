@@ -56,18 +56,15 @@ fn main() {
         .setup(|app| {
             hit_test::start(app.handle().clone());
             caps_lock::start(app.handle().clone());
-            voice_engine::autostart(app.handle().clone());
-            let show = MenuItem::with_id(app, "show", "Mostrar mascota", true, None::<&str>)?;
-            let settings = MenuItem::with_id(app, "settings", "Personalizar", true, None::<&str>)?;
-            let greet = MenuItem::with_id(app, "greet", "Saludar", true, None::<&str>)?;
-            let rest = MenuItem::with_id(app, "rest", "Descansar", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Mostrar Bimu", true, None::<&str>)?;
+            let settings = MenuItem::with_id(app, "settings", "Ajustes", true, None::<&str>)?;
             let center = MenuItem::with_id(app, "center", "Centrar en el borde", true, None::<&str>)?;
             let hide = MenuItem::with_id(app, "hide", "Ocultar", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Cerrar aplicación", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &settings, &greet, &rest, &center, &hide, &quit])?;
+            let menu = Menu::with_items(app, &[&show, &settings, &center, &hide, &quit])?;
             TrayIconBuilder::with_id("companion-tray")
                 .icon(app.default_window_icon().expect("missing bundled icon").clone())
-                .tooltip("Mi pequeño compañero")
+                .tooltip("Bimu")
                 .menu(&menu)
                 .on_menu_event(|app, event| {
                     let id = event.id.as_ref();
@@ -77,7 +74,7 @@ fn main() {
                         
                         let _ = window.show();
                         let _ = window.set_focus();
-                        if matches!(id, "settings" | "greet" | "rest" | "center" | "show") {
+                        if matches!(id, "settings" | "center" | "show") {
                             let _ = window.emit("desktop-action", id);
                         }
                     }

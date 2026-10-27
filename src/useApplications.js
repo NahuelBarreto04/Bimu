@@ -21,6 +21,6 @@ export function useApplications({native,onResult}){
   catch(e){await invoke('apps_cancel',{id:proposal.id}).catch(()=>{});if(mounted.current){setError(String(e.message||e));current.current=null;setPending(null)}return false}finally{lock.current=false;if(mounted.current)setBusy(false)}
  }
  const cancel=async()=>{const proposal=current.current;if(!proposal||lock.current)return;try{await invoke('apps_cancel',{id:proposal.id});current.current=null;setPending(null);if(!proposal.silent)callback.current(proposal.text,'Apertura cancelada.')}catch(e){setError(String(e.message||e))}}
- const change=async(command,args)=>{if(lock.current||current.current)return;lock.current=true;setBusy(true);setError('');try{const list=await invoke(command,args);if(list)setItems(list)}catch(e){setError(String(e.message||e))}finally{lock.current=false;setBusy(false)}}
+ const change=async(command,args)=>{if(lock.current||current.current)return;lock.current=true;setBusy(true);setError('');try{const list=await invoke(command,args);if(list)setItems(list);return true}catch(e){setError(String(e.message||e));return false}finally{lock.current=false;setBusy(false)}}
  return {items,pending,busy,error,refresh,request,confirm,cancel,add:()=>change('apps_add'),update:(id,name,aliases,remember)=>change('apps_update',{id,name,aliases,remember}),remove:id=>change('apps_remove',{id}),isCommand:text=>registeredLaunch(items,text)}
 }

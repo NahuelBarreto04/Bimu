@@ -1,7 +1,7 @@
 {
   "name": "mascota-prototipo",
   "private": true,
-  "version": "0.37.0",
+  "version": "0.38.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5173 --strictPort",
@@ -18,21 +18,15 @@
     "test:native": "cargo test --manifest-path native-tests/Cargo.toml"
   },
   "dependencies": {
-    "@react-three/drei": "^10.0.7",
-    "@react-three/fiber": "^9.1.2",
     "@tauri-apps/api": "^2.12.4",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
-    "three": "^0.175.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.4",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/three": "^0.175.0",
     "typescript": "^5.8.2",
     "vite": "^6.2.0"
   }
