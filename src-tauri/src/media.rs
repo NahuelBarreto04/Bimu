@@ -19,6 +19,11 @@ async fn current() -> windows::core::Result<windows::Media::Control::GlobalSyste
 
 #[tauri::command]
 pub async fn media_state() -> Result<Option<MediaState>, String> {
+    tauri::async_runtime::spawn_blocking(|| tauri::async_runtime::block_on(media_state_inner()))
+        .await.map_err(|e| e.to_string())?
+}
+
+async fn media_state_inner() -> Result<Option<MediaState>, String> {
     #[cfg(windows)] {
         use base64::{engine::general_purpose::STANDARD, Engine};
         use windows::{Media::Control::GlobalSystemMediaTransportControlsSessionPlaybackStatus, Storage::Streams::DataReader};
