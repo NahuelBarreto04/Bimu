@@ -500,3 +500,7 @@ html[data-theme=light] .desktop.compact .notch-clock,html[data-theme=light] .pla
 .player-heading .notch-move-button{position:static;flex:none;width:20px;height:20px;margin-right:4px}
 html[data-notch=peek] .notch-settings-button{right:52px}
 html[data-notch=peek] .notch-retract-button{right:77px}
+
+/* Align the equalizer baseline with the eyes, with breathing room beside them. */
+.audio-equalizer{bottom:50%;transform:translateY(4px);margin-left:6px;height:20px}
+.audio-equalizer b{height:20px}
