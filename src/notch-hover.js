@@ -1,5 +1,5 @@
 // Pointer hesitation is separate from keyboard focus and drag reception.
-export function createNotchHoverController({surface,open,close,preview=()=>{},delay=450,setTimer=setTimeout,clearTimer=clearTimeout}) {
+export function createNotchHoverController({surface,open,close,preview=()=>{},delay=250,setTimer=setTimeout,clearTimer=clearTimeout}) {
  let pointerInside=false,openTimer,closeTimer,opened=false
  const cancelOpen=()=>{clearTimer(openTimer);openTimer=undefined}
  const cancelClose=()=>{clearTimer(closeTimer);closeTimer=undefined}
