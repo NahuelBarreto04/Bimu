@@ -459,3 +459,13 @@ html[data-notch=retracted] .notch-surface>*{opacity:0;pointer-events:none}
 html[data-notch=retracted] .desktop.compact .notch-surface::before,html[data-notch=retracted] .desktop.compact .notch-surface::after{display:none}
 
 .notch-retract-button{position:absolute;right:63px;top:7px;width:20px;height:20px;display:grid;place-items:center;padding:0;border:0;border-radius:7px;background:transparent;color:#bdc2cc;z-index:2}.notch-retract-button:hover,.notch-retract-button.is-active{background:#ffffff1c;color:#fff}.notch-retract-button svg{transition:transform .2s ease}html[data-edge=bottom] .notch-retract-button svg{transform:rotate(180deg)}html[data-edge=left] .notch-retract-button svg{transform:rotate(-90deg)}html[data-edge=right] .notch-retract-button svg{transform:rotate(90deg)}.notch-retract-slash{position:absolute;width:16px;height:1.5px;border-radius:2px;background:currentColor;transform:rotate(-45deg);box-shadow:0 0 0 1px rgba(var(--notch-rgb,9,10,13),.75)}.desktop-root .notch-retract-button:active:not(:disabled){transform:none}html[data-theme=light] .notch-retract-button{color:#232532}html[data-theme=light] .notch-retract-button:hover,html[data-theme=light] .notch-retract-button.is-active{background:#2325321c;color:#232532}@media(prefers-reduced-motion:reduce){.notch-retract-button svg{transition:none}}
+/* Music state: expressive eyes and tiny output-level bars, without headphones. */
+.bimu-listening::before,.bimu-listening::after{content:none}
+.desktop.compact .bimu-eyes.bimu-listening{height:auto;padding-top:0;gap:4px}
+.bimu-eyes.bimu-listening i,html[data-notch=peek] .bimu-eyes.bimu-listening i{width:6px;height:6px}
+.audio-equalizer{position:absolute;left:100%;bottom:0;display:flex;align-items:flex-end;gap:1px;height:10px;margin-left:1px;pointer-events:none}
+.audio-equalizer b{display:block;width:2px;height:9px;border-radius:2px;background:#fff;transform-origin:center bottom;transition:transform 90ms ease-out;animation:audio-bar-color 1.4s ease-in-out infinite alternate}
+.audio-equalizer b:nth-child(1){transform:scaleY(var(--audio-bar-0,.2))}.audio-equalizer b:nth-child(2){transform:scaleY(var(--audio-bar-1,.2));animation-delay:-.7s}.audio-equalizer b:nth-child(3){transform:scaleY(var(--audio-bar-2,.2));animation-delay:-.25s}
+@keyframes audio-bar-color{from{background:#fff}to{background:var(--audio-accent,#b39af5)}}
+html[data-theme=light] .audio-equalizer b{box-shadow:0 0 1px #30303a}
+@media(prefers-reduced-motion:reduce){.audio-equalizer b{animation:none;transition:none}}

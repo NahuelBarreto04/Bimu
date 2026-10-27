@@ -41,6 +41,11 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml
       - name: Build Windows installer
         run: npm run desktop:build -- --bundles nsis
+      - name: Verify Bimu executable identity
+        shell: pwsh
+        run: |
+          $exe = Get-Item src-tauri/target/release/Bimu.exe -ErrorAction Stop
+          if ($exe.VersionInfo.FileDescription -notmatch 'Bimu') { throw "Unexpected executable description: $($exe.VersionInfo.FileDescription)" }
       - name: Stage installer
         shell: pwsh
         run: |

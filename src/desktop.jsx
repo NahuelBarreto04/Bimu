@@ -44,6 +44,9 @@ export function DesktopControls({config,onConfig,expanded,onExpand,mood,receptio
   const [clock,setClock]=useState(()=>new Date())
   useEffect(()=>{const timer=setInterval(()=>setClock(new Date()),10000);return()=>clearInterval(timer)},[])
   const [media,setMedia]=useState(null),[mediaError,setMediaError]=useState('')
+  useEffect(()=>{if(!nativeMode)return;let active=true,off,previous=[0,0];listen('audio-output-peak',({payload})=>{if(!active)return;const raw=Math.max(0,Math.min(1,Number(payload)||0)),level=Math.pow(raw,.55),values=[level,previous[0],previous[1]];previous=[level,previous[0]];const root=document.documentElement;values.forEach((value,i)=>root.style.setProperty('--audio-bar-'+i,String(.2+value*.8)))}).then(fn=>{if(active)off=fn;else fn()}).catch(()=>{});return()=>{active=false;off?.();invoke('audio_meter_enabled',{enabled:false}).catch(()=>{})}},[])
+  useEffect(()=>{if(nativeMode)invoke('audio_meter_enabled',{enabled:!!media?.playing}).catch(()=>{});if(!media?.playing){const root=document.documentElement;for(let i=0;i<3;i++)root.style.setProperty('--audio-bar-'+i,'.2')}},[media?.playing])
+
   useEffect(()=>{
     const root=document.documentElement;let active=true
     if(!media?.cover){root.style.removeProperty('--cover-glow');return}
@@ -112,7 +115,7 @@ export function DesktopControls({config,onConfig,expanded,onExpand,mood,receptio
   },[theme,resolvedTheme])
   useEffect(()=>{safe(()=>getCurrentWindow().setAlwaysOnTop(pinned));localStorage.setItem('mascot-pinned',String(pinned))},[pinned])
   useEffect(()=>{document.documentElement.style.setProperty('--ui-opacity',String(opacity/100));try{localStorage.setItem('bimu-ui-opacity',String(opacity))}catch{}},[opacity])
-  useEffect(()=>{const color=BIMU_COLORS.find(item=>item[0]===bimuColor)||BIMU_COLORS[0];document.documentElement.style.setProperty('--notch-rgb',color[resolvedTheme==='light'?4:3]);document.documentElement.style.setProperty('--bimu-swatch',color[2]);try{localStorage.setItem('bimu-notch-color',bimuColor)}catch{}},[bimuColor,resolvedTheme])
+  useEffect(()=>{const color=BIMU_COLORS.find(item=>item[0]===bimuColor)||BIMU_COLORS[0];document.documentElement.style.setProperty('--notch-rgb',color[resolvedTheme==='light'?4:3]);document.documentElement.style.setProperty('--bimu-swatch',color[2]);document.documentElement.style.setProperty('--audio-accent',bimuColor==='neutral'?'#b39af5':color[2]);try{localStorage.setItem('bimu-notch-color',bimuColor)}catch{}},[bimuColor,resolvedTheme])
   useEffect(()=>{document.documentElement.dataset.view=tab},[tab])
   useEffect(()=>{document.documentElement.dataset.receiveLayout='notch'},[expanded])
   const dock=useDock({native:nativeMode,expanded,hovered:hovered||drop.active,preview:hoverPreview&&!drop.active,retracted:manualRetracted||(avoidOverlap&&overlapping),receiving:drop.active,tab:!expanded&&lyricsVisible&&!drop.active?(lyrics.status==='synced'&&currentLyric>=0?'lyrics':'lyrics-loading'):tab,size:config.size,onError:setError})
@@ -146,7 +149,7 @@ export function DesktopControls({config,onConfig,expanded,onExpand,mood,receptio
   return <>
     {drop.active&&<section className="drop-surface" aria-label="Recibir archivos o carpeta"><div className="drop-outline"/>{drop.stage==='hover'&&<div className="drop-shelf-feedback" role="status"><span className="drop-shelf-icon"><Upload size={22}/></span><strong>Soltá para guardar</strong><small>Tus archivos van a quedar a mano</small></div>}{drop.stage==='preparing'&&<div className="drop-shelf-feedback" role="status"><span className="drop-shelf-icon"><LoaderCircle size={22}/></span><strong>Guardando…</strong></div>}{drop.stage==='error'&&<div className="drop-error" role="alert"><p>{drop.error}</p><button onClick={drop.reset}>Entendido</button></div>}</section>}
     {!expanded&&!drop.active&&<button className="notch-surface" aria-label="Abrir compañero" {...dock.handlers} onClick={openNotch}>
-      {dock.state==='idle'&&capsNotice!==null?<span className="caps-notice" role="status"><CapsLabel enabled={capsNotice}/></span>:dock.state==='idle'&&lyricsOpen&&lyrics.status==='synced'&&currentLyric>=0?<span className="compact-lyric-inline"><Music2 size={13}/><span className="compact-lyric-transition" key={`${media?.title}-${currentLyric}`}>{lyrics.lines[currentLyric]?.text}</span></span>:<span className={'notch-avatar-slot bimu-eyes'+(mood==='sleepy'?' bimu-eyes-sleepy':'')+(media?.playing?' bimu-listening':'')} aria-hidden="true"><i/><i/></span>}
+      {dock.state==='idle'&&capsNotice!==null?<span className="caps-notice" role="status"><CapsLabel enabled={capsNotice}/></span>:dock.state==='idle'&&lyricsOpen&&lyrics.status==='synced'&&currentLyric>=0?<span className="compact-lyric-inline"><Music2 size={13}/><span className="compact-lyric-transition" key={`${media?.title}-${currentLyric}`}>{lyrics.lines[currentLyric]?.text}</span></span>:<span className={'notch-avatar-slot bimu-eyes'+(mood==='sleepy'?' bimu-eyes-sleepy':'')+(media?.playing?' bimu-listening':'')} aria-hidden="true"><i/><i/>{media?.playing&&<span className="audio-equalizer"><b/><b/><b/></span>}</span>}
       <span className="notch-copy"><strong>Tu compañero</strong><small>{mood==='sleepy'?'Descansando':'Acá, con vos'}</small></span>
       {!(dock.state==='idle'&&(capsNotice!==null||(lyricsOpen&&lyrics.status==='synced'&&currentLyric>=0)))&&<><span className="notch-clock">{clock.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false})}</span>{statusIcon}</>}
       <span className="notch-indicator"><span className="status-dot"/></span>
