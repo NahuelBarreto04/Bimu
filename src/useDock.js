@@ -2,13 +2,13 @@ import {useEffect,useLayoutEffect,useRef,useState} from 'react'
 import {getCurrentWindow,LogicalSize,PhysicalPosition,currentMonitor,primaryMonitor,cursorPosition} from '@tauri-apps/api/window'
 import {EDGES,isLateral,notchSize,dockPosition,slideOffset,transitionDuration,unionRects,desktopEnvelope} from './dock-geometry'
 const initial=()=>{try{const d=JSON.parse(localStorage.getItem('companion-dock')||'{}');return {edge:EDGES.includes(d.edge)?d.edge:'top',offsets:Object.fromEntries(EDGES.map(e=>[e,Number.isFinite(d.offsets?.[e])?Math.max(0,Math.min(1,d.offsets[e])):.5]))}}catch{return {edge:'top',offsets:{top:.5,bottom:.5,left:.5,right:.5}}}}
-export function useDock({native,expanded,hovered,tab,size,receiving=false,voiceVisible,onError}){
+export function useDock({native,expanded,hovered,preview=false,tab,size,receiving=false,voiceVisible,onError}){
   const [dock,setDock]=useState(initial)
   const [dragging,setDragging]=useState(false)
   const [refresh,setRefresh]=useState(0)
   const shown=useRef(false),lastState=useRef(null),lastTab=useRef(null),nativeFrame=useRef(null)
   const monitorRef=useRef(null),queue=useRef(Promise.resolve()),revision=useRef(0),dragRef=useRef(null),suppressClick=useRef(false),moveRevision=useRef(0)
-  const edge=dock.edge, lateral=isLateral(edge),state=expanded?'open':hovered||dragging?'peek':'idle'
+  const edge=dock.edge, lateral=isLateral(edge),state=expanded?'open':hovered||dragging?'peek':preview?'anticipate':'idle'
   const fraction=dock.offsets[edge]
   useEffect(()=>{localStorage.setItem('companion-dock',JSON.stringify(dock))},[dock])
   useLayoutEffect(()=>{
@@ -20,6 +20,7 @@ export function useDock({native,expanded,hovered,tab,size,receiving=false,voiceV
     lastTab.current=tab
     root.dataset.edge=edge;root.dataset.notch=state;root.dataset.dragging=String(dragging);root.dataset.centered=String(Math.abs(fraction-.5)<.0001)
     root.style.setProperty('--dock-duration',duration+'ms')
+    root.style.setProperty('--dock-ease',state==='peek'&&previous!=='peek'&&!reduced?'cubic-bezier(.2,1.12,.3,1)':'cubic-bezier(.22,1,.36,1)')
     const [wantedW,wantedH]=notchSize(edge,state,size,tab,receiving)
     const setFrame=(x,y,w,h)=>{
       root.style.setProperty('--dock-left',x+'px');root.style.setProperty('--dock-top',y+'px')

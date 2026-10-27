@@ -60,7 +60,7 @@ const {desktopEnvelope}=await import('../src/dock-geometry.js')
 for(const area of [{x:0,y:0,width:1920,height:1040},{x:-1920,y:-200,width:1920,height:1080},{x:0,y:0,width:800,height:600}])for(const edge of ['top','bottom','left','right'])for(const scale of [1,1.25,2])for(const fraction of [0,.2,.5,.8,1]){
  const frame=desktopEnvelope(area,edge,'M',scale,fraction)
  assert.ok(frame.x>=area.x&&frame.y>=area.y&&frame.x+frame.width<=area.x+area.width&&frame.y+frame.height<=area.y+area.height)
- for(const [state,tab]of [['idle','home'],['idle','lyrics'],['peek','home'],['peek','lyrics'],['open','home'],['open','quick-settings'],['open','settings']]){
+ for(const [state,tab]of [['idle','home'],['idle','lyrics'],['anticipate','home'],['anticipate','lyrics'],['peek','home'],['peek','lyrics'],['open','home'],['open','quick-settings'],['open','settings']]){
   const [w,h]=notchSize(edge,state,'M',tab),width=Math.min(Math.round(w*scale),area.width),height=Math.min(Math.round(h*scale),area.height)
   const target=dockPosition(area,width,height,edge,fraction)
   assert.ok(target.x>=frame.x&&target.y>=frame.y&&target.x+width<=frame.x+frame.width&&target.y+height<=frame.y+frame.height)

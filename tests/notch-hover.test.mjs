@@ -1,12 +1,8 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {createNotchHoverController} from '../src/notch-hover.js'
-test('focus loss from a removed or disabled button never closes a hovered notch',()=>{
- let opened=0,closed=0,task;const c=createNotchHoverController({surface:{contains:()=>false},open:()=>opened++,close:()=>closed++,setTimer:f=>(task=f,1),clearTimer:()=>{task=null}})
- c.pointerEnter();c.focusIn();c.focusOut({relatedTarget:null});assert.equal(closed,0);assert.equal(task,null)
- c.pointerLeave({relatedTarget:null});task();assert.equal(closed,1);assert.equal(opened,2)
-})
-test('keyboard focus stays open while moving between controls and closes after leaving',()=>{
- let closed=0,task;const child={};const c=createNotchHoverController({surface:{contains:x=>x===child},open:()=>{},close:()=>closed++,setTimer:f=>(task=f,1),clearTimer:()=>{task=null}})
- c.focusIn();c.focusOut({relatedTarget:child});assert.equal(task,null);c.focusOut({relatedTarget:null});task();assert.equal(closed,1)
-})
+function harness(){let now=0,id=0,tasks=new Map(),opened=0,closed=0,previews=[];const child={};const c=createNotchHoverController({surface:{contains:x=>x===child},open:()=>opened++,close:()=>closed++,preview:v=>previews.push(v),setTimer:(fn,ms)=>{const key=++id;tasks.set(key,{fn,at:now+ms});return key},clearTimer:key=>tasks.delete(key)});return {c,child,advance:ms=>{now+=ms;for(const [k,t] of [...tasks])if(t.at<=now){tasks.delete(k);t.fn()}},get opened(){return opened},get closed(){return closed},previews}}
+test('a passing pointer previews but does not open the notch',()=>{const h=harness();h.c.pointerEnter();h.advance(200);assert.equal(h.opened,0);h.c.pointerLeave({relatedTarget:null});h.advance(1000);assert.equal(h.opened,0);assert.deepEqual(h.previews,[true,false])})
+test('a sustained pointer opens and remains open when a focused control disappears',()=>{const h=harness();h.c.pointerEnter();h.advance(450);assert.equal(h.opened,1);h.c.focusIn();h.c.focusOut({relatedTarget:null});h.advance(500);assert.equal(h.closed,0);h.c.pointerLeave({relatedTarget:null});h.advance(200);assert.equal(h.closed,1)})
+test('keyboard access opens immediately and moving between controls keeps it open',()=>{const h=harness();h.c.focusIn();assert.equal(h.opened,1);h.c.focusOut({relatedTarget:h.child});h.advance(300);assert.equal(h.closed,0);h.c.focusOut({relatedTarget:null});h.advance(200);assert.equal(h.closed,1)})
+test('reentering cancels a pending close without starting another delay',()=>{const h=harness();h.c.pointerEnter();h.advance(450);h.c.pointerLeave({relatedTarget:null});h.c.pointerEnter();h.advance(300);assert.equal(h.closed,0);assert.equal(h.opened,1)})

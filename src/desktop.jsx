@@ -81,7 +81,7 @@ export function DesktopControls({config,onConfig,expanded,onExpand,mood,receptio
   const startup=useStartup({native:nativeMode,listenPreferred:false})
   const drop=useDropZone({native:nativeMode,busy:apps.busy||actions.busy,reception:receiveRef,shelfMode:true,onShelf:items=>{setShelfItems(items);setShelfError('');clearPageGhost();targetPage.current='shelf';setPageMotion(current=>({direction:0,sequence:current.sequence+1}));setNotchPage('shelf');onExpand(false);setHovered(true)}})
   useEffect(()=>{if(drop.active)onInteract?.()},[drop.active,onInteract])
-  const [hovered,setHovered]=useState(false)
+  const [hovered,setHovered]=useState(false),[hoverPreview,setHoverPreview]=useState(false)
   const lyricsVisible=lyricsOpen&&(!hovered||notchPage==='music')
   useEffect(()=>{document.documentElement.dataset.lyrics=String(lyricsVisible);return()=>{delete document.documentElement.dataset.lyrics}},[lyricsVisible])
   const hoverTimer=useRef()
@@ -108,18 +108,18 @@ export function DesktopControls({config,onConfig,expanded,onExpand,mood,receptio
   useEffect(()=>{const color=BIMU_COLORS.find(item=>item[0]===bimuColor)||BIMU_COLORS[0];document.documentElement.style.setProperty('--notch-rgb',color[resolvedTheme==='light'?4:3]);document.documentElement.style.setProperty('--bimu-swatch',color[2]);try{localStorage.setItem('bimu-notch-color',bimuColor)}catch{}},[bimuColor,resolvedTheme])
   useEffect(()=>{document.documentElement.dataset.view=tab},[tab])
   useEffect(()=>{document.documentElement.dataset.receiveLayout='notch'},[expanded])
-  const dock=useDock({native:nativeMode,expanded,hovered:hovered||drop.active,receiving:drop.active,tab:!expanded&&lyricsVisible&&!drop.active?(lyrics.status==='synced'&&currentLyric>=0?'lyrics':'lyrics-loading'):tab,size:config.size,onError:setError})
+  const dock=useDock({native:nativeMode,expanded,hovered:hovered||drop.active,preview:hoverPreview&&!drop.active,receiving:drop.active,tab:!expanded&&lyricsVisible&&!drop.active?(lyrics.status==='synced'&&currentLyric>=0?'lyrics':'lyrics-loading'):tab,size:config.size,onError:setError})
   const dockCallbacks=useRef(dock);dockCallbacks.current=dock
   // Observe the whole companion surface.
   // Crossing between descendants must never be treated as leaving the notch.
   useEffect(()=>{
     const surface=document.querySelector('.desktop')||document.body
-    const controller=createNotchHoverController({surface,open:()=>{clearTimeout(hoverTimer.current);if(!expanded)setHovered(true)},close:()=>setHovered(false)})
+    const controller=createNotchHoverController({surface,open:()=>{clearTimeout(hoverTimer.current);if(!expanded)setHovered(true)},preview:setHoverPreview,close:()=>setHovered(false)})
     surface.addEventListener('pointerenter',controller.pointerEnter);surface.addEventListener('pointerleave',controller.pointerLeave)
     surface.addEventListener('focusin',controller.focusIn);surface.addEventListener('focusout',controller.focusOut)
     return()=>{controller.dispose();clearTimeout(hoverTimer.current);surface.removeEventListener('pointerenter',controller.pointerEnter);surface.removeEventListener('pointerleave',controller.pointerLeave);surface.removeEventListener('focusin',controller.focusIn);surface.removeEventListener('focusout',controller.focusOut)}
   },[expanded])
-  useEffect(()=>{if(expanded)setHovered(false)},[expanded])
+  useEffect(()=>{if(expanded||drop.active){setHovered(false);setHoverPreview(false)}},[expanded,drop.active])
   useEffect(()=>{
     if(!nativeMode)return
     let disposed=false;let off
