@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { isTauri, invoke } from '@tauri-apps/api/core'
-import { getCurrentWindow, LogicalSize, PhysicalPosition, currentMonitor } from '@tauri-apps/api/window'
+import { getCurrentWindow, LogicalSize, PhysicalPosition, currentMonitor, cursorPosition } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
-import { Home, MessageCircle, PanelsTopLeft, Settings2, Grip, ArrowDownLeft, ArrowUpRight, Minus, Sun, Moon, Monitor, Hand, Sparkles, Plug, Github, Globe, Cpu, ArrowRight, Send, Check, Palette, Pin, Crosshair, Power, X, FolderOpen, LoaderCircle } from 'lucide-react'
+import { Home, MessageCircle, PanelsTopLeft, Settings2, Grip, ArrowDownLeft, ArrowUpRight, Minus, Sun, Moon, Monitor, Hand, Sparkles, Plug, Github, Globe, Cpu, ArrowRight, Send, Check, Palette, Pin, Crosshair, Power, X, FolderOpen, LoaderCircle, Music2, SkipBack, SkipForward, Play } from 'lucide-react'
 import './desktop.css'
 import {SettingsPanels} from './SettingsPanels'
 import {readOpacity} from './ui-preferences'
@@ -48,6 +48,8 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   const [pinned,setPinned]=useState(()=>saved('mascot-pinned','true')!=='false')
   const [systemDark,setSystemDark]=useState(()=>matchMedia('(prefers-color-scheme: dark)').matches)
   const [draft,setDraft]=useState(()=>saved('companion-draft',''))
+  const [clock,setClock]=useState(()=>new Date())
+  useEffect(()=>{const timer=setInterval(()=>setClock(new Date()),10000);return()=>clearInterval(timer)},[])
   const [voiceNotice,setVoiceNotice]=useState(null)
   const noticeTimer=useRef()
   const voiceFeedback=(state,text)=>{clearTimeout(noticeTimer.current);setVoiceNotice({state,text});noticeTimer.current=setTimeout(()=>setVoiceNotice(null),6000)}
@@ -72,6 +74,16 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   const [service,setService]=useState(null)
   const [hovered,setHovered]=useState(false)
   const hoverTimer=useRef()
+  useEffect(()=>{
+    if(expanded||drop.active)return
+    let alive=true,busy=false
+    const move=(x,y)=>{const el=document.querySelector('.bimu-eyes');if(!el)return;const r=el.getBoundingClientRect();el.style.setProperty('--eye-x',Math.max(-2,Math.min(2,(x-(r.left+r.width/2))/140))+'px');el.style.setProperty('--eye-y',Math.max(-1.5,Math.min(1.5,(y-(r.top+r.height/2))/140))+'px')}
+    const browserMove=e=>move(e.clientX,e.clientY)
+    if(!nativeMode){window.addEventListener('pointermove',browserMove);return()=>window.removeEventListener('pointermove',browserMove)}
+    const update=async()=>{if(busy)return;busy=true;try{const [point,origin,monitor]=await Promise.all([cursorPosition(),getCurrentWindow().outerPosition(),currentMonitor()]);if(alive&&monitor)move((point.x-origin.x)/monitor.scaleFactor,(point.y-origin.y)/monitor.scaleFactor)}catch{}finally{busy=false}}
+    update();const timer=setInterval(update,100)
+    return()=>{alive=false;clearInterval(timer)}
+  },[expanded,drop.active])
   const [error,setError]=useState('')
   const callbacks=useRef({onRest,onGreet});callbacks.current={onRest,onGreet}
   const safe=async(fn)=>{try{if(nativeMode)await fn();setError('')}catch(e){setError('No se pudo completar la acción: '+String(e))}}
@@ -96,7 +108,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
     const enter=()=>{clearTimeout(hoverTimer.current);if(!expanded)setHovered(true)}
     const leave=e=>{
       if(e.relatedTarget&&surface.contains(e.relatedTarget))return
-      clearTimeout(hoverTimer.current);hoverTimer.current=setTimeout(()=>{if(!surface.contains(document.activeElement))setHovered(false)},340)
+      clearTimeout(hoverTimer.current);hoverTimer.current=setTimeout(()=>setHovered(false),200)
     }
     surface.addEventListener('pointerenter',enter);surface.addEventListener('pointerleave',leave)
     surface.addEventListener('focusin',enter);surface.addEventListener('focusout',leave)
@@ -131,15 +143,13 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
     <WakeIndicator wake={wake} notice={voiceNotice} pending={apps.pending?.silent?apps.pending:null} onConfirm={()=>{setVoiceNotice({state:'success',text:'Ejecutando pedido…'});apps.confirm(false).then(ok=>voiceFeedback(ok?'success':'error',ok?'Se solicitó la apertura.':'Revisá el resultado del pedido.')).catch(()=>voiceFeedback('error','No pude abrir la aplicación.'))}} onCancel={()=>{apps.cancel();voiceFeedback('idle','Apertura cancelada.')}}/>
     {drop.active&&<section className="drop-surface" aria-label="Recibir archivos o carpeta"><div className="drop-outline"/>{drop.stage==='hover'&&<><FolderOpen className="drop-folder-icon" size={23}/><p className="drop-invitation">Soltá los archivos. Yo los recibo.</p></>}{drop.stage==='preparing'&&<p className="drop-preparing" role="status"><LoaderCircle size={14}/> Preparando el contenido…</p>}{drop.stage==='ready'&&<div className="drop-ready"><strong title={drop.preview.name}>{drop.preview.name}</strong><small>{drop.preview.kind==='files'?`${drop.preview.ready}/${drop.preview.entries} archivos listos`:`${drop.preview.truncated?'Más de ':''}${drop.preview.entries} elementos visibles`} · solo lectura</small>{drop.preview.kind==='files'&&<details className="drop-file-list" onToggle={e=>{if(e.currentTarget.open&&!expanded)onExpand(true)}}><summary>Ver archivos</summary>{drop.preview.items.map((item,i)=><p key={i}>{item.name}: {item.detail}</p>)}</details>}<p>¿Qué querés hacer?</p><div><button disabled={drop.accepting||(drop.preview.kind==='files'&&!drop.preview.ready)} onClick={async()=>{if(await drop.accept(ai.acceptDroppedFolder)){setHovered(false);setTab('chat');onExpand(true)}}}>{drop.accepting?'Recibiendo…':'Usar en el chat'}</button><button disabled={drop.accepting} onClick={drop.reset}>Cancelar</button></div></div>}{drop.stage==='error'&&<div className="drop-error" role="alert"><p>{drop.error}</p><button onClick={drop.reset}>Entendido</button></div>}</section>}
     {!expanded&&!drop.active&&<button className="notch-surface" aria-label="Abrir compañero" {...dock.handlers} onClick={openNotch}>
-      <span className="notch-avatar-slot" aria-hidden="true"/>
+      <span className={'notch-avatar-slot bimu-eyes'+(mood==='sleepy'?' bimu-eyes-sleepy':'')} aria-hidden="true"><i/><i/></span>
       <span className="notch-copy"><strong>Tu compañero</strong><small>{mood==='sleepy'?'Descansando':'Acá, con vos'}</small></span>
+      <span className="notch-clock">{clock.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false})}</span>
       <span className="notch-indicator"><span className="status-dot"/></span>
       <span className="notch-grip"><Grip size={12}/></span>
     </button>}
-    {!expanded&&!drop.active&&<form className="quick-chat" aria-label="Chat rápido" onSubmit={openQuickChat}>
-      <label htmlFor="quick-message">Hablá con Bimu</label>
-      <div><input id="quick-message" aria-label="Mensaje rápido para Bimu" value={draft} onChange={e=>setDraft(e.target.value)} placeholder={ai.sending?"Bimu está pensando…":"Escribile a Bimu…"} maxLength={16000} autoComplete="off"/><IconButton title="Abrir mensaje en el chat" type="submit" disabled={ai.sending}><Send size={14}/></IconButton></div>
-    </form>}
+    {!expanded&&!drop.active&&<section className="notch-player" aria-label="Reproductor de música"><div className="player-heading"><span>♪ MÚSICA</span><time>{clock.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false})}</time></div><div className="player-track"><span className="player-cover"><Music2 size={20}/></span><span><strong>Tu música, acá</strong><small>El reproductor se conectará en una próxima etapa</small></span></div><div className="player-progress"/><div className="player-controls" aria-label="Controles aún no disponibles"><SkipBack size={16}/><Play size={19}/><SkipForward size={16}/></div></section>}
     {expanded&&<section className="glass-shell" inert={drop.active?true:undefined} aria-label="Panel del compañero">
       <header className="hub-header">
         <nav className="hub-tabs" aria-label="Navegación principal">{[[Home,'home','Inicio'],[MessageCircle,'chat','Chat'],[Plug,'connections','Conexiones'],[Settings2,'settings','Ajustes']].map(([Icon,id,label])=><button key={id} title={label} aria-label={label} aria-current={tab===id?'page':undefined} className={tab===id?'selected':''} onClick={()=>chooseTab(id)}><Icon size={16}/><span>{label}</span></button>)}</nav>
@@ -150,6 +160,7 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
         {tab==='home'&&<>
           <div className="home-grid"><section className="companion-card glass-card"><div className="companion-copy"><span className="micro-label"><i className="status-dot"/> TU COMPAÑERO</span><h1>{ai.sending?'Estoy pensando…':mood==='sleepy'?'Un momento de calma.':'Acá, con vos.'}</h1><p>{mood==='sleepy'?'Descansando un poquito.':'Un pequeño espacio para tus grandes ideas.'}</p><div className="gesture-buttons"><button onClick={onGreet}><Hand size={14}/> Saludar</button><button onClick={onRest}><Moon size={14}/> Descansar</button></div></div></section>
           <section className="services-card glass-card"><div className="section-line"><span className="micro-label">TU ESPACIO</span><button className="text-link" onClick={()=>chooseTab('connections')}>Configurar <ArrowUpRight size={12}/></button></div><div className="service-pills">{SERVICES.map(({id,name,icon:Icon,color})=><button key={id} onClick={()=>{chooseTab('connections');setService(id)}}><span style={{color}}><Icon size={15}/></span>{name}<span className="empty-dot"/></button>)}</div></section></div>
+          <section className="modes-card glass-card" aria-label="Modos rápidos"><div className="section-line"><span className="micro-label">TUS MODOS</span><button className="text-link" onClick={()=>chooseTab('settings')}>Configurar <ArrowUpRight size={12}/></button></div>{actions.items.length?<div className="modes-list">{actions.items.map(item=><button key={item.id} disabled={apps.busy||!!apps.pending} onClick={()=>actions.request(item.name)}><span>{item.name}</span><small>{item.actions.length} acciones</small><ArrowRight size={14}/></button>)}</div>:<p>Creá un atajo en Ajustes para abrir tus aplicaciones y páginas desde acá.</p>}</section>
           <button className="chat-shortcut glass-card" onClick={()=>chooseTab('chat')}><span className="chat-shortcut-icon"><MessageCircle size={18}/></span><span><strong>¿En qué estamos pensando hoy?</strong><small>Tu próxima conversación empieza acá.</small></span><ArrowRight size={17}/></button>
         </>}
         {tab==='chat'&&<section className="chat-view">

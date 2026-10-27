@@ -260,6 +260,42 @@ html[data-edge=right] .notch-avatar-slot{align-self:flex-end}
 html[data-edge=right] .notch-indicator{left:auto;right:35px}
 :is(html[data-edge=left],html[data-edge=right]):is(:not([data-receive]),[data-receive=idle]) .desktop.compact .canvas-wrap{left:6px!important;top:8px!important;transition:none!important}
 html[data-edge=right]:is(:not([data-receive]),[data-receive=idle]) .desktop.compact .canvas-wrap{left:calc(var(--notch-width,76px) - 70px)!important}
+
+/* A small, edge-attached face in the compact state. The full avatar is
+   retained in the expanded panel and while receiving files. */
+html:is(:not([data-receive]),[data-receive=idle]) .desktop.compact .canvas-wrap{visibility:hidden!important}
+.desktop.compact .notch-surface{overflow:visible;border:0;background:#090a0d;box-shadow:none;backdrop-filter:none;color:#f8f8fa;padding:0 14px;gap:8px}
+html[data-edge=top] .desktop.compact .notch-surface{border-radius:0 0 13px 13px}
+html[data-edge=bottom] .desktop.compact .notch-surface{border-radius:13px 13px 0 0}
+html[data-edge=top] .desktop.compact .notch-surface::before,html[data-edge=top] .desktop.compact .notch-surface::after{content:'';position:absolute;top:0;width:12px;height:12px;pointer-events:none}
+html[data-edge=top] .desktop.compact .notch-surface::before{left:-12px;border-top-right-radius:12px;box-shadow:5px -5px 0 0 #090a0d}
+html[data-edge=top] .desktop.compact .notch-surface::after{right:-12px;border-top-left-radius:12px;box-shadow:-5px -5px 0 0 #090a0d}
+.desktop.compact .notch-avatar-slot,.desktop.compact .bimu-eyes{width:25px;min-width:25px;height:auto;display:flex;align-items:center;justify-content:center;gap:5px}
+.bimu-eyes i{display:block;width:5px;height:8px;border-radius:50%;background:#fff;animation:bimu-blink 6s infinite}
+.bimu-eyes-sleepy i{height:2px;animation:none}
+@keyframes bimu-blink{0%,44%,48%,100%{transform:scaleY(1)}46%{transform:scaleY(.15)}}
+.desktop.compact .notch-clock{font-size:12px;color:#fff}
+.desktop.compact .notch-indicator{display:none}
+html[data-notch=peek] .desktop.compact .quick-chat{left:50px;right:14px;top:11px}
+html[data-notch=peek] .desktop.compact .quick-chat>label{display:none}
+html[data-notch=peek] .desktop.compact .quick-chat>div{min-height:36px}
+html[data-notch=peek] .desktop.compact .notch-grip{display:none}
+:is(html[data-edge=left],html[data-edge=right]) .desktop.compact .bimu-eyes{margin:auto}
+:is(html[data-edge=left],html[data-edge=right])[data-notch=peek] .desktop.compact .quick-chat{left:82px;right:12px;top:20px}
+@media(prefers-reduced-motion:reduce){.bimu-eyes i{animation:none}}
+
+/* Concave corners join the edge without square shadow artifacts. */
+html[data-edge=top] .desktop.compact .notch-surface::before{box-shadow:none;background:radial-gradient(circle at 0 100%,transparent 11.5px,#090a0d 12px)}
+html[data-edge=top] .desktop.compact .notch-surface::after{box-shadow:none;background:radial-gradient(circle at 100% 100%,transparent 11.5px,#090a0d 12px)}
+.bimu-eyes i{translate:var(--eye-x,0px) var(--eye-y,0px);transition:translate 120ms ease,width 180ms,height 180ms,border-radius 180ms}
+html[data-notch=peek] .bimu-eyes i{height:4px;width:7px;background:transparent;border-top:2px solid #fff;border-radius:100% 100% 0 0;animation:none}
+.notch-player{position:absolute;z-index:5;inset:0;padding:10px 16px 8px 55px;color:#fff;opacity:0;visibility:hidden;pointer-events:none;transition:opacity 140ms ease,visibility 140ms}
+html[data-notch=peek] .notch-player{opacity:1;visibility:visible;transition-delay:80ms}
+.player-heading{display:flex;align-items:center;justify-content:space-between;font-size:10px;color:#a8adb7;letter-spacing:.08em}.player-heading time{font-size:11px;letter-spacing:0;color:#fff}
+.player-track{display:flex;align-items:center;gap:12px;margin-top:9px}.player-cover{width:41px;height:41px;display:grid;place-items:center;border-radius:9px;background:#222630;color:#9098aa;flex-shrink:0}.player-track strong,.player-track small{display:block}.player-track strong{font-size:12px;font-weight:600}.player-track small{font-size:10px;color:#a8adb7;margin-top:4px}.player-progress{height:3px;border-radius:3px;background:#373b43;margin-top:9px}.player-controls{display:flex;justify-content:center;align-items:center;gap:18px;margin-top:7px;color:#818690}
+html[data-notch=peek] .desktop.compact .notch-surface{align-items:flex-start;padding-top:14px}
+:is(html[data-edge=left],html[data-edge=right]) .notch-player{padding:8px 10px 5px 70px}.notch-player .player-track small{line-height:1.25}
+@media(prefers-reduced-motion:reduce){.bimu-eyes i,.notch-player{transition:none}}
 .microphone-level{display:block!important;margin:16px 0;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--input)}
 .microphone-level h3{font-size:12px;font-weight:500;margin:0 0 12px}.microphone-meter{height:11px;position:relative;border-radius:8px;background:rgba(var(--card),.12);margin:8px 0;overflow:hidden}
 .microphone-meter>span{height:100%;display:block;border-radius:8px;background:rgb(var(--accent));transition:width .12s linear}
@@ -267,3 +303,5 @@ html[data-edge=right]:is(:not([data-receive]),[data-receive=idle]) .desktop.comp
 .calibration-actions{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}.microphone-level progress{display:block;width:100%;accent-color:rgb(var(--accent));margin:10px 0}
 .wake-settings>label>output{font-variant-numeric:tabular-nums;white-space:nowrap}.wake-settings>label>input[type=range]{min-width:0;flex:1;accent-color:rgb(var(--accent))}
 .tool-activity li{flex-wrap:wrap}.tool-activity li .tool-detail{flex:0 0 100%;white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+.modes-card{margin-top:10px;padding:14px 16px}.modes-card p{font-size:10px;color:var(--muted);margin:10px 0 0}.modes-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.modes-list button{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:12px;padding:9px 11px;background:var(--input);color:var(--ink);font-size:11px}.modes-list button:hover{background:rgba(var(--accent),.13)}.modes-list button:disabled{opacity:.5}.modes-list small{color:var(--muted);font-size:9px}
+.notch-clock{margin-left:auto;font-size:12px;font-weight:600;letter-spacing:.02em;font-variant-numeric:tabular-nums;white-space:nowrap}.desktop.compact .notch-indicator{margin-left:3px}.desktop.compact .quick-chat{opacity:0;visibility:hidden;pointer-events:none;transition:opacity 140ms ease,visibility 140ms}.desktop.compact .quick-chat:focus-within,html[data-notch=peek] .desktop.compact .quick-chat{opacity:1;visibility:visible;pointer-events:auto;transition-delay:70ms}html[data-notch=peek] .notch-clock{opacity:0;transition:opacity 90ms}.notch-clock{transition:opacity 120ms}.desktop.compact .notch-surface{background:linear-gradient(145deg,rgba(var(--glass),var(--ui-opacity,.9)),rgba(var(--glass),var(--ui-opacity,.9)));box-shadow:inset 0 1px 0 var(--shine)}:is(html[data-edge=left],html[data-edge=right]) .notch-clock{display:none}@media(prefers-reduced-motion:reduce){.desktop.compact .quick-chat,.notch-clock{transition:none!important}}
