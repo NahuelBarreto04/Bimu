@@ -3,7 +3,7 @@ export const isLateral=edge=>edge==='left'||edge==='right'
 export const clamp=(value,min,max)=>Math.max(min,Math.min(max,value))
 export function notchSize(edge,state,size='M',tab='home',receiving=false) {
   const lateral=isLateral(edge)
-  if(state==='open')return lateral?[430,tab==='home'?480:650]:[680,tab==='home'?350:570]
+  if(state==='open')return tab==='quick-settings'?(lateral?[380,420]:[480,360]):lateral?[430,tab==='home'?480:650]:[680,tab==='home'?350:570]
   const factor={S:.85,M:1,L:1.15}[size]||1
   const base=receiving&&lateral?[156,260]:state==='peek'?((tab==='lyrics'||tab==='lyrics-loading')?(lateral?[380,170]:[520,150]):(lateral?[310,96]:[420,140])):(lateral?[76,96]:(tab==='lyrics'?[320,27]:[150,27]))
   return base.map(n=>Math.round(n*factor))
