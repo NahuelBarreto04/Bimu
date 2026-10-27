@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { isTauri, invoke } from '@tauri-apps/api/core'
 import { getCurrentWindow, LogicalSize, PhysicalPosition, currentMonitor, cursorPosition } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
-import { Home, MessageCircle, PanelsTopLeft, Settings2, Grip, ArrowDownLeft, ArrowUpRight, Minus, Sun, Moon, Monitor, Hand, Sparkles, Plug, Github, Globe, Cpu, ArrowRight, Send, Check, Palette, Pin, Crosshair, Power, X, FolderOpen, LoaderCircle, Music2, SkipBack, SkipForward, Play } from 'lucide-react'
+import { Home, MessageCircle, PanelsTopLeft, Settings2, Grip, ArrowDownLeft, ArrowUpRight, Minus, Sun, Moon, Monitor, Hand, Sparkles, Plug, Github, Globe, Cpu, ArrowRight, Send, Check, Palette, Pin, Crosshair, Power, X, FolderOpen, LoaderCircle, Music2, SkipBack, SkipForward, Play, ChevronLeft, ChevronRight, Wifi, WifiOff, Battery, Zap } from 'lucide-react'
 import './desktop.css'
 import {SettingsPanels} from './SettingsPanels'
 import {readOpacity} from './ui-preferences'
@@ -50,6 +50,12 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
   const [draft,setDraft]=useState(()=>saved('companion-draft',''))
   const [clock,setClock]=useState(()=>new Date())
   useEffect(()=>{const timer=setInterval(()=>setClock(new Date()),10000);return()=>clearInterval(timer)},[])
+  const [systemStatus,setSystemStatus]=useState(null)
+  const [online,setOnline]=useState(()=>navigator.onLine)
+  useEffect(()=>{const update=()=>setOnline(navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update)}},[])
+  useEffect(()=>{if(!nativeMode)return;let active=true;const update=()=>invoke('system_status').then(value=>{if(active)setSystemStatus(value)}).catch(()=>{});update();const timer=setInterval(update,60000);return()=>{active=false;clearInterval(timer)}},[])
+  const signal=systemStatus?.wifiSignal
+  const statusIcon=systemStatus?.batteryPercent!=null?<span className="system-status battery-status" title={`Batería ${systemStatus.batteryPercent}%${systemStatus.charging?' · cargando':''}`}><Battery size={15}/>{systemStatus.charging&&<Zap className="battery-zap" size={9}/>}<small>{systemStatus.batteryPercent}</small></span>:<span className="system-status" title={!online?'Sin conexión':signal!=null?`Wi-Fi ${signal}%`:'Conexión activa · intensidad no disponible'}>{!online?<WifiOff size={14}/>:signal==null?<Wifi size={14}/>:<span className="wifi-bars">{[1,2,3,4].map(n=><i key={n} className={signal>=n*25?'active':''}/>)}</span>}</span>
   const [voiceNotice,setVoiceNotice]=useState(null)
   const noticeTimer=useRef()
   const voiceFeedback=(state,text)=>{clearTimeout(noticeTimer.current);setVoiceNotice({state,text});noticeTimer.current=setTimeout(()=>setVoiceNotice(null),6000)}
@@ -146,10 +152,11 @@ export function DesktopControls({config,onConfig,onRest,onGreet,expanded,onExpan
       <span className={'notch-avatar-slot bimu-eyes'+(mood==='sleepy'?' bimu-eyes-sleepy':'')} aria-hidden="true"><i/><i/></span>
       <span className="notch-copy"><strong>Tu compañero</strong><small>{mood==='sleepy'?'Descansando':'Acá, con vos'}</small></span>
       <span className="notch-clock">{clock.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false})}</span>
+      {statusIcon}
       <span className="notch-indicator"><span className="status-dot"/></span>
       <span className="notch-grip"><Grip size={12}/></span>
     </button>}
-    {!expanded&&!drop.active&&<section className="notch-player" aria-label="Reproductor de música"><div className="player-heading"><span>♪ MÚSICA</span><time>{clock.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false})}</time></div><div className="player-track"><span className="player-cover"><Music2 size={20}/></span><span><strong>Tu música, acá</strong><small>El reproductor se conectará en una próxima etapa</small></span></div><div className="player-progress"/><div className="player-controls" aria-label="Controles aún no disponibles"><SkipBack size={16}/><Play size={19}/><SkipForward size={16}/></div></section>}
+    {!expanded&&!drop.active&&<section className="notch-player" aria-label="Reproductor de música"><div className="player-heading"><span className="player-date">{clock.toLocaleDateString(undefined,{weekday:'short',day:'numeric',month:'short',year:'numeric'}).replaceAll('.','')}</span><time>{clock.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit',hour12:false})}</time></div><div className="player-track"><span className="player-cover"><Music2 size={20}/></span><span><strong>Tu música, acá</strong><small>El reproductor se conectará en una próxima etapa</small></span></div><div className="player-timeline"><span>--:--</span><span className="player-progress"/><span>--:--</span></div><div className="player-controls" aria-label="Controles aún no disponibles"><SkipBack size={16}/><Play size={19}/><SkipForward size={16}/></div><span className="player-menu-arrow player-menu-left" aria-hidden="true"><ChevronLeft size={16}/></span><span className="player-menu-arrow player-menu-right" aria-hidden="true"><ChevronRight size={16}/></span></section>}
     {expanded&&<section className="glass-shell" inert={drop.active?true:undefined} aria-label="Panel del compañero">
       <header className="hub-header">
         <nav className="hub-tabs" aria-label="Navegación principal">{[[Home,'home','Inicio'],[MessageCircle,'chat','Chat'],[Plug,'connections','Conexiones'],[Settings2,'settings','Ajustes']].map(([Icon,id,label])=><button key={id} title={label} aria-label={label} aria-current={tab===id?'page':undefined} className={tab===id?'selected':''} onClick={()=>chooseTab(id)}><Icon size={16}/><span>{label}</span></button>)}</nav>
