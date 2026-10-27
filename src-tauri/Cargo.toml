@@ -1,6 +1,6 @@
 [package]
 name = "mascota-companero"
-version = "0.31.0"
+version = "0.32.0"
 description = "Mi pequeño compañero de escritorio"
 authors = ["Mariano"]
 edition = "2021"

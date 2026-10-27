@@ -382,3 +382,13 @@ html[data-notch=peek] .compact-lyric,html[data-notch=open] .compact-lyric{displa
 html[data-voice-side=right] .compact-lyric{right:auto;left:calc(100% + 10px)}
 html[data-edge=bottom] .compact-lyric{top:auto;bottom:0;border-radius:12px 12px 0 0}
 :is(html[data-edge=left],html[data-edge=right]) .compact-lyric{display:none}
+
+/* The current line replaces the compact notch; no second floating surface. */
+.compact-lyric-inline{display:flex;align-items:center;gap:9px;width:100%;min-width:0;color:#fff;font-family:ui-rounded,'Arial Rounded MT Bold',system-ui,sans-serif;font-size:12px;font-weight:800}
+.compact-lyric-inline svg{flex:none;color:#c7cbd4}.compact-lyric-inline>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html[data-lyrics=true][data-notch=peek] .desktop.compact .notch-surface{background:linear-gradient(to bottom,#090a0d 0%,#090a0d 35%,rgba(var(--cover-glow,82,75,65),.48) 100%)}
+html[data-lyrics=true][data-notch=idle] .desktop.compact .notch-surface{background:linear-gradient(to bottom,#090a0d 0%,rgba(var(--cover-glow,82,75,65),.45) 100%)}
+html[data-lyrics=true][data-notch=peek] .lyrics-panel{overflow:hidden;display:flex;align-items:center}
+.lyrics-lines{width:100%}.lyrics-lines p{font-family:ui-rounded,'Arial Rounded MT Bold',system-ui,sans-serif;font-weight:700}
+html[data-lyrics=true][data-notch=peek] .lyrics-lines p{font-size:13px;line-height:1.25;padding:4px 0}
+.lyrics-lines p.active{font-weight:850;color:#fff;opacity:1}

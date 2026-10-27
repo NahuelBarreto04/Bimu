@@ -1,5 +1,12 @@
 use serde::Serialize;
 
+fn corrected_position(raw:f64,duration:f64,updated:f64,now:f64,playing:bool)->f64 {
+    let delta=now-updated;
+    let extra=if playing&&updated>0.0&&delta>=0.0&&delta<=duration.max(600.0){delta}else{0.0};
+    let value=raw+extra;
+    if duration>0.0 {value.clamp(0.0,duration)} else {value.max(0.0)}
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaState {
@@ -8,6 +15,7 @@ pub struct MediaState {
     playing: bool,
     position: f64,
     duration: f64,
+    sampled_at_ms: u64,
     cover: Option<String>,
 }
 
@@ -33,7 +41,13 @@ async fn media_state_inner(include_cover: bool) -> Result<Option<MediaState>, St
         if title.is_empty() { return Ok(None) }
         let artist = props.Artist().map(|v| v.to_string_lossy()).unwrap_or_default();
         let playing = session.GetPlaybackInfo().and_then(|v| v.PlaybackStatus()).map(|v| v == GlobalSystemMediaTransportControlsSessionPlaybackStatus::Playing).unwrap_or(false);
-        let (position,duration) = session.GetTimelineProperties().map(|v| (v.Position().map(|x| x.Duration as f64/10_000_000.0).unwrap_or(0.0), v.EndTime().map(|x| x.Duration as f64/10_000_000.0).unwrap_or(0.0))).unwrap_or((0.0,0.0));
+        let sampled_at_ms=std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis().min(u64::MAX as u128) as u64;
+        let (position,duration) = session.GetTimelineProperties().map(|v| {
+            let raw=v.Position().map(|x| x.Duration as f64/10_000_000.0).unwrap_or(0.0);
+            let duration=v.EndTime().map(|x| x.Duration as f64/10_000_000.0).unwrap_or(0.0);
+            let updated=v.LastUpdatedTime().map(|x|x.UniversalTime as f64/10_000_000.0-11_644_473_600.0).unwrap_or(0.0);
+            (corrected_position(raw,duration,updated,sampled_at_ms as f64/1000.0,playing),duration)
+        }).unwrap_or((0.0,0.0));
         let cover = if include_cover { if let Ok(reference) = props.Thumbnail() {
             if let Ok(op) = reference.OpenReadAsync() {
                 if let Ok(stream) = op.await {
@@ -51,9 +65,20 @@ async fn media_state_inner(include_cover: bool) -> Result<Option<MediaState>, St
                 } else { None }
             } else { None }
         } else { None } } else { None };
-        return Ok(Some(MediaState { title, artist, playing, position, duration, cover }))
+        return Ok(Some(MediaState { title, artist, playing, position, duration, sampled_at_ms, cover }))
     }
     #[cfg(not(windows))] { let _ = include_cover; Ok(None) }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::corrected_position;
+    #[test] fn advances_stale_playback_but_not_paused_or_invalid_timestamps(){
+        assert!((corrected_position(10.0,100.0,1000.0,1000.4,true)-10.4).abs()<0.0001);
+        assert_eq!(corrected_position(10.0,100.0,1000.0,1000.4,false),10.0);
+        assert_eq!(corrected_position(10.0,100.0,0.0,1000.4,true),10.0);
+        assert_eq!(corrected_position(99.0,100.0,1000.0,1005.0,true),100.0);
+    }
 }
 
 #[tauri::command]
