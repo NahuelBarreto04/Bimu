@@ -370,9 +370,9 @@ html[data-receive-layout=notch] .drop-surface::after{width:115px;height:95px;opa
 @media(prefers-reduced-motion:reduce){html[data-receive-layout=notch] .drop-surface::before,html[data-receive-layout=notch] .drop-surface::after,.lyrics-lines p{transition:none}}
 
 /* Compact lyrics appear beside the player and remain visible at rest. */
-html[data-lyrics=true][data-notch=peek] .notch-player>.player-track,
-html[data-lyrics=true][data-notch=peek] .notch-player>.player-timeline,
-html[data-lyrics=true][data-notch=peek] .notch-player>.player-controls{width:calc(50% - 12px)}
+html[data-lyrics=true][data-notch=peek] .notch-player>.notch-page>.player-track,
+html[data-lyrics=true][data-notch=peek] .notch-player>.notch-page>.player-timeline,
+html[data-lyrics=true][data-notch=peek] .notch-player>.notch-page>.player-controls{width:calc(50% - 12px)}
 html[data-lyrics=true][data-notch=peek] .lyrics-panel{position:absolute;top:27px;bottom:13px;right:35px;left:50%;height:auto;margin:0;padding:0 9px 0 13px;border-top:0;border-left:1px solid #30333b;text-align:left;overflow:auto}
 html[data-lyrics=true][data-notch=peek] .lyrics-lines p{font-size:11px;line-height:1.35;padding:4px 0}
 .lyrics-error{font-size:10px;line-height:1.4}.lyrics-error button{border:1px solid #5b606c;border-radius:8px;padding:4px 9px;background:#242832;color:white;cursor:pointer}
@@ -435,3 +435,5 @@ html[data-theme=light] .quick-settings-eyes.bimu-eyes i{background:#232532}
 /* A faint tint follows the selected color, while keeping the usual depth shadow. */
 .desktop.compact .notch-surface{box-shadow:0 4px 14px color-mix(in srgb,var(--bimu-swatch,#171820) 7%,transparent)}
 html[data-notch=peek] .desktop.compact .notch-surface,.quick-shell,.desktop .glass-shell{box-shadow:0 12px 26px rgba(0,0,0,.3),0 8px 26px color-mix(in srgb,var(--bimu-swatch,#171820) 14%,transparent)}
+
+.notch-page{opacity:1;transition:opacity 110ms ease}.notch-page.is-leaving{opacity:0;pointer-events:none}@media(prefers-reduced-motion:reduce){.notch-page{transition:none}}
