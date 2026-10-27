@@ -1,6 +1,6 @@
 [package]
 name = "mascota-companero"
-version = "0.25.0"
+version = "0.26.0"
 description = "Mi pequeño compañero de escritorio"
 authors = ["Mariano"]
 edition = "2021"
@@ -29,8 +29,10 @@ sha2 = "0.10"
 semver = "1"
 chrono = "0.4"
 chrono-tz = "0.10"
+base64 = "0.22"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"
+windows = { version = "0.58", features = ["Foundation", "Media_Control", "Storage_Streams"] }
 
 windows-sys = { version = "0.59", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_Storage_FileSystem"] }
