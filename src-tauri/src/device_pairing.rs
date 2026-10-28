@@ -202,7 +202,7 @@ fn session(app:AppHandle, shared:DevicePairing, generation:u64, mut channel:Secu
     },
    }Ok(())
   })();
-  if let Err(e)=result{let had_pending=shared.0.lock().map(|i|i.generation==generation&&i.shelf_pending.is_some()).unwrap_or(false);fail(&shared,generation,&format!("Se interrumpió la sincronización: {e}. Volvé a vincular."));let _=app.emit("shelf-changed",());if had_pending{let _=app.emit("shelf-error","Se perdió la conexión durante la descarga.");}return}
+  if let Err(e)=result{let had_pending=shared.0.lock().map(|i|i.generation==generation&&i.shelf_pending.is_some()).unwrap_or(false);fail(&shared,generation,&format!("Se interrumpió la sincronización: {e}. Intentando reconectar."));let _=app.emit("shelf-changed",());if had_pending{let _=app.emit("shelf-error","Se perdió la conexión durante la descarga.");}return}
   let timed_out={if let Ok(mut inner)=shared.0.lock(){if inner.generation==generation&&inner.shelf_pending.as_ref().map(|p|p.started.elapsed()>Duration::from_secs(60)).unwrap_or(false){inner.shelf_pending=None;true}else{false}}else{false}};
   if timed_out{let _=app.emit("shelf-changed",());let _=app.emit("shelf-error","La descarga tardó demasiado. Intentá nuevamente.");}
  }
