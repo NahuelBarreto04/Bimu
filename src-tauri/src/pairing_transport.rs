@@ -65,8 +65,15 @@ pub fn pair(mut stream: TcpStream, role: Role, code: &str) -> Result<SecureChann
     digest.update(b"bimu-noise-psk-v1\0");
     digest.update(confirmed.as_bytes());
     let psk: [u8; 32] = digest.finalize().into();
+    reconnect(stream, role, &psk)
+}
+/// Authenticates a stored random secret before any application data is exchanged.
+pub fn reconnect(mut stream: TcpStream, role: Role, psk: &[u8; 32]) -> Result<SecureChannel, String> {
+    stream.set_nonblocking(false).map_err(|e| e.to_string())?;
+    stream.set_read_timeout(Some(Duration::from_secs(5))).map_err(|e| e.to_string())?;
+    stream.set_write_timeout(Some(Duration::from_secs(5))).map_err(|e| e.to_string())?;
     let params = PATTERN.parse().map_err(|_| "invalid noise pattern".to_string())?;
-    let builder = snow::Builder::new(params).psk(0, &psk).map_err(|e| e.to_string())?
+    let builder = snow::Builder::new(params).psk(0, psk).map_err(|e| e.to_string())?
         .prologue(PROLOGUE).map_err(|e| e.to_string())?;
     let mut state = match role {
         Role::Client => builder.build_initiator(),
@@ -165,6 +172,16 @@ mod tests {
         assert!(error.contains("intercambio inicial"), "{error}");
         assert!(error.contains("cerró la conexión"), "{error}");
         server.join().unwrap();
+    }
+    #[test]
+    fn reconnect_accepts_only_the_stored_key() {
+        let listener=TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr=listener.local_addr().unwrap();
+        let server=thread::spawn(move||{let (stream,_)=listener.accept().unwrap();let mut c=reconnect(stream,Role::Host,&[7;32]).unwrap();assert_eq!(c.receive().unwrap(),b"ok");});
+        let mut client=reconnect(TcpStream::connect(addr).unwrap(),Role::Client,&[7;32]).unwrap();client.send(b"ok").unwrap();server.join().unwrap();
+        let listener=TcpListener::bind("127.0.0.1:0").unwrap();let addr=listener.local_addr().unwrap();
+        let server=thread::spawn(move||{let (stream,_)=listener.accept().unwrap();assert!(reconnect(stream,Role::Host,&[7;32]).is_err());});
+        assert!(reconnect(TcpStream::connect(addr).unwrap(),Role::Client,&[8;32]).is_err());server.join().unwrap();
     }
     #[test]
     fn wrong_code_never_reaches_transport() {

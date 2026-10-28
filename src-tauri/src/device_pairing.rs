@@ -12,8 +12,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all="camelCase")]
-pub struct PairStatus { phase:String, code:Option<String>, address:Option<String>, peer:Option<String>, message:Option<String> }
-impl Default for PairStatus { fn default()->Self { Self{phase:"idle".into(),code:None,address:None,peer:None,message:None} } }
+pub struct PairStatus { phase:String, code:Option<String>, address:Option<String>, peer:Option<String>, message:Option<String>, linked:bool }
+impl Default for PairStatus { fn default()->Self { Self{phase:"idle".into(),code:None,address:None,peer:None,message:None,linked:false} } }
 #[derive(Default)]
 struct Inner { generation:u64, status:PairStatus, socket:Option<TcpStream>, outgoing:Option<ClipboardPayload>, outgoing_revision:u64, preparing:bool, remote_shelf:Vec<ShelfMetadata>, remote_peer:Option<String>, hidden_shelf:HashSet<String>, shelf_messages:VecDeque<ClipboardPayload>, shelf_pending:Option<ShelfPending>, shelf_serving:bool }
 struct ShelfPending {id:String,token:u64,name:String,started:Instant}
@@ -208,9 +208,11 @@ fn session(app:AppHandle, shared:DevicePairing, generation:u64, mut channel:Secu
  }
 }
 #[tauri::command]
-pub fn device_pairing_status(state:State<'_,DevicePairing>)->Result<PairStatus,String>{Ok(state.0.lock().map_err(|_|"Conexión ocupada")?.status.clone())}
+pub fn device_pairing_status(app:AppHandle,state:State<'_,DevicePairing>)->Result<PairStatus,String>{let mut status=state.0.lock().map_err(|_|"Conexión ocupada")?.status.clone();status.linked=crate::trusted_pairing::load(&app)?.is_some();Ok(status)}
 #[tauri::command]
 pub fn device_pairing_disconnect(app:AppHandle,state:State<'_,DevicePairing>)->Result<(),String>{let mut inner=state.0.lock().map_err(|_|"Conexión ocupada")?;reset(&mut inner);drop(inner);let _=app.emit("shelf-changed",());Ok(())}
+#[tauri::command]
+pub fn device_pairing_forget(app:AppHandle,state:State<'_,DevicePairing>)->Result<(),String>{let mut inner=state.0.lock().map_err(|_|"Conexión ocupada")?;crate::trusted_pairing::forget(&app)?;reset(&mut inner);drop(inner);let _=app.emit("shelf-changed",());Ok(())}
 #[tauri::command]
 pub fn device_pairing_host(app:AppHandle,state:State<'_,DevicePairing>)->Result<PairStatus,String>{
  let ip=local_ip()?;
@@ -219,13 +221,16 @@ pub fn device_pairing_host(app:AppHandle,state:State<'_,DevicePairing>)->Result<
  let port=listener.local_addr().map_err(|_|"No se pudo obtener el puerto")?.port();
  let code=format!("{:06}",OsRng.gen_range(0..1_000_000u32));
  let shared=state.inner().clone();
- let (generation,status)={let mut inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;reset(&mut inner);inner.status=PairStatus{phase:"waiting".into(),code:Some(code.clone()),address:Some(SocketAddrV4::new(ip,port).to_string()),peer:None,message:None};(inner.generation,inner.status.clone())};
+ let (generation,status)={let mut inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;reset(&mut inner);inner.status=PairStatus{phase:"waiting".into(),code:Some(code.clone()),address:Some(SocketAddrV4::new(ip,port).to_string()),peer:None,message:None,linked:false};(inner.generation,inner.status.clone())};
  let _=app.emit("shelf-changed",());
  thread::spawn(move||{
+  let discovery=crate::pairing_discovery::advertise(&device_name(),port).ok();
+  let mut announced=Instant::now();
   let expiry=Instant::now()+Duration::from_secs(120);
   loop {
    if shared.0.lock().map(|i|i.generation!=generation).unwrap_or(true){return}
    if Instant::now()>=expiry{fail(&shared,generation,"El código venció. Generá uno nuevo.");return}
+   if announced.elapsed()>=Duration::from_millis(400){if let Some(socket)=&discovery{crate::pairing_discovery::send(socket,&device_name(),port)}announced=Instant::now();}
    match listener.accept(){
     Ok((stream,addr))=>{
      if !matches!(addr,SocketAddr::V4(v) if private_ip(*v.ip())){
@@ -237,7 +242,7 @@ pub fn device_pairing_host(app:AppHandle,state:State<'_,DevicePairing>)->Result<
      // Each code permits one attempt, including failed or stalled handshakes.
      update(&shared,generation,PairStatus{phase:"connecting".into(),message:Some("Verificando el código…".into()),..Default::default()});
      match pairing_transport::pair(stream,Role::Host,&code){
-      Ok(channel) if Instant::now()<expiry=>session(app,shared,generation,channel,Role::Host),
+      Ok(mut channel) if Instant::now()<expiry=>match crate::trusted_pairing::establish(&app,&mut channel,Role::Host,|trust|{let inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;if inner.generation!=generation{return Err("Vinculación cancelada".into())}crate::trusted_pairing::save(&app,trust)}){Ok(())=>session(app,shared,generation,channel,Role::Host),Err(e)=>fail(&shared,generation,&e)},
       Ok(_)=>fail(&shared,generation,"El código venció durante la vinculación. Generá uno nuevo."),
       Err(e)=>fail(&shared,generation,&format!("Falló la verificación entre equipos: {e}. Generá un código nuevo.")),
      }return
@@ -259,10 +264,64 @@ pub fn device_pairing_join(address:String,code:String,app:AppHandle,state:State<
  thread::spawn(move||{
   match TcpStream::connect_timeout(&SocketAddr::V4(addr),Duration::from_secs(5)){
    Ok(stream)=>match pairing_transport::pair(stream,Role::Client,&code){
-    Ok(channel)=>session(app,shared,generation,channel,Role::Client),
+    Ok(mut channel)=>match crate::trusted_pairing::establish(&app,&mut channel,Role::Client,|trust|{let inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;if inner.generation!=generation{return Err("Vinculación cancelada".into())}crate::trusted_pairing::save(&app,trust)}){Ok(())=>session(app,shared,generation,channel,Role::Client),Err(e)=>fail(&shared,generation,&e)},
     Err(e)=>fail(&shared,generation,&format!("Falló la verificación entre equipos: {e}. Generá un código nuevo.")),
    },
    Err(e)=>fail(&shared,generation,&format!("No se pudo contactar a la otra PC: {e}. Revisá la dirección y la red local.")),
   }
  });Ok(())
+}
+
+#[tauri::command]
+pub async fn device_pairing_discover()->Result<Vec<crate::pairing_discovery::DiscoveredPeer>,String>{
+ tauri::async_runtime::spawn_blocking(crate::pairing_discovery::scan).await.map_err(|_|"No se pudo buscar equipos".to_string())?
+}
+
+
+// Reconnection advertisements are hints; Noise PSK authentication is mandatory.
+pub fn start_reconnect(app:AppHandle){
+ let shared=app.state::<DevicePairing>().inner().clone();
+ thread::spawn(move||loop{
+  let trust=match crate::trusted_pairing::load(&app){Ok(Some(t))=>t,_=>{thread::sleep(Duration::from_secs(2));continue}};
+  let available=||shared.0.lock().map(|i|matches!(i.status.phase.as_str(),"idle"|"error")).unwrap_or(false);
+  if !available(){thread::sleep(Duration::from_millis(500));continue}
+  match trust.role(){
+   Role::Host=>{
+    let listener=match TcpListener::bind("0.0.0.0:0"){Ok(x)=>x,Err(_)=>{thread::sleep(Duration::from_secs(2));continue}};
+    let _=listener.set_nonblocking(true);let port=match listener.local_addr(){Ok(a)=>a.port(),Err(_)=>continue};
+    let udp=match UdpSocket::bind("0.0.0.0:0"){Ok(s)=>s,Err(_)=>continue};let _=udp.set_broadcast(true);
+    let message=format!("bimu-trusted-v1:{}:{}",trust.tag(),port);let mut last=Instant::now()-Duration::from_secs(1);
+    while available() && crate::trusted_pairing::load(&app).ok().flatten().map(|x|x.key)==Some(trust.key){
+     if last.elapsed()>=Duration::from_millis(600){let _=udp.send_to(message.as_bytes(),(Ipv4Addr::BROADCAST,45949));last=Instant::now();}
+     match listener.accept(){
+      Ok((stream,SocketAddr::V4(addr))) if private_ip(*addr.ip())=>{
+       if let Ok(channel)=pairing_transport::reconnect(stream,Role::Host,&trust.key){
+        let generation={let Ok(mut inner)=shared.0.lock()else{break};if !matches!(inner.status.phase.as_str(),"idle"|"error")||crate::trusted_pairing::load(&app).ok().flatten().map(|t|t.key)!=Some(trust.key){break}reset(&mut inner);inner.status.phase="connecting".into();inner.status.message=Some("Reconectando…".into());inner.generation};
+        session(app.clone(),shared.clone(),generation,channel,Role::Host);break
+       }
+      },
+      Ok(_)=>{},Err(e) if e.kind()==std::io::ErrorKind::WouldBlock=>thread::sleep(Duration::from_millis(100)),Err(_)=>break
+     }
+    }
+   },
+   Role::Client=>{
+    let udp=match UdpSocket::bind("0.0.0.0:45949"){Ok(s)=>s,Err(_)=>{thread::sleep(Duration::from_secs(2));continue}};
+    let _=udp.set_read_timeout(Some(Duration::from_millis(500)));let mut buf=[0u8;256];let prefix=format!("bimu-trusted-v1:{}:",trust.tag());
+    while available() && crate::trusted_pairing::load(&app).ok().flatten().map(|x|x.key)==Some(trust.key){
+     if let Ok((n,SocketAddr::V4(addr)))=udp.recv_from(&mut buf){
+      if !private_ip(*addr.ip()){continue}let Ok(msg)=std::str::from_utf8(&buf[..n])else{continue};
+      let Some(port)=msg.strip_prefix(&prefix).and_then(|p|p.parse::<u16>().ok()).filter(|p|*p!=0)else{continue};
+      let target=SocketAddr::V4(SocketAddrV4::new(*addr.ip(),port));
+      if let Ok(stream)=TcpStream::connect_timeout(&target,Duration::from_secs(2)){
+       if let Ok(channel)=pairing_transport::reconnect(stream,Role::Client,&trust.key){
+        let generation={let Ok(mut inner)=shared.0.lock()else{break};if !matches!(inner.status.phase.as_str(),"idle"|"error")||crate::trusted_pairing::load(&app).ok().flatten().map(|t|t.key)!=Some(trust.key){break}reset(&mut inner);inner.status.phase="connecting".into();inner.status.message=Some("Reconectando…".into());inner.generation};
+        session(app.clone(),shared.clone(),generation,channel,Role::Client);break
+       }
+      }
+     }
+    }
+   }
+  }
+  thread::sleep(Duration::from_millis(500));
+ });
 }
