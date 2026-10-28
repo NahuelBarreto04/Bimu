@@ -1,0 +1,34 @@
+name: Verify pull request
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: |
+            src-tauri -> target
+            native-tests -> target
+      - run: npm ci
+      - run: npm test
+      - run: cargo test --manifest-path native-tests/Cargo.toml
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: npm run build
+      - run: npm run desktop:build -- --bundles nsis
+      - name: Preserve verification installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Bimu-verificacion-no-publicar
+          path: src-tauri/target/release/bundle/nsis/*-setup.exe
