@@ -2,7 +2,10 @@
 use crate::pairing_core::Role;
 use crate::pairing_transport::{self, SecureChannel};
 use crate::clipboard_protocol::{self, ClipboardPayload};
-use rand::{rngs::OsRng, Rng};
+use rand::{rngs::OsRng, Rng, RngCore};
+use crate::shelf_shared::ShelfMetadata;
+use std::collections::{HashSet,VecDeque};
+use tauri_plugin_opener::OpenerExt;
 use serde::Serialize;
 use std::{net::{Ipv4Addr, Shutdown, SocketAddr, SocketAddrV4, TcpListener, TcpStream, UdpSocket}, sync::{Arc, Mutex}, thread, time::{Duration, Instant}};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -12,7 +15,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 pub struct PairStatus { phase:String, code:Option<String>, address:Option<String>, peer:Option<String>, message:Option<String> }
 impl Default for PairStatus { fn default()->Self { Self{phase:"idle".into(),code:None,address:None,peer:None,message:None} } }
 #[derive(Default)]
-struct Inner { generation:u64, status:PairStatus, socket:Option<TcpStream>, outgoing:Option<ClipboardPayload>, outgoing_revision:u64, preparing:bool }
+struct Inner { generation:u64, status:PairStatus, socket:Option<TcpStream>, outgoing:Option<ClipboardPayload>, outgoing_revision:u64, preparing:bool, remote_shelf:Vec<ShelfMetadata>, remote_peer:Option<String>, hidden_shelf:HashSet<String>, shelf_messages:VecDeque<ClipboardPayload>, shelf_pending:Option<ShelfPending>, shelf_serving:bool }
+struct ShelfPending {id:String,token:u64,name:String,started:Instant}
 #[derive(Default,Clone)]
 pub struct DevicePairing(Arc<Mutex<Inner>>);
 fn private_ip(ip:Ipv4Addr)->bool { ip.is_private() || ip.is_link_local() }
@@ -25,6 +29,7 @@ fn reset(inner:&mut Inner){
  inner.generation=inner.generation.wrapping_add(1);
  if let Some(socket)=inner.socket.take(){let _=socket.shutdown(Shutdown::Both);}
  inner.outgoing=None;inner.outgoing_revision=inner.outgoing_revision.wrapping_add(1);inner.preparing=false;
+ inner.shelf_messages.clear();inner.shelf_pending=None;inner.shelf_serving=false;
  inner.status=PairStatus::default();
 }
 fn update(shared:&DevicePairing, generation:u64, status:PairStatus)->bool {
@@ -36,6 +41,7 @@ fn fail(shared:&DevicePairing, generation:u64, msg:&str){
   if inner.generation!=generation{return}
   if let Some(socket)=inner.socket.take(){let _=socket.shutdown(Shutdown::Both);}
   inner.outgoing=None;inner.outgoing_revision=inner.outgoing_revision.wrapping_add(1);inner.preparing=false;
+  inner.shelf_messages.clear();inner.shelf_pending=None;inner.shelf_serving=false;
   inner.status=PairStatus{phase:"error".into(),message:Some(msg.into()),..Default::default()};
  }
 }
@@ -76,6 +82,84 @@ fn take_outgoing(shared:&DevicePairing,generation:u64)->Option<ClipboardPayload>
 fn has_outgoing(shared:&DevicePairing,generation:u64)->bool{
  shared.0.lock().map(|inner|inner.generation==generation&&(inner.preparing||inner.outgoing.is_some())).unwrap_or(false)
 }
+pub(crate) fn remote_shelf(app:&AppHandle)->Vec<crate::shelf::ShelfItem>{
+ let state=app.state::<DevicePairing>();let Ok(inner)=state.0.lock() else{return vec![]};
+ let connected=inner.status.phase=="connected";
+ inner.remote_shelf.iter().filter(|item|!inner.hidden_shelf.contains(&item.id)).map(|item|crate::shelf::ShelfItem{
+  id:format!("peer:{}",item.id),name:item.name.clone(),path:String::new(),kind:item.kind.clone(),available:connected&&item.available,remote:true,online:connected,origin:inner.remote_peer.clone(),busy:inner.shelf_pending.as_ref().map(|p|p.id==item.id).unwrap_or(false)
+ }).collect()
+}
+pub(crate) fn hide_remote_shelf(app:&AppHandle,id:&str)->Result<(),String>{
+ let state=app.state::<DevicePairing>();let mut inner=state.0.lock().map_err(|_|"Conexión ocupada")?;
+ if !inner.remote_shelf.iter().any(|item|item.id==id){return Err("El elemento ya no está en la bandeja".into())}
+ inner.hidden_shelf.insert(id.to_owned());Ok(())
+}
+pub(crate) fn request_remote_shelf(app:&AppHandle,id:&str)->Result<(),String>{
+ if !crate::shelf_shared::valid_id(id){return Err("Archivo remoto inválido".into())}
+ let state=app.state::<DevicePairing>();let mut inner=state.0.lock().map_err(|_|"Conexión ocupada")?;
+ if inner.status.phase!="connected"{return Err("La otra PC está desconectada".into())}
+ if inner.shelf_pending.is_some(){return Err("Ya hay un archivo en descarga".into())}
+ let item=inner.remote_shelf.iter().find(|item|item.id==id).ok_or("El archivo ya no está en la otra bandeja")?;
+ if !item.available{return Err("El archivo ya no está disponible en la otra PC".into())}
+ let name=item.name.clone();let token=OsRng.next_u64();
+ inner.shelf_pending=Some(ShelfPending{id:id.into(),token,name,started:Instant::now()});
+ inner.shelf_messages.push_back(ClipboardPayload::ShelfRequest{id:id.into(),token});drop(inner);
+ let _=app.emit("shelf-changed",());Ok(())
+}
+fn queue_shelf_reply(shared:&DevicePairing,generation:u64,message:ClipboardPayload){
+ if let Ok(mut inner)=shared.0.lock(){if inner.generation==generation&&inner.status.phase=="connected"&&inner.shelf_messages.len()<8{inner.shelf_messages.push_back(message);}}
+}
+fn handle_shelf_request(app:&AppHandle,shared:&DevicePairing,generation:u64,id:String,token:u64){
+ let accepted={let Ok(mut inner)=shared.0.lock()else{return};if inner.generation!=generation||inner.status.phase!="connected"{return}if inner.shelf_serving{false}else{inner.shelf_serving=true;true}};
+ if !accepted{queue_shelf_reply(shared,generation,ClipboardPayload::ShelfReply{id,token,bundle:None,error:Some("La otra PC ya está preparando un archivo".into())});return}
+ let app=app.clone();let shared=shared.clone();
+ thread::spawn(move||{
+  let result=crate::shelf::path_for_share(&app,&id).and_then(|path|crate::clipboard_files::pack(&[path]));
+  let Ok(mut inner)=shared.0.lock()else{return};if inner.generation!=generation||inner.status.phase!="connected"{return}inner.shelf_serving=false;
+  if inner.shelf_messages.len()>=8{return}
+  let (bundle,error)=match result{Ok(bundle)=>(Some(bundle),None),Err(error)=>(None,Some(error.chars().take(45).collect()))};
+  inner.shelf_messages.push_back(ClipboardPayload::ShelfReply{id,token,bundle,error});
+ });
+}
+fn handle_shelf_reply(app:&AppHandle,shared:&DevicePairing,generation:u64,id:String,token:u64,bundle:Option<crate::clipboard_files::FileBundle>,error:Option<String>){
+ let pending={let Ok(mut inner)=shared.0.lock()else{return};if inner.generation!=generation{return}
+  if !inner.shelf_pending.as_ref().map(|p|p.id==id&&p.token==token).unwrap_or(false){return}inner.shelf_pending.take().unwrap()};
+ let result=(||->Result<(),String>{
+  if let Some(error)=error{return Err(error)}
+  let bundle=bundle.ok_or("No se recibieron archivos")?;
+  if bundle.single_root()!=Some(pending.name.as_str()){return Err("El archivo recibido no coincide con el solicitado".into())}
+  if shared.0.lock().map(|i|i.generation!=generation||i.status.phase!="connected").unwrap_or(true){return Err("La otra PC se desconectó".into())}
+  let root=app.path().app_data_dir().map_err(|_|"No se pudo ubicar la carpeta de Bimu")?.join("archivos-a-mano-recibidos");
+  std::fs::create_dir_all(&root).map_err(|_|"No se pudo crear la carpeta de recepción")?;
+  let destination=root.join(format!("{:016x}",OsRng.next_u64()));
+  let paths=crate::clipboard_files::unpack(&bundle,&destination)?;
+  if shared.0.lock().map(|i|i.generation!=generation||i.status.phase!="connected").unwrap_or(true){let _=std::fs::remove_dir_all(&destination);return Err("La otra PC se desconectó".into())}
+  let path=paths.first().ok_or("No se recibió el archivo solicitado")?;
+  app.opener().open_path(path.to_string_lossy().into_owned(),None::<&str>).map_err(|_|format!("Se descargó en {}, pero no se pudo abrir",path.display()))?;
+  Ok(())
+ })();
+ let _=app.emit("shelf-changed",());if let Err(error)=result{let _=app.emit("shelf-error",error);}
+}
+fn handle_incoming(app:&AppHandle,shared:&DevicePairing,generation:u64,payload:ClipboardPayload,peer:&str)->Result<(),String>{
+ match payload{
+  ClipboardPayload::ShelfCatalog(items)=>{
+   crate::shelf_shared::validate(&items)?;
+   let mut changed=false;if let Ok(mut inner)=shared.0.lock(){if inner.generation==generation&&inner.remote_shelf!=items{inner.remote_shelf=items;changed=true}}
+   if changed{let _=app.emit("shelf-changed",());}Ok(())
+  },
+  ClipboardPayload::ShelfRequest{id,token}=>{handle_shelf_request(app,shared,generation,id,token);Ok(())},
+  ClipboardPayload::ShelfReply{id,token,bundle,error}=>{handle_shelf_reply(app,shared,generation,id,token,bundle,error);Ok(())},
+  other=>{if !has_outgoing(shared,generation){crate::clipboard_history::apply_remote(app,other,peer)?;}Ok(())}
+ }
+}
+fn next_shelf_or_clipboard(app:&AppHandle,shared:&DevicePairing,generation:u64,last:&mut Option<Vec<ShelfMetadata>>,last_check:&mut Instant)->Result<Option<ClipboardPayload>,String>{
+ if let Ok(mut inner)=shared.0.lock(){if inner.generation!=generation{return Ok(None)}if let Some(message)=inner.shelf_messages.pop_front(){return Ok(Some(message))}}
+ if let Some(payload)=take_outgoing(shared,generation){return Ok(Some(payload))}
+ if last.is_none()||last_check.elapsed()>=Duration::from_secs(3){
+  *last_check=Instant::now();let snapshot=crate::shelf::shared_snapshot(app)?;
+  if last.as_ref()!=Some(&snapshot){*last=Some(snapshot.clone());return Ok(Some(ClipboardPayload::ShelfCatalog(snapshot)))}
+ }Ok(None)
+}
 fn device_name()->String {
  let value=std::env::var("COMPUTERNAME").unwrap_or_else(|_|"Otra PC".into());
  let clean:String=value.chars().filter(|c|!c.is_control()).take(64).collect();
@@ -84,7 +168,7 @@ fn device_name()->String {
 fn session(app:AppHandle, shared:DevicePairing, generation:u64, mut channel:SecureChannel, role:Role){
  let socket=match channel.control_stream(){Ok(s)=>s,Err(_)=>{fail(&shared,generation,"No se pudo mantener la conexión.");return}};
  {let Ok(mut inner)=shared.0.lock() else{return};if inner.generation!=generation{return}inner.socket=Some(socket);}
- let own=format!("bimu-sync-v2\n{}",device_name());
+ let own=format!("bimu-sync-v3\n{}",device_name());
  let exchange=(||->Result<String,String>{
   let received=match role {
    Role::Client=>{channel.send(own.as_bytes())?;channel.receive()?},
@@ -92,38 +176,41 @@ fn session(app:AppHandle, shared:DevicePairing, generation:u64, mut channel:Secu
   };
   if received.len()>256{return Err("Nombre de equipo inválido".into())}
   let versioned=String::from_utf8(received).map_err(|_|"Nombre de equipo inválido")?;
-  let peer=versioned.strip_prefix("bimu-sync-v2\n").ok_or("Versión de Bimu incompatible")?;
+  let peer=versioned.strip_prefix("bimu-sync-v3\n").ok_or("Versión de Bimu incompatible")?;
   let peer:String=peer.chars().filter(|c|!c.is_control()).take(64).collect();
   if peer.trim().is_empty(){return Err("Nombre de equipo vacío".into())} Ok(peer)
  })();
  let peer=match exchange{Ok(peer)=>peer,Err(_)=>{fail(&shared,generation,"No se pudo verificar el equipo. Instalá la misma versión de prueba en ambas PCs.");return}};
+ {let Ok(mut inner)=shared.0.lock()else{return};if inner.generation!=generation{return}
+  if inner.remote_peer.as_deref()!=Some(peer.as_str()){inner.remote_shelf.clear();inner.hidden_shelf.clear();}
+  inner.remote_peer=Some(peer.clone());}
  if !update(&shared,generation,PairStatus{phase:"connected".into(),peer:Some(peer.clone()),..Default::default()}){return}
+ let _=app.emit("shelf-changed",());
+ let mut last_shelf:Option<Vec<ShelfMetadata>>=None;let mut shelf_checked=Instant::now();
  loop {
   thread::sleep(Duration::from_millis(350));
   if shared.0.lock().map(|i|i.generation!=generation).unwrap_or(true){return}
   let result=(||->Result<(),String>{
    match role{
     Role::Client=>{
-     clipboard_protocol::send_turn(&mut channel,take_outgoing(&shared,generation))?;
-     if let Some(payload)=clipboard_protocol::receive_turn(&mut channel)?{
-      if !has_outgoing(&shared,generation){crate::clipboard_history::apply_remote(&app,payload,&peer)?;}
-     }
+     clipboard_protocol::send_turn(&mut channel,next_shelf_or_clipboard(&app,&shared,generation,&mut last_shelf,&mut shelf_checked)?)?;
+     if let Some(payload)=clipboard_protocol::receive_turn(&mut channel)?{handle_incoming(&app,&shared,generation,payload,&peer)?;}
     },
     Role::Host=>{
-     if let Some(payload)=clipboard_protocol::receive_turn(&mut channel)?{
-      if !has_outgoing(&shared,generation){crate::clipboard_history::apply_remote(&app,payload,&peer)?;}
-     }
-     clipboard_protocol::send_turn(&mut channel,take_outgoing(&shared,generation))?;
+     if let Some(payload)=clipboard_protocol::receive_turn(&mut channel)?{handle_incoming(&app,&shared,generation,payload,&peer)?;}
+     clipboard_protocol::send_turn(&mut channel,next_shelf_or_clipboard(&app,&shared,generation,&mut last_shelf,&mut shelf_checked)?)?;
     },
    }Ok(())
   })();
-  if let Err(e)=result{fail(&shared,generation,&format!("Se interrumpió la sincronización: {e}. Volvé a vincular."));return}
+  if let Err(e)=result{let had_pending=shared.0.lock().map(|i|i.generation==generation&&i.shelf_pending.is_some()).unwrap_or(false);fail(&shared,generation,&format!("Se interrumpió la sincronización: {e}. Volvé a vincular."));let _=app.emit("shelf-changed",());if had_pending{let _=app.emit("shelf-error","Se perdió la conexión durante la descarga.");}return}
+  let timed_out={if let Ok(mut inner)=shared.0.lock(){if inner.generation==generation&&inner.shelf_pending.as_ref().map(|p|p.started.elapsed()>Duration::from_secs(60)).unwrap_or(false){inner.shelf_pending=None;true}else{false}}else{false}};
+  if timed_out{let _=app.emit("shelf-changed",());let _=app.emit("shelf-error","La descarga tardó demasiado. Intentá nuevamente.");}
  }
 }
 #[tauri::command]
 pub fn device_pairing_status(state:State<'_,DevicePairing>)->Result<PairStatus,String>{Ok(state.0.lock().map_err(|_|"Conexión ocupada")?.status.clone())}
 #[tauri::command]
-pub fn device_pairing_disconnect(state:State<'_,DevicePairing>)->Result<(),String>{let mut inner=state.0.lock().map_err(|_|"Conexión ocupada")?;reset(&mut inner);Ok(())}
+pub fn device_pairing_disconnect(app:AppHandle,state:State<'_,DevicePairing>)->Result<(),String>{let mut inner=state.0.lock().map_err(|_|"Conexión ocupada")?;reset(&mut inner);drop(inner);let _=app.emit("shelf-changed",());Ok(())}
 #[tauri::command]
 pub fn device_pairing_host(app:AppHandle,state:State<'_,DevicePairing>)->Result<PairStatus,String>{
  let ip=local_ip()?;
@@ -133,6 +220,7 @@ pub fn device_pairing_host(app:AppHandle,state:State<'_,DevicePairing>)->Result<
  let code=format!("{:06}",OsRng.gen_range(0..1_000_000u32));
  let shared=state.inner().clone();
  let (generation,status)={let mut inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;reset(&mut inner);inner.status=PairStatus{phase:"waiting".into(),code:Some(code.clone()),address:Some(SocketAddrV4::new(ip,port).to_string()),peer:None,message:None};(inner.generation,inner.status.clone())};
+ let _=app.emit("shelf-changed",());
  thread::spawn(move||{
   let expiry=Instant::now()+Duration::from_secs(120);
   loop {
@@ -167,6 +255,7 @@ pub fn device_pairing_join(address:String,code:String,app:AppHandle,state:State<
  if code.len()!=6||!code.bytes().all(|b|b.is_ascii_digit()){return Err("El código debe tener seis números".into())}
  let shared=state.inner().clone();
  let generation={let mut inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;reset(&mut inner);inner.status=PairStatus{phase:"connecting".into(),message:Some("Conectando…".into()),..Default::default()};inner.generation};
+ let _=app.emit("shelf-changed",());
  thread::spawn(move||{
   match TcpStream::connect_timeout(&SocketAddr::V4(addr),Duration::from_secs(5)){
    Ok(stream)=>match pairing_transport::pair(stream,Role::Client,&code){

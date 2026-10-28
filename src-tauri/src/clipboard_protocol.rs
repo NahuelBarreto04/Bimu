@@ -4,16 +4,17 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use crate::clipboard_files::FileBundle;
+use crate::shelf_shared::ShelfMetadata;
 const MAX_TEXT: usize = 1024*1024;
 const MAX_IMAGE: usize = 12*1024*1024;
 const MAX_WIRE: usize = 17*1024*1024;
 const CHUNK: usize = 32*1024;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ClipboardPayload { Text(String), Image { width:usize, height:usize, rgba:Vec<u8> }, Files(Vec<PathBuf>), FileBundle(FileBundle) }
+pub enum ClipboardPayload { Text(String), Image { width:usize, height:usize, rgba:Vec<u8> }, Files(Vec<PathBuf>), FileBundle(FileBundle), ShelfCatalog(Vec<ShelfMetadata>), ShelfRequest{id:String,token:u64}, ShelfReply{id:String,token:u64,bundle:Option<FileBundle>,error:Option<String>} }
 #[derive(Serialize,Deserialize)]
 #[serde(tag="kind", rename_all="snake_case", deny_unknown_fields)]
-enum WirePayload { Text { text:String }, Image { width:usize, height:usize, rgba:String }, Files { bundle:FileBundle } }
+enum WirePayload { Text { text:String }, Image { width:usize, height:usize, rgba:String }, Files { bundle:FileBundle }, ShelfCatalog { items:Vec<ShelfMetadata> }, ShelfRequest { id:String, token:u64 }, ShelfReply { id:String, token:u64, bundle:Option<FileBundle>, error:Option<String> } }
 fn image_size(width:usize,height:usize)->Option<usize>{
  if width==0||height==0||width>16384||height>16384{return None}
  width.checked_mul(height)?.checked_mul(4).filter(|n|*n<=MAX_IMAGE)
@@ -23,6 +24,9 @@ fn encode(payload:ClipboardPayload)->Result<Vec<u8>,String>{
   ClipboardPayload::Text(text) if !text.is_empty()&&text.len()<=MAX_TEXT=>WirePayload::Text{text},
   ClipboardPayload::Image{width,height,rgba} if image_size(width,height)==Some(rgba.len())=>WirePayload::Image{width,height,rgba:STANDARD.encode(rgba)},
   ClipboardPayload::FileBundle(bundle)=>WirePayload::Files{bundle},
+  ClipboardPayload::ShelfCatalog(items)=>{crate::shelf_shared::validate(&items)?;WirePayload::ShelfCatalog{items}},
+  ClipboardPayload::ShelfRequest{id,token} if crate::shelf_shared::valid_id(&id)=>WirePayload::ShelfRequest{id,token},
+  ClipboardPayload::ShelfReply{id,token,bundle,error} if crate::shelf_shared::valid_id(&id)&&error.as_ref().map(|s|s.len()<=200).unwrap_or(true)&&bundle.is_some()!=error.is_some()=>WirePayload::ShelfReply{id,token,bundle,error},
   _=>return Err("Contenido del portapapeles fuera de los límites".into()),
  };
  let encoded=serde_json::to_vec(&wire).map_err(|_|"No se pudo preparar el contenido")?;
@@ -33,6 +37,9 @@ fn decode(data:&[u8])->Result<ClipboardPayload,String>{
  match wire{
   WirePayload::Text{text} if !text.is_empty()&&text.len()<=MAX_TEXT=>Ok(ClipboardPayload::Text(text)),
   WirePayload::Files{bundle}=>Ok(ClipboardPayload::FileBundle(bundle)),
+  WirePayload::ShelfCatalog{items}=>{crate::shelf_shared::validate(&items)?;Ok(ClipboardPayload::ShelfCatalog(items))},
+  WirePayload::ShelfRequest{id,token} if crate::shelf_shared::valid_id(&id)=>Ok(ClipboardPayload::ShelfRequest{id,token}),
+  WirePayload::ShelfReply{id,token,bundle,error} if crate::shelf_shared::valid_id(&id)&&error.as_ref().map(|s|s.len()<=200).unwrap_or(true)&&bundle.is_some()!=error.is_some()=>Ok(ClipboardPayload::ShelfReply{id,token,bundle,error}),
   WirePayload::Image{width,height,rgba}=>{
    let expected=image_size(width,height).ok_or("Dimensiones de imagen inválidas")?;
    if rgba.len()>((expected+2)/3)*4{return Err("Imagen demasiado grande".into())}
@@ -82,6 +89,23 @@ pub fn receive_turn(channel:&mut SecureChannel)->Result<Option<ClipboardPayload>
   let mut channel=pair(TcpStream::connect(addr).unwrap(),Role::Client,"012345").unwrap();send_turn(&mut channel,Some(ClipboardPayload::FileBundle(bundle))).unwrap();
   let received=receiver.join().unwrap();let ClipboardPayload::FileBundle(bundle)=received else{panic!("expected file bundle")};
   let destination=dir.join("received");let paths=crate::clipboard_files::unpack(&bundle,&destination).unwrap();assert_eq!(paths.len(),2);assert_eq!(fs::read(destination.join("foto.png")).unwrap(),b"png bytes");assert_eq!(fs::read(destination.join("doc.pdf")).unwrap(),b"pdf bytes");fs::remove_dir_all(dir).unwrap();
+ }
+ #[test] fn shelf_catalog_request_and_response_cross_the_paired_channel(){
+  use std::{fs,time::{SystemTime,UNIX_EPOCH}};
+  let unique=SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();let dir=std::env::temp_dir().join(format!("bimu-shelf-wire-{}-{unique}",std::process::id()));fs::create_dir(&dir).unwrap();fs::write(dir.join("trabajo.pdf"),b"documento").unwrap();
+  let bundle=crate::clipboard_files::pack(&[dir.join("trabajo.pdf")]).unwrap();let id="a".repeat(64);let sent_id=id.clone();
+  let listener=TcpListener::bind("127.0.0.1:0").unwrap();let addr=listener.local_addr().unwrap();
+  let host=thread::spawn(move||{let(s,_)=listener.accept().unwrap();let mut channel=pair(s,Role::Host,"012345").unwrap();let item=ShelfMetadata{id:sent_id.clone(),name:"trabajo.pdf".into(),kind:"file".into(),available:true};send_turn(&mut channel,Some(ClipboardPayload::ShelfCatalog(vec![item]))).unwrap();assert_eq!(receive_turn(&mut channel).unwrap(),Some(ClipboardPayload::ShelfRequest{id:sent_id.clone(),token:42}));send_turn(&mut channel,Some(ClipboardPayload::ShelfReply{id:sent_id,token:42,bundle:Some(bundle),error:None})).unwrap();});
+  let mut channel=pair(TcpStream::connect(addr).unwrap(),Role::Client,"012345").unwrap();assert!(matches!(receive_turn(&mut channel).unwrap(),Some(ClipboardPayload::ShelfCatalog(_))));send_turn(&mut channel,Some(ClipboardPayload::ShelfRequest{id:id.clone(),token:42})).unwrap();let reply=receive_turn(&mut channel).unwrap().unwrap();let ClipboardPayload::ShelfReply{id:response_id,token,bundle:Some(bundle),error:None}=reply else{panic!("expected shelf reply")};assert_eq!(response_id,id);assert_eq!(token,42);assert_eq!(bundle.single_root(),Some("trabajo.pdf"));let destination=dir.join("received");let paths=crate::clipboard_files::unpack(&bundle,&destination).unwrap();assert_eq!(fs::read(&paths[0]).unwrap(),b"documento");host.join().unwrap();fs::remove_dir_all(dir).unwrap();
+ }
+ #[test] fn shelf_messages_validate_metadata_and_request_ids(){
+  let item=ShelfMetadata{id:"a".repeat(64),name:"guía.pdf".into(),kind:"file".into(),available:true};
+  let message=ClipboardPayload::ShelfCatalog(vec![item]);
+  assert_eq!(decode(&encode(message.clone()).unwrap()).unwrap(),message);
+  let request=ClipboardPayload::ShelfRequest{id:"a".repeat(64),token:17};
+  assert_eq!(decode(&encode(request.clone()).unwrap()).unwrap(),request);
+  assert!(encode(ClipboardPayload::ShelfRequest{id:"../escape".into(),token:1}).is_err());
+  assert!(encode(ClipboardPayload::ShelfReply{id:"a".repeat(64),token:1,bundle:None,error:None}).is_err());
  }
  #[test] fn rejects_invalid_images_and_large_text(){
   assert!(encode(ClipboardPayload::Text("x".repeat(MAX_TEXT+1))).is_err());

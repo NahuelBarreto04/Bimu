@@ -2,6 +2,7 @@
 mod startup;
 mod clipboard_history;
 mod clipboard_protocol;
+mod shelf_shared;
 mod clipboard_files;
 #[cfg(windows)]mod clipboard_files_windows;
 mod pairing_core;

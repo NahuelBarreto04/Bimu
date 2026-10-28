@@ -11,3 +11,4 @@
 #[path="../../src-tauri/src/pairing_transport.rs"]pub mod pairing_transport;
 #[path="../../src-tauri/src/clipboard_protocol.rs"]pub mod clipboard_protocol;
 #[path="../../src-tauri/src/clipboard_files.rs"]pub mod clipboard_files;
+#[path="../../src-tauri/src/shelf_shared.rs"]pub mod shelf_shared;
