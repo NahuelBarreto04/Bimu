@@ -535,3 +535,7 @@ html.desktop-root[data-theme=light]{--control-ink:#181922;--control-muted:#4d4b5
 .desktop.compact .notch-player .player-progress{background:var(--control-border)}
 .desktop.compact .notch-player .player-progress i{background:var(--control-ink)}
 html[data-theme=light] .desktop.compact .notch-player .weather-icon{color:#8a5600}
+/* Approved sleeping expression, only while the compact notch is resting. */
+html[data-notch=idle] .desktop.compact .bimu-eyes-sleepy:not(.bimu-listening){position:relative;color:var(--control-ink)}
+html[data-notch=idle] .desktop.compact .bimu-eyes-sleepy:not(.bimu-listening) i{width:6px;height:4px;background:transparent;border:0;border-bottom:1.6px solid currentColor;border-radius:0 0 6px 6px;clip-path:none;translate:0 0;animation:none}
+html[data-notch=idle] .desktop.compact .bimu-eyes-sleepy:not(.bimu-listening)::before{content:'z';position:absolute;left:-2px;top:-5px;font-size:7px;font-weight:700;line-height:1;color:currentColor}
