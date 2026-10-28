@@ -9,7 +9,7 @@ const MAX_TOTAL_BYTES:usize=48*1024*1024;
 #[derive(Clone)]enum Content{Text(String),Files(Vec<PathBuf>),Image{width:usize,height:usize,rgba:Vec<u8>,preview:String}}
 impl Content{
  fn bytes(&self)->usize{match self{Self::Text(s)=>s.len(),Self::Files(v)=>v.iter().map(|p|p.to_string_lossy().len()).sum(),Self::Image{rgba,..}=>rgba.len()}}
- fn payload(&self)->Option<ClipboardPayload>{match self{Self::Text(text)=>Some(ClipboardPayload::Text(text.clone())),Self::Image{width,height,rgba,..}=>Some(ClipboardPayload::Image{width:*width,height:*height,rgba:rgba.clone()}),Self::Files(_)=>None}}
+ fn payload(&self)->Option<ClipboardPayload>{match self{Self::Text(text)=>Some(ClipboardPayload::Text(text.clone())),Self::Image{width,height,rgba,..}=>Some(ClipboardPayload::Image{width:*width,height:*height,rgba:rgba.clone()}),Self::Files(paths)=>Some(ClipboardPayload::Files(paths.clone()))}}
 }
 #[derive(Clone)]struct Entry{id:u64,at:u64,content:Content,origin:String,shareable:bool}
 struct Data{items:Vec<Entry>,last_sequence:u32,next_id:u64,paused:bool}
@@ -27,8 +27,8 @@ fn insert(data:&mut Data,content:Content,origin:String,shareable:bool){
  data.items.insert(0,Entry{id,at,content,origin,shareable});
  while data.items.len()>MAX_ITEMS||data.items.iter().map(|i|i.content.bytes()).sum::<usize>()>MAX_TOTAL_BYTES{data.items.pop();}
 }
-#[derive(Serialize)]pub struct ClipboardStatus{items:Vec<Item>,paused:bool}
-#[tauri::command]pub fn clipboard_history_list(state:State<'_,ClipboardHistory>)->Result<ClipboardStatus,String>{let data=state.0.lock().map_err(|_|"Portapapeles ocupado")?;Ok(ClipboardStatus{items:data.items.iter().map(view).collect(),paused:data.paused})}
+#[derive(Serialize)]#[serde(rename_all="camelCase")]pub struct ClipboardStatus{items:Vec<Item>,paused:bool,sync_message:Option<String>}
+#[tauri::command]pub fn clipboard_history_list(app:AppHandle,state:State<'_,ClipboardHistory>)->Result<ClipboardStatus,String>{let data=state.0.lock().map_err(|_|"Portapapeles ocupado")?;let items=data.items.iter().map(view).collect();let paused=data.paused;drop(data);Ok(ClipboardStatus{items,paused,sync_message:crate::device_pairing::clipboard_notice(&app)})}
 #[tauri::command]pub fn clipboard_history_remove(id:u64,state:State<'_,ClipboardHistory>)->Result<(),String>{let mut data=state.0.lock().map_err(|_|"Portapapeles ocupado")?;data.items.retain(|item|item.id!=id);Ok(())}
 #[tauri::command]pub fn clipboard_history_clear(state:State<'_,ClipboardHistory>)->Result<(),String>{state.0.lock().map_err(|_|"Portapapeles ocupado")?.items.clear();Ok(())}
 #[tauri::command]pub fn clipboard_history_pause(paused:bool,state:State<'_,ClipboardHistory>)->Result<(),String>{state.0.lock().map_err(|_|"Portapapeles ocupado")?.paused=paused;Ok(())}
@@ -73,6 +73,16 @@ fn insert(data:&mut Data,content:Content,origin:String,shareable:bool){
  let content=match payload{
   ClipboardPayload::Text(text)=>{if text.is_empty()||text.len()>1024*1024{return Err("Texto recibido fuera de los límites".into())}clip.set_text(text.clone()).map_err(|_|"No se pudo actualizar el portapapeles")?;Content::Text(text)},
   ClipboardPayload::Image{width,height,rgba}=>{if width==0||height==0||width>16384||height>16384||rgba.len()>MAX_IMAGE_BYTES||width.checked_mul(height).and_then(|n|n.checked_mul(4))!=Some(rgba.len()){return Err("Imagen recibida inválida".into())}let preview=preview_image(width,height,&rgba).ok_or("No se pudo preparar la imagen")?;clip.set_image(arboard::ImageData{width,height,bytes:rgba.clone().into()}).map_err(|_|"No se pudo actualizar la imagen")?;Content::Image{width,height,rgba,preview}},
+  ClipboardPayload::FileBundle(bundle)=>{
+   use rand::{rngs::OsRng,RngCore};
+   let root=app.path().app_data_dir().map_err(|_|"No se pudo ubicar la carpeta de Bimu")?.join("archivos-recibidos");
+   std::fs::create_dir_all(&root).map_err(|_|"No se pudo crear la carpeta de archivos recibidos")?;
+   let destination=root.join(format!("{:016x}",OsRng.next_u64()));
+   let paths=crate::clipboard_files::unpack(&bundle,&destination)?;
+   if clip.set().file_list(&paths).is_err(){let _=std::fs::remove_dir_all(&destination);return Err("No se pudieron copiar los archivos recibidos".into())}
+   Content::Files(paths)
+  },
+  ClipboardPayload::Files(_)=>return Err("Formato de archivo recibido inválido".into()),
  };
  data.last_sequence=sequence();if !data.paused{insert(&mut data,content,origin,true)}
  drop(clip);drop(data);let _=app.emit("clipboard-history-changed",());Ok(())

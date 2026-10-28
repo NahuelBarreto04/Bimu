@@ -5,14 +5,14 @@ use crate::clipboard_protocol::{self, ClipboardPayload};
 use rand::{rngs::OsRng, Rng};
 use serde::Serialize;
 use std::{net::{Ipv4Addr, Shutdown, SocketAddr, SocketAddrV4, TcpListener, TcpStream, UdpSocket}, sync::{Arc, Mutex}, thread, time::{Duration, Instant}};
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all="camelCase")]
 pub struct PairStatus { phase:String, code:Option<String>, address:Option<String>, peer:Option<String>, message:Option<String> }
 impl Default for PairStatus { fn default()->Self { Self{phase:"idle".into(),code:None,address:None,peer:None,message:None} } }
 #[derive(Default)]
-struct Inner { generation:u64, status:PairStatus, socket:Option<TcpStream>, outgoing:Option<ClipboardPayload> }
+struct Inner { generation:u64, status:PairStatus, socket:Option<TcpStream>, outgoing:Option<ClipboardPayload>, outgoing_revision:u64, preparing:bool }
 #[derive(Default,Clone)]
 pub struct DevicePairing(Arc<Mutex<Inner>>);
 fn private_ip(ip:Ipv4Addr)->bool { ip.is_private() || ip.is_link_local() }
@@ -24,7 +24,7 @@ fn local_ip()->Result<Ipv4Addr,String>{
 fn reset(inner:&mut Inner){
  inner.generation=inner.generation.wrapping_add(1);
  if let Some(socket)=inner.socket.take(){let _=socket.shutdown(Shutdown::Both);}
- inner.outgoing=None;
+ inner.outgoing=None;inner.outgoing_revision=inner.outgoing_revision.wrapping_add(1);inner.preparing=false;
  inner.status=PairStatus::default();
 }
 fn update(shared:&DevicePairing, generation:u64, status:PairStatus)->bool {
@@ -35,7 +35,7 @@ fn fail(shared:&DevicePairing, generation:u64, msg:&str){
  if let Ok(mut inner)=shared.0.lock(){
   if inner.generation!=generation{return}
   if let Some(socket)=inner.socket.take(){let _=socket.shutdown(Shutdown::Both);}
-  inner.outgoing=None;
+  inner.outgoing=None;inner.outgoing_revision=inner.outgoing_revision.wrapping_add(1);inner.preparing=false;
   inner.status=PairStatus{phase:"error".into(),message:Some(msg.into()),..Default::default()};
  }
 }
@@ -43,15 +43,38 @@ pub(crate) fn clipboard_connected(app:&AppHandle)->bool {
  let state=app.state::<DevicePairing>();
  let connected=state.0.lock().map(|i|i.status.phase=="connected").unwrap_or(false);connected
 }
-pub(crate) fn queue_clipboard(app:&AppHandle,payload:Option<ClipboardPayload>){
+pub(crate) fn clipboard_notice(app:&AppHandle)->Option<String>{
  let state=app.state::<DevicePairing>();
- if let Ok(mut inner)=state.0.lock(){if inner.status.phase=="connected"{inner.outgoing=payload;}};
+ let notice=state.0.lock().ok().and_then(|inner|if inner.status.phase=="connected"{inner.status.message.clone()}else{None});notice
+}
+pub(crate) fn queue_clipboard(app:&AppHandle,payload:Option<ClipboardPayload>){
+ let shared=app.state::<DevicePairing>().inner().clone();
+ let mut inner=match shared.0.lock(){Ok(inner)=>inner,Err(_)=>return};
+ if inner.status.phase!="connected"{return}
+ inner.outgoing_revision=inner.outgoing_revision.wrapping_add(1);
+ let revision=inner.outgoing_revision;let generation=inner.generation;
+ inner.outgoing=None;inner.preparing=false;inner.status.message=None;
+ match payload{
+  Some(ClipboardPayload::Files(paths))=>{
+   inner.preparing=true;inner.status.message=Some("Preparando archivos para enviar…".into());drop(inner);
+   let app=app.clone();
+   thread::spawn(move||{
+    let result=crate::clipboard_files::pack(&paths);
+    let Ok(mut inner)=shared.0.lock() else{return};
+    if inner.generation!=generation||inner.outgoing_revision!=revision||inner.status.phase!="connected"{return}
+    inner.preparing=false;
+    match result{Ok(bundle)=>{inner.outgoing=Some(ClipboardPayload::FileBundle(bundle));inner.status.message=None},Err(e)=>inner.status.message=Some(format!("No se pudieron compartir los archivos: {e}"))}
+    drop(inner);let _=app.emit("clipboard-history-changed",());
+   });
+  },
+  other=>{inner.outgoing=other;}
+ }
 }
 fn take_outgoing(shared:&DevicePairing,generation:u64)->Option<ClipboardPayload>{
  shared.0.lock().ok().and_then(|mut inner|if inner.generation==generation{inner.outgoing.take()}else{None})
 }
 fn has_outgoing(shared:&DevicePairing,generation:u64)->bool{
- shared.0.lock().map(|inner|inner.generation==generation&&inner.outgoing.is_some()).unwrap_or(false)
+ shared.0.lock().map(|inner|inner.generation==generation&&(inner.preparing||inner.outgoing.is_some())).unwrap_or(false)
 }
 fn device_name()->String {
  let value=std::env::var("COMPUTERNAME").unwrap_or_else(|_|"Otra PC".into());
@@ -61,7 +84,7 @@ fn device_name()->String {
 fn session(app:AppHandle, shared:DevicePairing, generation:u64, mut channel:SecureChannel, role:Role){
  let socket=match channel.control_stream(){Ok(s)=>s,Err(_)=>{fail(&shared,generation,"No se pudo mantener la conexión.");return}};
  {let Ok(mut inner)=shared.0.lock() else{return};if inner.generation!=generation{return}inner.socket=Some(socket);}
- let own=format!("bimu-sync-v1\n{}",device_name());
+ let own=format!("bimu-sync-v2\n{}",device_name());
  let exchange=(||->Result<String,String>{
   let received=match role {
    Role::Client=>{channel.send(own.as_bytes())?;channel.receive()?},
@@ -69,7 +92,7 @@ fn session(app:AppHandle, shared:DevicePairing, generation:u64, mut channel:Secu
   };
   if received.len()>256{return Err("Nombre de equipo inválido".into())}
   let versioned=String::from_utf8(received).map_err(|_|"Nombre de equipo inválido")?;
-  let peer=versioned.strip_prefix("bimu-sync-v1\n").ok_or("Versión de Bimu incompatible")?;
+  let peer=versioned.strip_prefix("bimu-sync-v2\n").ok_or("Versión de Bimu incompatible")?;
   let peer:String=peer.chars().filter(|c|!c.is_control()).take(64).collect();
   if peer.trim().is_empty(){return Err("Nombre de equipo vacío".into())} Ok(peer)
  })();

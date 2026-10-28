@@ -2,6 +2,7 @@
 mod startup;
 mod clipboard_history;
 mod clipboard_protocol;
+mod clipboard_files;
 mod pairing_core;
 mod pairing_transport;
 mod device_pairing;

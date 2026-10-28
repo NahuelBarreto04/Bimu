@@ -10,3 +10,4 @@
 #[path="../../src-tauri/src/clipboard_sync_core.rs"]pub mod clipboard_sync_core;
 #[path="../../src-tauri/src/pairing_transport.rs"]pub mod pairing_transport;
 #[path="../../src-tauri/src/clipboard_protocol.rs"]pub mod clipboard_protocol;
+#[path="../../src-tauri/src/clipboard_files.rs"]pub mod clipboard_files;
