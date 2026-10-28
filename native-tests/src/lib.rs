@@ -7,3 +7,4 @@
 #[path="../../src-tauri/src/startup_core.rs"]pub mod startup_core;
 
 #[path="../../src-tauri/src/pairing_core.rs"]pub mod pairing_core;
+#[path="../../src-tauri/src/clipboard_sync_core.rs"]pub mod clipboard_sync_core;
