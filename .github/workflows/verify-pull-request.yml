@@ -25,6 +25,13 @@ jobs:
       - run: npm test
       - run: cargo test --manifest-path native-tests/Cargo.toml
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Preserve dependency locks for review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dependency-lockfiles-review
+          path: |
+            src-tauri/Cargo.lock
+            native-tests/Cargo.lock
       - run: npm run build
       - run: npm run desktop:build -- --bundles nsis
       - name: Preserve verification installer

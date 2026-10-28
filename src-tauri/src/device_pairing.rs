@@ -160,6 +160,9 @@ fn next_shelf_or_clipboard(app:&AppHandle,shared:&DevicePairing,generation:u64,l
   if last.as_ref()!=Some(&snapshot){*last=Some(snapshot.clone());return Ok(Some(ClipboardPayload::ShelfCatalog(snapshot)))}
  }Ok(None)
 }
+fn rollback_trust(app:&AppHandle,shared:&DevicePairing,trust:&crate::trusted_pairing::Trust){
+ if let Ok(_inner)=shared.0.lock(){if crate::trusted_pairing::load(app).ok().flatten().map(|t|t.key)==Some(trust.key){let _=crate::trusted_pairing::forget(app);}}
+}
 fn device_name()->String {
  let value=std::env::var("COMPUTERNAME").unwrap_or_else(|_|"Otra PC".into());
  let clean:String=value.chars().filter(|c|!c.is_control()).take(64).collect();
@@ -242,7 +245,7 @@ pub fn device_pairing_host(app:AppHandle,state:State<'_,DevicePairing>)->Result<
      // Each code permits one attempt, including failed or stalled handshakes.
      update(&shared,generation,PairStatus{phase:"connecting".into(),message:Some("Verificando el código…".into()),..Default::default()});
      match pairing_transport::pair(stream,Role::Host,&code){
-      Ok(mut channel) if Instant::now()<expiry=>match crate::trusted_pairing::establish(&app,&mut channel,Role::Host,|trust|{let inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;if inner.generation!=generation{return Err("Vinculación cancelada".into())}crate::trusted_pairing::save(&app,trust)}){Ok(())=>session(app,shared,generation,channel,Role::Host),Err(e)=>fail(&shared,generation,&e)},
+      Ok(mut channel) if Instant::now()<expiry=>match crate::trusted_pairing::establish(&mut channel,Role::Host,|trust|{let inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;if inner.generation!=generation{return Err("Vinculación cancelada".into())}crate::trusted_pairing::save(&app,trust)},|trust|rollback_trust(&app,&shared,trust)){Ok(())=>session(app,shared,generation,channel,Role::Host),Err(e)=>fail(&shared,generation,&e)},
       Ok(_)=>fail(&shared,generation,"El código venció durante la vinculación. Generá uno nuevo."),
       Err(e)=>fail(&shared,generation,&format!("Falló la verificación entre equipos: {e}. Generá un código nuevo.")),
      }return
@@ -264,7 +267,7 @@ pub fn device_pairing_join(address:String,code:String,app:AppHandle,state:State<
  thread::spawn(move||{
   match TcpStream::connect_timeout(&SocketAddr::V4(addr),Duration::from_secs(5)){
    Ok(stream)=>match pairing_transport::pair(stream,Role::Client,&code){
-    Ok(mut channel)=>match crate::trusted_pairing::establish(&app,&mut channel,Role::Client,|trust|{let inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;if inner.generation!=generation{return Err("Vinculación cancelada".into())}crate::trusted_pairing::save(&app,trust)}){Ok(())=>session(app,shared,generation,channel,Role::Client),Err(e)=>fail(&shared,generation,&e)},
+    Ok(mut channel)=>match crate::trusted_pairing::establish(&mut channel,Role::Client,|trust|{let inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;if inner.generation!=generation{return Err("Vinculación cancelada".into())}crate::trusted_pairing::save(&app,trust)},|trust|rollback_trust(&app,&shared,trust)){Ok(())=>session(app,shared,generation,channel,Role::Client),Err(e)=>fail(&shared,generation,&e)},
     Err(e)=>fail(&shared,generation,&format!("Falló la verificación entre equipos: {e}. Generá un código nuevo.")),
    },
    Err(e)=>fail(&shared,generation,&format!("No se pudo contactar a la otra PC: {e}. Revisá la dirección y la red local.")),
