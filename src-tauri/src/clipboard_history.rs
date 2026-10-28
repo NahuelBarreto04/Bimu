@@ -55,9 +55,12 @@ fn insert(data:&mut Data,content:Content,origin:String,shareable:bool){
  #[cfg(windows)]{
   let mut data=state.0.lock().map_err(|_|"Portapapeles ocupado")?;
   let entry=data.items.iter().find(|item|item.id==id).ok_or("El elemento ya no está en el historial")?.clone();
-  let mut clip=arboard::Clipboard::new().map_err(|_|"No se pudo abrir el portapapeles")?;
-  match &entry.content{Content::Text(text)=>clip.set_text(text.clone()).map_err(|_|"No se pudo copiar el texto")?,Content::Files(paths)=>{if paths.iter().any(|p|!p.exists()){return Err("Uno de los archivos ya no está disponible".into())}clip.set().file_list(paths).map_err(|_|"No se pudieron copiar los archivos")?},Content::Image{width,height,rgba,..}=>clip.set_image(arboard::ImageData{width:*width,height:*height,bytes:rgba.clone().into()}).map_err(|_|"No se pudo copiar la imagen")?};
-  data.last_sequence=sequence();drop(clip);drop(data);
+  match &entry.content{
+   Content::Text(text)=>{let mut clip=arboard::Clipboard::new().map_err(|_|"No se pudo abrir el portapapeles")?;clip.set_text(text.clone()).map_err(|_|"No se pudo copiar el texto")?},
+   Content::Files(paths)=>crate::clipboard_files_windows::replace(&app,paths)?,
+   Content::Image{width,height,rgba,..}=>{let mut clip=arboard::Clipboard::new().map_err(|_|"No se pudo abrir el portapapeles")?;clip.set_image(arboard::ImageData{width:*width,height:*height,bytes:rgba.clone().into()}).map_err(|_|"No se pudo copiar la imagen")?},
+  };
+  data.last_sequence=sequence();drop(data);
   if entry.shareable{crate::device_pairing::queue_clipboard(&app,entry.content.payload());}else{crate::device_pairing::queue_clipboard(&app,None);}
   return Ok(())
  }
@@ -69,23 +72,22 @@ fn insert(data:&mut Data,content:Content,origin:String,shareable:bool){
  let origin=if label.trim().is_empty(){"Otro equipo".to_string()}else{label};
  let history=app.state::<ClipboardHistory>();let mut data=history.0.lock().map_err(|_|"Portapapeles ocupado")?;
  let current=sequence();if current!=0&&data.last_sequence!=0&&current!=data.last_sequence{return Ok(())}
- let mut clip=arboard::Clipboard::new().map_err(|_|"No se pudo abrir el portapapeles")?;
  let content=match payload{
-  ClipboardPayload::Text(text)=>{if text.is_empty()||text.len()>1024*1024{return Err("Texto recibido fuera de los límites".into())}clip.set_text(text.clone()).map_err(|_|"No se pudo actualizar el portapapeles")?;Content::Text(text)},
-  ClipboardPayload::Image{width,height,rgba}=>{if width==0||height==0||width>16384||height>16384||rgba.len()>MAX_IMAGE_BYTES||width.checked_mul(height).and_then(|n|n.checked_mul(4))!=Some(rgba.len()){return Err("Imagen recibida inválida".into())}let preview=preview_image(width,height,&rgba).ok_or("No se pudo preparar la imagen")?;clip.set_image(arboard::ImageData{width,height,bytes:rgba.clone().into()}).map_err(|_|"No se pudo actualizar la imagen")?;Content::Image{width,height,rgba,preview}},
+  ClipboardPayload::Text(text)=>{if text.is_empty()||text.len()>1024*1024{return Err("Texto recibido fuera de los límites".into())}{let mut clip=arboard::Clipboard::new().map_err(|_|"No se pudo abrir el portapapeles")?;clip.set_text(text.clone()).map_err(|_|"No se pudo actualizar el portapapeles")?;}Content::Text(text)},
+  ClipboardPayload::Image{width,height,rgba}=>{if width==0||height==0||width>16384||height>16384||rgba.len()>MAX_IMAGE_BYTES||width.checked_mul(height).and_then(|n|n.checked_mul(4))!=Some(rgba.len()){return Err("Imagen recibida inválida".into())}let preview=preview_image(width,height,&rgba).ok_or("No se pudo preparar la imagen")?;{let mut clip=arboard::Clipboard::new().map_err(|_|"No se pudo abrir el portapapeles")?;clip.set_image(arboard::ImageData{width,height,bytes:rgba.clone().into()}).map_err(|_|"No se pudo actualizar la imagen")?;}Content::Image{width,height,rgba,preview}},
   ClipboardPayload::FileBundle(bundle)=>{
    use rand::{rngs::OsRng,RngCore};
    let root=app.path().app_data_dir().map_err(|_|"No se pudo ubicar la carpeta de Bimu")?.join("archivos-recibidos");
    std::fs::create_dir_all(&root).map_err(|_|"No se pudo crear la carpeta de archivos recibidos")?;
    let destination=root.join(format!("{:016x}",OsRng.next_u64()));
    let paths=crate::clipboard_files::unpack(&bundle,&destination)?;
-   if clip.set().file_list(&paths).is_err(){let _=std::fs::remove_dir_all(&destination);return Err("No se pudieron copiar los archivos recibidos".into())}
+   if crate::clipboard_files_windows::replace(app,&paths).is_err(){let _=std::fs::remove_dir_all(&destination);return Err("No se pudieron copiar los archivos recibidos".into())}
    Content::Files(paths)
   },
   ClipboardPayload::Files(_)=>return Err("Formato de archivo recibido inválido".into()),
  };
  data.last_sequence=sequence();if !data.paused{insert(&mut data,content,origin,true)}
- drop(clip);drop(data);let _=app.emit("clipboard-history-changed",());Ok(())
+ drop(data);let _=app.emit("clipboard-history-changed",());Ok(())
 }
 #[cfg(not(windows))]pub(crate) fn apply_remote(_app:&AppHandle,_payload:ClipboardPayload,_peer_name:&str)->Result<(),String>{Err("Disponible en Windows".into())}
 pub fn start(app:AppHandle){

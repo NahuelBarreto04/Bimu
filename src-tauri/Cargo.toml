@@ -34,6 +34,7 @@ arboard = { version = "3.6", features = ["image-data"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(windows)'.dependencies]
+clipboard-win = "5.4"
 winreg = "0.55"
 windows = { version = "0.57", features = ["Foundation", "Media_Control", "Storage_Streams", "Win32_Foundation", "Win32_System_Com", "Win32_UI_Accessibility", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints"] }
 
