@@ -17,6 +17,7 @@ import {WeatherPanel} from './WeatherPanel'
 import {QuickSettings,BIMU_COLORS,validBimuColor} from './QuickSettings'
 import {createNotchHoverController} from './notch-hover'
 import {notchSize,dockPosition} from './dock-geometry'
+import {equalizerColors} from './equalizer-colors'
 
 export const nativeMode=isTauri()
 export const desktopMode=true
@@ -120,7 +121,7 @@ export function DesktopControls({config,onConfig,expanded,onExpand,mood,receptio
   },[theme,appearanceTheme])
   useEffect(()=>{safe(()=>getCurrentWindow().setAlwaysOnTop(pinned));localStorage.setItem('mascot-pinned',String(pinned))},[pinned])
   useEffect(()=>{document.documentElement.style.setProperty('--ui-opacity',String(opacity/100));try{localStorage.setItem('bimu-ui-opacity',String(opacity))}catch{}},[opacity])
-  useEffect(()=>{const color=BIMU_COLORS.find(item=>item[0]===bimuColor)||BIMU_COLORS[0],swatch=customColor?bimuColor:color[2];document.documentElement.style.setProperty('--notch-rgb',customRgb?customRgb.join(','):color[resolvedTheme==='light'?4:3]);document.documentElement.style.setProperty('--bimu-swatch',swatch);document.documentElement.style.setProperty('--audio-accent',bimuColor==='neutral'?'#b39af5':swatch);try{localStorage.setItem('bimu-notch-color',bimuColor)}catch{}},[bimuColor,resolvedTheme])
+  useEffect(()=>{const color=BIMU_COLORS.find(item=>item[0]===bimuColor)||BIMU_COLORS[0],swatch=customColor?bimuColor:color[2],background=customRgb||color[resolvedTheme==='light'?4:3].split(',').map(Number),audio=equalizerColors(background,swatch,bimuColor==='neutral');document.documentElement.style.setProperty('--notch-rgb',background.join(','));document.documentElement.style.setProperty('--bimu-swatch',swatch);document.documentElement.style.setProperty('--audio-base',audio.base);document.documentElement.style.setProperty('--audio-accent',audio.accent);try{localStorage.setItem('bimu-notch-color',bimuColor)}catch{}},[bimuColor,resolvedTheme])
   useEffect(()=>{document.documentElement.dataset.view=tab},[tab])
   useEffect(()=>{document.documentElement.dataset.receiveLayout='notch'},[expanded])
   const dock=useDock({native:nativeMode,expanded,hovered:hovered||drop.active,preview:hoverPreview&&!drop.active,retracted:manualRetracted||(avoidOverlap&&overlapping),receiving:drop.active,tab:!expanded&&lyricsVisible&&!drop.active?(lyrics.status==='synced'&&currentLyric>=0?'lyrics':'lyrics-loading'):tab,size:config.size,onError:setError})

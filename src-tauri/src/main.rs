@@ -1,21 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod startup;
-mod autonomy;
-mod file_search;
-mod autonomy_core;
 mod startup_core;
-mod ollama;
 mod hit_test;
-mod voice_engine;
 mod release_core;
 mod updates;
 mod workspace;
-mod voice;
 mod applications;
 mod assistant;
 mod assistant_core;
-mod documents;
-mod workspace_core;
 mod application_intent;
 mod application_registry;
 mod system_status;
@@ -30,7 +22,6 @@ use tauri::{Emitter, Manager, menu::{Menu, MenuItem}, tray::TrayIconBuilder};
 
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
-    app.state::<voice_engine::VoiceEngine>().shutdown();
     app.exit(0);
 }
 
@@ -45,17 +36,12 @@ fn main() {
         .manage(shelf::Shelf::default())
         .manage(audio_meter::AudioMeter::default())
         .manage(startup::Startup::default())
-        .manage(autonomy::Autonomy::default())
         .manage(applications::Applications::default())
         .manage(assistant::Assistant::default())
-        .manage(workspace::Workspace::default())
         .manage(workspace::DropInbox::default())
-        .manage(ollama::StreamRequests::default())
-        .manage(voice::VoiceState::default())
         .manage(hit_test::HitRegions::default())
-        .manage(voice_engine::VoiceEngine::default())
         .manage(updates::Updates::default())
-        .invoke_handler(tauri::generate_handler![audio_meter::audio_meter_enabled, window_overlap::window_overlaps_notch, weather::weather_detect_location, weather::weather_search_city, weather::weather_forecast, lyrics::lyrics_lookup, shelf::shelf_list, shelf::shelf_remove, shelf::shelf_open, workspace::shelf_accept_drop, media::media_state, media::media_control, system_status::system_status, autonomy::autonomy_reset, autonomy::autonomy_confirm, autonomy::autonomy_cancel, startup::startup_sync, startup::startup_set, assistant::chrome_profiles, assistant::shortcuts_list, assistant::shortcuts_run_button, assistant::shortcuts_save, assistant::shortcuts_remove, assistant::shortcuts_request, assistant::shortcuts_confirm, assistant::shortcuts_cancel, assistant::assistant_pick_folder, assistant::folders_search, assistant::folders_open, assistant::folders_cancel, quit_app, hit_test::desktop_hit_regions, voice_engine::voice_engine_status, voice_engine::voice_engine_start, voice_engine::voice_engine_stop, voice_engine::voice_engine_prepare, voice_engine::voice_engine_auto, voice_engine::voice_engine_log, updates::updates_check, updates::updates_download, updates::updates_install, applications::apps_list, applications::apps_request, applications::apps_confirm, applications::apps_cancel, applications::apps_add, applications::apps_update, applications::apps_remove, workspace::workspace_choose_files, workspace::workspace_remove_file, voice::voice_status, voice::voice_transcribe, voice::voice_cancel, ollama::ollama_models, ollama::ollama_chat, ollama::ollama_chat_stream, ollama::ollama_cancel, ollama::ollama_capabilities, workspace::workspace_choose, workspace::workspace_revoke, workspace::workspace_stage_drop, workspace::workspace_accept_drop, workspace::workspace_discard_drop])
+        .invoke_handler(tauri::generate_handler![audio_meter::audio_meter_enabled, window_overlap::window_overlaps_notch, weather::weather_detect_location, weather::weather_search_city, weather::weather_forecast, lyrics::lyrics_lookup, shelf::shelf_list, shelf::shelf_remove, shelf::shelf_open, workspace::shelf_accept_drop, media::media_state, media::media_control, system_status::system_status, startup::startup_sync, startup::startup_set, assistant::chrome_profiles, assistant::shortcuts_list, assistant::shortcuts_run_button, assistant::shortcuts_save, assistant::shortcuts_remove, assistant::shortcuts_request, assistant::shortcuts_confirm, assistant::shortcuts_cancel, assistant::assistant_pick_folder, assistant::folders_search, assistant::folders_open, assistant::folders_cancel, quit_app, hit_test::desktop_hit_regions, updates::updates_check, updates::updates_download, updates::updates_install, applications::apps_list, applications::apps_request, applications::apps_confirm, applications::apps_cancel, applications::apps_add, applications::apps_update, applications::apps_remove, workspace::workspace_discard_drop])
         .setup(|app| {
             hit_test::start(app.handle().clone());
             caps_lock::start(app.handle().clone());
@@ -74,7 +60,7 @@ fn main() {
                     let id = event.id.as_ref();
                     if id == "quit" { quit_app(app.clone()); return; }
                     if let Some(window) = app.get_webview_window("main") {
-                        if id == "hide" { let _=window.emit("bimu-voice-cancel",());let _ = window.hide(); return; }
+                        if id == "hide" { let _ = window.hide(); return; }
                         
                         let _ = window.show();
                         let _ = window.set_focus();
@@ -90,11 +76,11 @@ fn main() {
             if let tauri::WindowEvent::DragDrop(drag)=event {workspace::handle_drag(window,drag);}
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                let _=window.emit("bimu-voice-cancel",());
+                
                 let _ = window.hide();
             }
         })
         .build(tauri::generate_context!())
         .expect("No se pudo iniciar Bimu")
-        .run(|app,event|{if let tauri::RunEvent::Exit=event{app.state::<voice_engine::VoiceEngine>().shutdown();}});
+        .run(|_,_|{});
 }

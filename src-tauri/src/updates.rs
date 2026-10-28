@@ -44,8 +44,6 @@ fn hash(path:&std::path::Path)->Result<String,String>{let mut file=std::fs::File
  if cfg!(debug_assertions){return Err("Instala primero Bimu con el .exe de Releases. La instalacion desde la app se habilita en esa version.".into())}
  let s=state.inner().0.lock().await;let path=s.download.as_ref().ok_or("Primero descarga la actualizacion.")?;let (_,asset)=s.candidate.as_ref().ok_or("Primero busca una actualizacion.")?;
  if format!("sha256:{}",hash(path)?)!=asset.digest.as_deref().unwrap_or("").to_lowercase(){return Err("El instalador cambio despues de descargarlo. Descargalo nuevamente.".into())}
- let _=app.emit("bimu-voice-cancel",());
- app.state::<crate::voice_engine::VoiceEngine>().shutdown();
  std::process::Command::new(path).spawn().map_err(|e|format!("No se pudo abrir el instalador: {e}"))?;
  app.exit(0);Ok(())
 }
