@@ -1,0 +1,128 @@
+//! Experimental loopback-tested transport, not wired to the application.
+//! Not a complete pairing protocol: rate limits, expiry, consent and persistent
+//! identity are mandatory before allowing access from another computer.
+use std::io::{Read, Write};
+use std::net::TcpStream;
+use std::time::Duration;
+use sha2::{Digest, Sha256};
+use crate::pairing_core::{self, Role};
+
+const PATTERN: &str = "Noise_NNpsk0_25519_ChaChaPoly_SHA256";
+const MAX_HANDSHAKE: usize = 4096;
+const MAX_FRAME: usize = 65535;
+const MAX_PLAINTEXT: usize = MAX_FRAME - 16;
+const PROLOGUE: &[u8] = b"bimu-experimental-local-pairing-v1";
+fn read_frame(stream: &mut TcpStream, limit: usize) -> Result<Vec<u8>, String> {
+    let mut header = [0u8; 2];
+    stream.read_exact(&mut header).map_err(|e| e.to_string())?;
+    let len = u16::from_be_bytes(header) as usize;
+    if len == 0 || len > limit { return Err("invalid frame length".into()); }
+    let mut frame = vec![0; len];
+    stream.read_exact(&mut frame).map_err(|e| e.to_string())?;
+    Ok(frame)
+}
+fn write_frame(stream: &mut TcpStream, frame: &[u8]) -> Result<(), String> {
+    if frame.is_empty() || frame.len() > MAX_FRAME { return Err("invalid frame length".into()); }
+    stream.write_all(&(frame.len() as u16).to_be_bytes()).map_err(|e| e.to_string())?;
+    stream.write_all(frame).map_err(|e| e.to_string())
+}
+/// Blocks on I/O and is for an isolated test only, never the UI thread.
+pub fn pair(mut stream: TcpStream, role: Role, code: &str) -> Result<SecureChannel, String> {
+    stream.set_read_timeout(Some(Duration::from_secs(5))).map_err(|e| e.to_string())?;
+    stream.set_write_timeout(Some(Duration::from_secs(5))).map_err(|e| e.to_string())?;
+    let (pending, message) = pairing_core::start(role, code).map_err(str::to_owned)?;
+    let peer_message = match role {
+        Role::Client => { write_frame(&mut stream, &message)?; read_frame(&mut stream, MAX_HANDSHAKE)? }
+        Role::Host => { let peer = read_frame(&mut stream, MAX_HANDSHAKE)?; write_frame(&mut stream, &message)?; peer }
+    };
+    let (waiting, confirmation) = pending.finish(&peer_message).map_err(str::to_owned)?;
+    let confirmed = match role {
+        Role::Client => {
+            write_frame(&mut stream, &confirmation)?;
+            let tag = read_frame(&mut stream, MAX_HANDSHAKE)?;
+            waiting.verify(&tag).map_err(str::to_owned)?
+        }
+        Role::Host => {
+            let tag = read_frame(&mut stream, MAX_HANDSHAKE)?;
+            let key = waiting.verify(&tag).map_err(str::to_owned)?;
+            write_frame(&mut stream, &confirmation)?;
+            key
+        }
+    };
+    // Bind the newly authenticated secret to Noise, rather than sending plaintext.
+    let mut digest = Sha256::new();
+    digest.update(b"bimu-noise-psk-v1\0");
+    digest.update(confirmed.as_bytes());
+    let psk: [u8; 32] = digest.finalize().into();
+    let params = PATTERN.parse().map_err(|_| "invalid noise pattern".to_string())?;
+    let builder = snow::Builder::new(params).psk(0, &psk).map_err(|e| e.to_string())?
+        .prologue(PROLOGUE).map_err(|e| e.to_string())?;
+    let mut state = match role {
+        Role::Client => builder.build_initiator(),
+        Role::Host => builder.build_responder(),
+    }.map_err(|e| e.to_string())?;
+    let mut output = vec![0; MAX_HANDSHAKE];
+    match role {
+        Role::Client => {
+            let n = state.write_message(&[], &mut output).map_err(|e| e.to_string())?;
+            write_frame(&mut stream, &output[..n])?;
+            let reply = read_frame(&mut stream, MAX_HANDSHAKE)?;
+            state.read_message(&reply, &mut output).map_err(|e| e.to_string())?;
+        }
+        Role::Host => {
+            let request = read_frame(&mut stream, MAX_HANDSHAKE)?;
+            state.read_message(&request, &mut output).map_err(|e| e.to_string())?;
+            let n = state.write_message(&[], &mut output).map_err(|e| e.to_string())?;
+            write_frame(&mut stream, &output[..n])?;
+        }
+    }
+    let transport = state.into_transport_mode().map_err(|e| e.to_string())?;
+    Ok(SecureChannel { stream, transport })
+}
+pub struct SecureChannel { stream: TcpStream, transport: snow::TransportState }
+impl SecureChannel {
+    pub fn send(&mut self, data: &[u8]) -> Result<(), String> {
+        if data.len() > MAX_PLAINTEXT { return Err("message too large".into()); }
+        let mut ciphertext = vec![0; data.len() + 16];
+        let n = self.transport.write_message(data, &mut ciphertext).map_err(|e| e.to_string())?;
+        write_frame(&mut self.stream, &ciphertext[..n])
+    }
+    pub fn receive(&mut self) -> Result<Vec<u8>, String> {
+        let ciphertext = read_frame(&mut self.stream, MAX_FRAME)?;
+        let mut plaintext = vec![0; ciphertext.len()];
+        let n = self.transport.read_message(&ciphertext, &mut plaintext).map_err(|e| e.to_string())?;
+        plaintext.truncate(n); Ok(plaintext)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::TcpListener;
+    use std::thread;
+    #[test]
+    fn correct_code_protects_messages_in_both_directions() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut channel = pair(stream, Role::Host, "012345").unwrap();
+            assert_eq!(channel.receive().unwrap(), b"texto de prueba");
+            channel.send(b"recibido").unwrap();
+        });
+        let mut client = pair(TcpStream::connect(addr).unwrap(), Role::Client, "012345").unwrap();
+        client.send(b"texto de prueba").unwrap();
+        assert_eq!(client.receive().unwrap(), b"recibido");
+        server.join().unwrap();
+    }
+    #[test]
+    fn wrong_code_never_reaches_transport() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            assert!(pair(stream, Role::Host, "012345").is_err());
+        });
+        assert!(pair(TcpStream::connect(addr).unwrap(), Role::Client, "012346").is_err());
+        server.join().unwrap();
+    }
+}

@@ -8,3 +8,4 @@
 
 #[path="../../src-tauri/src/pairing_core.rs"]pub mod pairing_core;
 #[path="../../src-tauri/src/clipboard_sync_core.rs"]pub mod clipboard_sync_core;
+#[path="../../src-tauri/src/pairing_transport.rs"]pub mod pairing_transport;
