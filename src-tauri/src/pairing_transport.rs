@@ -81,6 +81,7 @@ pub fn pair(mut stream: TcpStream, role: Role, code: &str) -> Result<SecureChann
 }
 pub struct SecureChannel { stream: TcpStream, transport: snow::TransportState }
 impl SecureChannel {
+    pub(crate) fn control_stream(&self)->std::io::Result<TcpStream>{self.stream.try_clone()}
     pub fn send(&mut self, data: &[u8]) -> Result<(), String> {
         if data.len() > MAX_PLAINTEXT { return Err("message too large".into()); }
         let mut ciphertext = vec![0; data.len() + 16];

@@ -1,0 +1,15 @@
+import React,{useCallback,useEffect,useState} from 'react'
+import {invoke,isTauri} from '@tauri-apps/api/core'
+import {Link2,Monitor,Unlink} from 'lucide-react'
+
+export function DevicePairingSettings(){
+ const [status,setStatus]=useState({phase:'idle'}),[address,setAddress]=useState(''),[code,setCode]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false)
+ const refresh=useCallback(async()=>{if(!isTauri())return;try{setStatus(await invoke('device_pairing_status'))}catch(e){setError(String(e))}},[])
+ useEffect(()=>{refresh();const timer=setInterval(refresh,1000);return()=>clearInterval(timer)},[refresh])
+ const run=async(command,args={})=>{setBusy(true);setError('');try{await invoke(command,args);await refresh()}catch(e){setError(String(e))}finally{setBusy(false)}}
+ return <section className="behavior-card glass-card device-pairing"><h2><Link2 size={16}/> Vincular computadoras</h2><p>Conectá dos PCs con Bimu en la misma red. Esta prueba solo establece la conexión durante la sesión; todavía no sincroniza el portapapeles ni archivos.</p>
+ {error&&<p className="device-pairing-error" role="alert">{error}</p>}
+ {status.phase==='connected'?<div className="device-pairing-state"><Monitor size={18}/><strong>Conectada con {status.peer}</strong><small>Conexión activa durante esta sesión</small></div>:status.phase==='waiting'?<div className="device-pairing-state"><strong>Ingresá estos datos en la otra PC</strong><span className="device-pairing-code">{status.code}</span><span className="device-pairing-address">{status.address}</span><small>El código vence en dos minutos y permite un intento.</small></div>:status.phase==='connecting'?<div className="device-pairing-state"><strong>{status.message||'Conectando…'}</strong><small>Esto puede tardar unos segundos.</small></div>:<><div className="device-pairing-create"><strong>Esta es la PC principal</strong><button type="button" disabled={busy||!isTauri()} onClick={()=>run('device_pairing_host')}>Generar código</button></div><div className="device-pairing-join"><strong>Esta es la otra PC</strong><label>Dirección local<input value={address} onChange={e=>setAddress(e.target.value)} placeholder="192.168.1.10:12345" autoComplete="off"/></label><label>Código de seis dígitos<input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,'').slice(0,6))} inputMode="numeric" placeholder="000000" autoComplete="off"/></label><button type="button" disabled={busy||!isTauri()||code.length!==6||!address.trim()} onClick={()=>run('device_pairing_join',{address,code})}>Vincular</button></div>{status.message&&<p className="device-pairing-error" role="status">{status.message}</p>}</>}
+ {['waiting','connecting','connected'].includes(status.phase)&&<button className="device-pairing-disconnect" type="button" disabled={busy} onClick={()=>run('device_pairing_disconnect')}><Unlink size={13}/>{status.phase==='connected'?'Desconectar':'Cancelar'}</button>}
+ </section>
+}
