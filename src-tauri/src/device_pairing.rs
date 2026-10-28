@@ -70,7 +70,7 @@ fn session(shared:DevicePairing, generation:u64, mut channel:SecureChannel, role
 #[tauri::command]
 pub fn device_pairing_status(state:State<'_,DevicePairing>)->Result<PairStatus,String>{Ok(state.0.lock().map_err(|_|"Conexión ocupada")?.status.clone())}
 #[tauri::command]
-pub fn device_pairing_disconnect(state:State<'_,DevicePairing>)->Result<(),String>{reset(&mut state.0.lock().map_err(|_|"Conexión ocupada")?);Ok(())}
+pub fn device_pairing_disconnect(state:State<'_,DevicePairing>)->Result<(),String>{let mut inner=state.0.lock().map_err(|_|"Conexión ocupada")?;reset(&mut inner);Ok(())}
 #[tauri::command]
 pub fn device_pairing_host(state:State<'_,DevicePairing>)->Result<PairStatus,String>{
  let ip=local_ip()?;
