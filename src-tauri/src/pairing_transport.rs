@@ -28,6 +28,9 @@ fn write_frame(stream: &mut TcpStream, frame: &[u8]) -> Result<(), String> {
 }
 /// Blocks on I/O and is for an isolated test only, never the UI thread.
 pub fn pair(mut stream: TcpStream, role: Role, code: &str) -> Result<SecureChannel, String> {
+    // Windows accepted sockets can inherit nonblocking mode from the listener.
+    // Handshake framing uses read_exact, so normalize before applying timeouts.
+    stream.set_nonblocking(false).map_err(|e| format!("preparar conexión: {e}"))?;
     stream.set_read_timeout(Some(Duration::from_secs(5))).map_err(|e| e.to_string())?;
     stream.set_write_timeout(Some(Duration::from_secs(5))).map_err(|e| e.to_string())?;
     let (pending, message) = pairing_core::start(role, code).map_err(str::to_owned)?;
@@ -40,11 +43,11 @@ pub fn pair(mut stream: TcpStream, role: Role, code: &str) -> Result<SecureChann
         Role::Client => {
             write_frame(&mut stream, &confirmation)?;
             let tag = read_frame(&mut stream, MAX_HANDSHAKE)?;
-            waiting.verify(&tag).map_err(str::to_owned)?
+            waiting.verify(&tag).map_err(|_| "El código no coincide o la verificación fue rechazada".to_string())?
         }
         Role::Host => {
             let tag = read_frame(&mut stream, MAX_HANDSHAKE)?;
-            let key = waiting.verify(&tag).map_err(str::to_owned)?;
+            let key = waiting.verify(&tag).map_err(|_| "El código no coincide o la verificación fue rechazada".to_string())?;
             write_frame(&mut stream, &confirmation)?;
             key
         }
@@ -113,6 +116,30 @@ mod tests {
         let mut client = pair(TcpStream::connect(addr).unwrap(), Role::Client, "012345").unwrap();
         client.send(b"texto de prueba").unwrap();
         assert_eq!(client.receive().unwrap(), b"recibido");
+        server.join().unwrap();
+    }
+    #[test]
+    fn nonblocking_listener_and_delayed_client_can_pair() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => thread::sleep(Duration::from_millis(5)),
+                    Err(e) => panic!("accept: {e}"),
+                }
+            };
+            // Force nonblocking as well, making this regression meaningful on Unix.
+            stream.set_nonblocking(true).unwrap();
+            let mut channel = pair(stream, Role::Host, "012345").expect("host pairing");
+            assert_eq!(channel.receive().unwrap(), b"hola");
+        });
+        let stream = TcpStream::connect(addr).unwrap();
+        thread::sleep(Duration::from_millis(150));
+        let mut client = pair(stream, Role::Client, "012345").expect("client pairing");
+        client.send(b"hola").unwrap();
         server.join().unwrap();
     }
     #[test]

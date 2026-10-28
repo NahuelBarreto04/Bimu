@@ -92,7 +92,8 @@ pub fn device_pairing_host(state:State<'_,DevicePairing>)->Result<PairStatus,Str
      update(&shared,generation,PairStatus{phase:"connecting".into(),message:Some("Verificando el código…".into()),..Default::default()});
      match pairing_transport::pair(stream,Role::Host,&code){
       Ok(channel) if Instant::now()<expiry=>session(shared,generation,channel,Role::Host),
-      _=>fail(&shared,generation,"No se pudo vincular. Generá un código nuevo y revisá la conexión."),
+      Ok(_)=>fail(&shared,generation,"El código venció durante la vinculación. Generá uno nuevo."),
+      Err(e)=>fail(&shared,generation,&format!("Falló la verificación entre equipos: {e}. Generá un código nuevo.")),
      }return
     },
     Err(e) if e.kind()==std::io::ErrorKind::WouldBlock=>thread::sleep(Duration::from_millis(100)),
@@ -109,9 +110,12 @@ pub fn device_pairing_join(address:String,code:String,state:State<'_,DevicePairi
  let shared=state.inner().clone();
  let generation={let mut inner=shared.0.lock().map_err(|_|"Conexión ocupada")?;reset(&mut inner);inner.status=PairStatus{phase:"connecting".into(),message:Some("Conectando…".into()),..Default::default()};inner.generation};
  thread::spawn(move||{
-  match TcpStream::connect_timeout(&SocketAddr::V4(addr),Duration::from_secs(5)).map_err(|_|()).and_then(|s|pairing_transport::pair(s,Role::Client,&code).map_err(|_|())){
-   Ok(channel)=>session(shared,generation,channel,Role::Client),
-   Err(_)=>fail(&shared,generation,"No se pudo conectar. Revisá el código, la dirección y la red local."),
+  match TcpStream::connect_timeout(&SocketAddr::V4(addr),Duration::from_secs(5)){
+   Ok(stream)=>match pairing_transport::pair(stream,Role::Client,&code){
+    Ok(channel)=>session(shared,generation,channel,Role::Client),
+    Err(e)=>fail(&shared,generation,&format!("Falló la verificación entre equipos: {e}. Generá un código nuevo.")),
+   },
+   Err(e)=>fail(&shared,generation,&format!("No se pudo contactar a la otra PC: {e}. Revisá la dirección y la red local.")),
   }
  });Ok(())
 }
