@@ -9,6 +9,8 @@ Bimu es una aplicación de escritorio para Windows que reúne herramientas cotid
 - **Música y letras:** muestra la canción, su artista y portada, permite controlar la reproducción y consultar letras sincronizadas cuando están disponibles. La búsqueda de letras utiliza LRCLIB; los controles multimedia dependen de las sesiones compatibles de Windows.
 - **Archivos a mano:** arrastrá archivos o carpetas al notch para guardar accesos y volver a abrirlos. Quitar un elemento de la bandeja no borra el archivo original.
 - **Atajos rápidos:** configurá modos para abrir aplicaciones, carpetas y páginas con un botón.
+- **Páginas:** activá, ocultá y ordená las vistas desde Ajustes avanzados. Siempre queda al menos una activa.
+- **Portapapeles:** historial local opcional para texto, imágenes y rutas de archivos o carpetas copiados desde el Explorador. Se activa desde su página, puede pausarse y vaciarse, y se conserva solo durante la sesión. Respeta las marcas de Windows que excluyen contenido del historial.
 - **Clima:** consultá el pronóstico para una ubicación seleccionada o detectada. Usa Open-Meteo y, para la detección aproximada, ipapi.co.
 - **Personalización:** elegí tema claro, oscuro o del sistema; color predeterminado o personalizado; transparencia y tamaño en reposo. También podés mover el notch por el borde superior.
 - **Información del sistema:** muestra hora, fecha, conexión o batería, y avisa al cambiar el estado de mayúsculas.

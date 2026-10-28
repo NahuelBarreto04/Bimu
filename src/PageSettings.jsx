@@ -1,0 +1,8 @@
+import React,{useRef} from 'react'
+import {GripVertical,ChevronUp,ChevronDown} from 'lucide-react'
+import {PAGE_DEFINITIONS,movePage,togglePage} from './page-preferences'
+export function PageSettings({pages,setPages}){
+ const drag=useRef(null)
+ const move=(id,offset)=>{const index=pages.findIndex(p=>p.id===id),other=pages[index+offset];if(other)setPages(current=>movePage(current,id,other.id))}
+ return <section className="behavior-card glass-card page-settings"><h2>Personalizá tus páginas</h2><p>Activá las vistas que usás y arrastralas para elegir su orden.</p><ol className="page-settings-list">{pages.map((page,index)=>{const label=PAGE_DEFINITIONS.find(([id])=>id===page.id)?.[1],last=page.enabled&&pages.filter(p=>p.enabled).length===1;return <li key={page.id} onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(drag.current)setPages(current=>movePage(current,drag.current,page.id));drag.current=null}}><span className="page-drag" draggable onDragStart={e=>{drag.current=page.id;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',page.id)}} onDragEnd={()=>{drag.current=null}} title={'Arrastrar '+label}><GripVertical size={16}/></span><span className="page-name">{label}</span><button type="button" aria-label={'Subir '+label} onClick={()=>move(page.id,-1)} disabled={index===0}><ChevronUp size={14}/></button><button type="button" aria-label={'Bajar '+label} onClick={()=>move(page.id,1)} disabled={index===pages.length-1}><ChevronDown size={14}/></button><input type="checkbox" checked={page.enabled} disabled={last} aria-label={'Mostrar '+label} onChange={()=>setPages(current=>togglePage(current,page.id))}/></li>})}</ol><small>Al menos una página debe permanecer activa.</small></section>
+}

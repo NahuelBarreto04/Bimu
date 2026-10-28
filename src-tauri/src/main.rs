@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod startup;
+mod clipboard_history;
 mod startup_core;
 mod hit_test;
 mod release_core;
@@ -34,6 +35,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(shelf::Shelf::default())
+        .manage(clipboard_history::ClipboardHistory::default())
         .manage(audio_meter::AudioMeter::default())
         .manage(startup::Startup::default())
         .manage(applications::Applications::default())
@@ -41,8 +43,9 @@ fn main() {
         .manage(workspace::DropInbox::default())
         .manage(hit_test::HitRegions::default())
         .manage(updates::Updates::default())
-        .invoke_handler(tauri::generate_handler![audio_meter::audio_meter_enabled, window_overlap::window_overlaps_notch, weather::weather_detect_location, weather::weather_search_city, weather::weather_forecast, lyrics::lyrics_lookup, shelf::shelf_list, shelf::shelf_remove, shelf::shelf_open, workspace::shelf_accept_drop, media::media_state, media::media_control, system_status::system_status, startup::startup_sync, startup::startup_set, assistant::chrome_profiles, assistant::shortcuts_list, assistant::shortcuts_run_button, assistant::shortcuts_save, assistant::shortcuts_remove, assistant::shortcuts_request, assistant::shortcuts_confirm, assistant::shortcuts_cancel, assistant::assistant_pick_folder, assistant::folders_search, assistant::folders_open, assistant::folders_cancel, quit_app, hit_test::desktop_hit_regions, updates::updates_check, updates::updates_download, updates::updates_install, applications::apps_list, applications::apps_request, applications::apps_confirm, applications::apps_cancel, applications::apps_add, applications::apps_update, applications::apps_remove, workspace::workspace_discard_drop])
+        .invoke_handler(tauri::generate_handler![clipboard_history::clipboard_history_list, clipboard_history::clipboard_history_copy, clipboard_history::clipboard_history_remove, clipboard_history::clipboard_history_clear, clipboard_history::clipboard_history_pause, audio_meter::audio_meter_enabled, window_overlap::window_overlaps_notch, weather::weather_detect_location, weather::weather_search_city, weather::weather_forecast, lyrics::lyrics_lookup, shelf::shelf_list, shelf::shelf_remove, shelf::shelf_open, workspace::shelf_accept_drop, media::media_state, media::media_control, system_status::system_status, startup::startup_sync, startup::startup_set, assistant::chrome_profiles, assistant::shortcuts_list, assistant::shortcuts_run_button, assistant::shortcuts_save, assistant::shortcuts_remove, assistant::shortcuts_request, assistant::shortcuts_confirm, assistant::shortcuts_cancel, assistant::assistant_pick_folder, assistant::folders_search, assistant::folders_open, assistant::folders_cancel, quit_app, hit_test::desktop_hit_regions, updates::updates_check, updates::updates_download, updates::updates_install, applications::apps_list, applications::apps_request, applications::apps_confirm, applications::apps_cancel, applications::apps_add, applications::apps_update, applications::apps_remove, workspace::workspace_discard_drop])
         .setup(|app| {
+            clipboard_history::start(app.handle().clone());
             hit_test::start(app.handle().clone());
             caps_lock::start(app.handle().clone());
             audio_meter::start(app.handle().clone());

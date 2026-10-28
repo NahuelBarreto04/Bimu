@@ -1,6 +1,6 @@
 [package]
 name = "mascota-companero"
-version = "0.51.0"
+version = "0.52.0"
 description = "Bimu"
 authors = ["Mariano"]
 edition = "2021"
@@ -26,6 +26,8 @@ semver = "1"
 chrono = "0.4"
 chrono-tz = "0.10"
 base64 = "0.22"
+arboard = { version = "3.6", features = ["image-data"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.55"
