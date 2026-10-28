@@ -46,12 +46,12 @@ fn pack_entry(path:&Path,relative:String,entries:&mut Vec<FileEntry>,total:&mut 
   for child in children{let name=child.file_name().into_string().map_err(|_|"Nombre de archivo no compatible")?;if !safe_name(&name){return Err("Nombre de archivo no compatible".into())}pack_entry(&child.path(),format!("{relative}/{name}"),entries,total)?;}
  }else if meta.is_file(){
   let remaining=MAX_FILE_BYTES.checked_sub(*total).ok_or("La selección supera 10 MB")?;
-  if meta.len()>remaining as u64{return Err("La selección supera 10 MB")}
+  if meta.len()>remaining as u64{return Err("La selección supera 10 MB".into())}
   let file=File::open(path).map_err(|_|"No se pudo abrir un archivo")?;
   let actual=file.metadata().map_err(|_|"No se pudo leer un archivo")?;
-  if reparse(&actual)||!actual.is_file(){return Err("No se transfieren accesos simbólicos")}
+  if reparse(&actual)||!actual.is_file(){return Err("No se transfieren accesos simbólicos".into())}
   let mut bytes=Vec::new();file.take(remaining as u64+1).read_to_end(&mut bytes).map_err(|_|"No se pudo leer un archivo")?;
-  if bytes.len()>remaining{return Err("La selección supera 10 MB")}
+  if bytes.len()>remaining{return Err("La selección supera 10 MB".into())}
   *total+=bytes.len();entries.push(FileEntry{path:relative,folder:false,data:STANDARD.encode(bytes)});
  }else{return Err("Tipo de archivo no compatible".into())}Ok(())
 }
@@ -104,6 +104,6 @@ pub fn unpack(bundle:&FileBundle,destination:&Path)->Result<Vec<PathBuf>,String>
  use super::*;use std::time::{SystemTime,UNIX_EPOCH};
  fn temp()->PathBuf{let n=SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();let p=std::env::temp_dir().join(format!("bimu-files-test-{}-{n}",std::process::id()));fs::create_dir(&p).unwrap();p}
  #[test]fn copies_files_and_nested_folders(){let dir=temp();fs::create_dir(dir.join("carpeta")).unwrap();fs::write(dir.join("carpeta").join("imagen.png"),b"image-data").unwrap();fs::write(dir.join("doc.pdf"),b"pdf-data").unwrap();let b=pack(&[dir.join("carpeta"),dir.join("doc.pdf")]).unwrap();let output=dir.join("received");let roots=unpack(&b,&output).unwrap();assert_eq!(roots.len(),2);assert_eq!(fs::read(output.join("carpeta").join("imagen.png")).unwrap(),b"image-data");assert_eq!(fs::read(output.join("doc.pdf")).unwrap(),b"pdf-data");fs::remove_dir_all(dir).unwrap();}
- #[test]fn rejects_files_over_limit(){let dir=temp();let file=File::create(dir.join("too-large.pdf")).unwrap();file.set_len(MAX_FILE_BYTES as u64+1).unwrap();assert!(pack(&[dir.join("too-large.pdf")]).is_err());fs::remove_dir_all(dir).unwrap();}
+ #[test]fn rejects_files_over_limit(){let dir=temp();let file=File::create(dir.join("too-large.pdf")).unwrap();file.set_len(MAX_FILE_BYTES as u64+1).unwrap();drop(file);assert!(pack(&[dir.join("too-large.pdf")]).is_err());fs::remove_dir_all(dir).unwrap();}
  #[test]fn rejects_traversal_duplicates_and_windows_reserved_names(){let dir=temp();for bad in ["../escape","/absoluto","C:/escape","carpeta/../escape","NUL.txt","carpeta\\escape"]{let b=FileBundle{roots:vec!["carpeta".into()],entries:vec![FileEntry{path:bad.into(),folder:false,data:String::new()}]};let destination=dir.join("bad");assert!(unpack(&b,&destination).is_err(),"{bad}");assert!(!destination.exists());}let b=FileBundle{roots:vec!["a".into()],entries:vec![FileEntry{path:"a".into(),folder:false,data:String::new()},FileEntry{path:"A".into(),folder:false,data:String::new()}]};assert!(unpack(&b,&dir.join("duplicate")).is_err());fs::remove_dir_all(dir).unwrap();}
 }
