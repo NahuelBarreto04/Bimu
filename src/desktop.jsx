@@ -70,7 +70,7 @@ export function DesktopControls({config,onConfig,expanded,onExpand,mood,receptio
   const currentLyric=lyricIndex(lyrics.lines,lyricTime)
   const [pages,setPages]=useState(readPages)
   const visiblePages=pages.filter(page=>page.enabled).map(page=>page.id)
-  useEffect(()=>{try{localStorage.setItem('bimu-pages-v1',JSON.stringify(pages))}catch{}},[pages])
+  useEffect(()=>{try{localStorage.setItem('bimu-pages-v1',JSON.stringify(pages))}catch{};if(nativeMode&&!pages.some(page=>page.id==='clipboard'&&page.enabled))invoke('clipboard_history_pause',{paused:true}).catch(()=>{})},[pages])
   const [notchPage,setNotchPage]=useState(()=>readPages().find(page=>page.enabled).id),[shelfItems,setShelfItems]=useState([]),[shelfError,setShelfError]=useState(''),[settingsInitial,setSettingsInitial]=useState('app'),[modeResult,setModeResult]=useState(null),[runningMode,setRunningMode]=useState(null)
   const refreshShelf=async()=>{if(!nativeMode)return;try{setShelfItems(await invoke('shelf_list'));setShelfError('')}catch(e){setShelfError(String(e))}}
   useEffect(()=>{refreshShelf()},[])
