@@ -13,3 +13,9 @@ test('never disables the last page and corrects invalid all-hidden preferences',
 test('reorders without losing preferences',()=>{
  const p=normalizePages(null),next=movePage(p,'weather','music');assert.equal(next[0].id,'weather');assert.equal(next.length,p.length);assert.deepEqual(movePage(p,'missing','music'),p)
 })
+test('moves pages down and up to the selected position',()=>{
+ const pages=normalizePages(null)
+ assert.deepEqual(movePage(pages,'music','shelf').map(p=>p.id),['shelf','music','modes','weather','clipboard'])
+ assert.deepEqual(movePage(pages,'music','weather').map(p=>p.id),['shelf','modes','weather','music','clipboard'])
+ assert.deepEqual(movePage(pages,'weather','shelf').map(p=>p.id),['music','weather','shelf','modes','clipboard'])
+})

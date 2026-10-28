@@ -8,5 +8,5 @@ export function normalizePages(value){
  return out
 }
 export function togglePage(pages,id){const count=pages.filter(p=>p.enabled).length;return pages.map(p=>p.id===id?{...p,enabled:p.enabled&&count===1?true:!p.enabled}:p)}
-export function movePage(pages,from,to){if(from===to||!pages.some(p=>p.id===from)||!pages.some(p=>p.id===to))return pages;const result=pages.slice(),index=result.findIndex(p=>p.id===from),[item]=result.splice(index,1);result.splice(result.findIndex(p=>p.id===to),0,item);return result}
+export function movePage(pages,from,to){if(from===to||!pages.some(p=>p.id===from)||!pages.some(p=>p.id===to))return pages;const result=pages.slice(),index=result.findIndex(p=>p.id===from),target=result.findIndex(p=>p.id===to),[item]=result.splice(index,1);result.splice(target,0,item);return result}
 export function readPages(){try{return normalizePages(JSON.parse(localStorage.getItem('bimu-pages-v1')||'null'))}catch{return normalizePages(null)}}
