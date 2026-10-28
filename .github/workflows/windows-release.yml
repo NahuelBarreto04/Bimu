@@ -29,12 +29,14 @@ jobs:
       - run: npm ci
       - run: npm test
       - name: Native core tests
-        run: cargo test --manifest-path native-tests/Cargo.toml
+        run: cargo test --locked --manifest-path native-tests/Cargo.toml
       - run: npm run build
       - name: Compile and test desktop backend
-        run: cargo test --manifest-path src-tauri/Cargo.toml
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Build Windows installer
         run: npm run desktop:build -- --bundles nsis
+      - name: Verify dependency locks unchanged
+        run: git diff --exit-code -- src-tauri/Cargo.lock native-tests/Cargo.lock
       - name: Verify Bimu executable identity
         shell: pwsh
         run: |

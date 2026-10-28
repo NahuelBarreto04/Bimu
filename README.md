@@ -7,8 +7,11 @@ Bimu es una aplicación de escritorio para Windows que reúne herramientas cotid
 ## Funciones
 
 - **Música y letras:** muestra la canción, su artista y portada, permite controlar la reproducción y consultar letras sincronizadas cuando están disponibles. La búsqueda de letras utiliza LRCLIB; los controles multimedia dependen de las sesiones compatibles de Windows.
-- **Archivos a mano:** arrastrá archivos o carpetas al notch para guardar accesos y volver a abrirlos. Quitar un elemento de la bandeja no borra el archivo original.
+- **Archivos a mano:** arrastrá archivos o carpetas al notch para guardar accesos y volver a abrirlos. Quitar un elemento de la bandeja no borra el archivo original. Durante una vinculación, la otra PC muestra esos elementos y puede descargar y abrir una copia a pedido (límite inicial: 10 MB por selección). Ocultar un elemento remoto solo lo quita de la vista local.
 - **Atajos rápidos:** configurá modos para abrir aplicaciones, carpetas y páginas con un botón.
+- **Páginas:** activá, ocultá y ordená las vistas desde Ajustes avanzados. Siempre queda al menos una activa.
+- **Conexión entre equipos:** vinculá dos computadoras en la misma red con un código de seis dígitos. Bimu busca equipos disponibles y vuelve a conectar los que ya fueron vinculados. La credencial se guarda protegida para el usuario de Windows; podés desvincularla desde ajustes. La detección puede depender de las reglas del firewall y de la configuración de la red. La conexión actual admite un equipo vinculado por vez.
+- **Portapapeles:** historial local opcional para texto, imágenes y rutas de archivos o carpetas copiados desde el Explorador. Se activa desde su página, puede pausarse y vaciarse, y se conserva solo durante la sesión. Respeta las marcas de Windows que excluyen contenido del historial.
 - **Clima:** consultá el pronóstico para una ubicación seleccionada o detectada. Usa Open-Meteo y, para la detección aproximada, ipapi.co.
 - **Personalización:** elegí tema claro, oscuro o del sistema; color predeterminado o personalizado; transparencia y tamaño en reposo. También podés mover el notch por el borde superior.
 - **Información del sistema:** muestra hora, fecha, conexión o batería, y avisa al cambiar el estado de mayúsculas.

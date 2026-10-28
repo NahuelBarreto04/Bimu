@@ -1,0 +1,110 @@
+//! Bounded clipboard file transfers. Paths are relative, never sender paths.
+use base64::{engine::general_purpose::STANDARD, Engine};
+use serde::{Deserialize, Serialize};
+use std::{collections::HashSet, fs::{self,File}, io::Read, path::{Path,PathBuf}};
+
+pub const MAX_FILE_BYTES:usize=10*1024*1024;
+const MAX_ENTRIES:usize=500;
+const MAX_ROOTS:usize=20;
+const MAX_DEPTH:usize=16;
+#[derive(Clone,Debug,PartialEq,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FileBundle{roots:Vec<String>,entries:Vec<FileEntry>}
+impl FileBundle{pub fn single_root(&self)->Option<&str>{if self.roots.len()==1{Some(&self.roots[0])}else{None}}}
+#[derive(Clone,Debug,PartialEq,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FileEntry{path:String,folder:bool,data:String}
+fn safe_name(name:&str)->bool{
+ if name.is_empty()||name=="."||name==".."||name.len()>255||name.ends_with('.')||name.ends_with(' ')||name.chars().any(|c|c.is_control()||matches!(c,'/'|'\\'|':'|'*'|'?'|'"'|'<'|'>'|'|')){return false}
+ let stem=name.split('.').next().unwrap_or("").trim_end().to_ascii_uppercase();
+ if ["CON","PRN","AUX","NUL"].contains(&stem.as_str()){return false}
+ if stem.len()==4&&(stem.starts_with("COM")||stem.starts_with("LPT"))&&matches!(stem.as_bytes()[3],b'1'..=b'9'){return false}
+ true
+}
+fn parts(path:&str)->Result<Vec<&str>,String>{
+ if path.len()>2048{return Err("Ruta demasiado larga".into())}
+ let parts:Vec<_>=path.split('/').collect();
+ if parts.len()>MAX_DEPTH||parts.iter().any(|p|!safe_name(p)){return Err("Nombre o ruta de archivo no permitida".into())}Ok(parts)
+}
+fn reparse(meta:&fs::Metadata)->bool{
+ if meta.file_type().is_symlink(){return true}
+ #[cfg(windows)]{use std::os::windows::fs::MetadataExt;return meta.file_attributes()&0x400!=0}
+ #[cfg(not(windows))]{false}
+}
+fn pack_entry(path:&Path,relative:String,entries:&mut Vec<FileEntry>,total:&mut usize)->Result<(),String>{
+ parts(&relative)?;
+ if entries.len()>=MAX_ENTRIES{return Err("La selección contiene demasiados archivos".into())}
+ let meta=fs::symlink_metadata(path).map_err(|_|"No se pudo leer un archivo")?;
+ if reparse(&meta){return Err("No se transfieren accesos simbólicos ni puntos de unión".into())}
+ if meta.is_dir(){
+  entries.push(FileEntry{path:relative.clone(),folder:true,data:String::new()});
+  let mut children=Vec::new();
+  for child in fs::read_dir(path).map_err(|_|"No se pudo leer una carpeta")?{
+   if children.len()+entries.len()>=MAX_ENTRIES{return Err("La selección contiene demasiados archivos".into())}
+   children.push(child.map_err(|_|"No se pudo leer una carpeta")?);
+  }
+  children.sort_by_key(|c|c.file_name());
+  for child in children{let name=child.file_name().into_string().map_err(|_|"Nombre de archivo no compatible")?;if !safe_name(&name){return Err("Nombre de archivo no compatible".into())}pack_entry(&child.path(),format!("{relative}/{name}"),entries,total)?;}
+ }else if meta.is_file(){
+  let remaining=MAX_FILE_BYTES.checked_sub(*total).ok_or("La selección supera 10 MB")?;
+  if meta.len()>remaining as u64{return Err("La selección supera 10 MB".into())}
+  let file=File::open(path).map_err(|_|"No se pudo abrir un archivo")?;
+  let actual=file.metadata().map_err(|_|"No se pudo leer un archivo")?;
+  if reparse(&actual)||!actual.is_file(){return Err("No se transfieren accesos simbólicos".into())}
+  let mut bytes=Vec::new();file.take(remaining as u64+1).read_to_end(&mut bytes).map_err(|_|"No se pudo leer un archivo")?;
+  if bytes.len()>remaining{return Err("La selección supera 10 MB".into())}
+  *total+=bytes.len();entries.push(FileEntry{path:relative,folder:false,data:STANDARD.encode(bytes)});
+ }else{return Err("Tipo de archivo no compatible".into())}Ok(())
+}
+pub fn pack(paths:&[PathBuf])->Result<FileBundle,String>{
+ if paths.is_empty()||paths.len()>MAX_ROOTS{return Err("Seleccioná entre 1 y 20 archivos o carpetas".into())}
+ let mut roots=Vec::new();let mut names=HashSet::new();let mut entries=Vec::new();let mut total=0usize;
+ for path in paths{
+  let name=path.file_name().and_then(|s|s.to_str()).ok_or("Nombre de archivo no compatible")?;
+  if !safe_name(name)||!names.insert(name.to_lowercase()){return Err("Los archivos tienen nombres incompatibles o repetidos".into())}
+  roots.push(name.to_string());pack_entry(path,name.to_string(),&mut entries,&mut total)?;
+ }Ok(FileBundle{roots,entries})
+}
+/// Validate the entire manifest before touching disk, then write only under a
+/// newly-created private destination. Returns original selected root items.
+pub fn unpack(bundle:&FileBundle,destination:&Path)->Result<Vec<PathBuf>,String>{
+ if bundle.roots.is_empty()||bundle.roots.len()>MAX_ROOTS||bundle.entries.is_empty()||bundle.entries.len()>MAX_ENTRIES{return Err("Selección recibida inválida".into())}
+ let mut root_names=HashSet::new();
+ for root in &bundle.roots{if !safe_name(root)||!root_names.insert(root.to_lowercase()){return Err("Nombres recibidos inválidos".into())}}
+ let mut paths=HashSet::new();let mut root_entries=HashSet::new();let mut total=0usize;
+ for item in &bundle.entries{
+  let components=parts(&item.path)?;let root=components[0].to_lowercase();
+  if !root_names.contains(&root)||!paths.insert(item.path.to_lowercase()){return Err("Ruta repetida o ajena a la selección".into())}
+  if components.len()==1{root_entries.insert(root);}
+  if item.folder{if !item.data.is_empty(){return Err("Carpeta recibida inválida".into())}}
+  else{
+   let remaining=MAX_FILE_BYTES.checked_sub(total).ok_or("La selección supera 10 MB")?;
+   if item.data.len()>((remaining+2)/3)*4{return Err("La selección supera 10 MB".into())}
+   let decoded=STANDARD.decode(&item.data).map_err(|_|"Archivo recibido inválido")?;
+   total=total.checked_add(decoded.len()).ok_or("La selección supera 10 MB")?;
+   if total>MAX_FILE_BYTES{return Err("La selección supera 10 MB".into())}
+  }
+ }
+ if root_entries!=root_names{return Err("Faltan elementos de la selección".into())}
+ fs::create_dir(destination).map_err(|_|"No se pudo crear la carpeta de recepción")?;
+ let result=(||->Result<Vec<PathBuf>,String>{
+  for item in &bundle.entries{
+   let mut target=destination.to_path_buf();for component in parts(&item.path)?{target.push(component)}
+   if item.folder{fs::create_dir_all(&target).map_err(|_|"No se pudo crear una carpeta recibida")?}
+   else{if let Some(parent)=target.parent(){fs::create_dir_all(parent).map_err(|_|"No se pudo crear una carpeta recibida")?}
+    let bytes=STANDARD.decode(&item.data).map_err(|_|"Archivo recibido inválido")?;
+    use std::io::Write;let mut file=fs::OpenOptions::new().write(true).create_new(true).open(&target).map_err(|_|"No se pudo guardar un archivo recibido")?;
+    file.write_all(&bytes).map_err(|_|"No se pudo guardar un archivo recibido")?;
+   }
+  }
+  Ok(bundle.roots.iter().map(|root|destination.join(root)).collect())
+ })();
+ if result.is_err(){let _=fs::remove_dir_all(destination);}result
+}
+#[cfg(test)]mod tests{
+ use super::*;use std::time::{SystemTime,UNIX_EPOCH};
+ fn temp()->PathBuf{let n=SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();let p=std::env::temp_dir().join(format!("bimu-files-test-{}-{n}",std::process::id()));fs::create_dir(&p).unwrap();p}
+ #[test]fn copies_files_and_nested_folders(){let dir=temp();fs::create_dir(dir.join("carpeta")).unwrap();fs::write(dir.join("carpeta").join("imagen.png"),b"image-data").unwrap();fs::write(dir.join("doc.pdf"),b"pdf-data").unwrap();let b=pack(&[dir.join("carpeta"),dir.join("doc.pdf")]).unwrap();let output=dir.join("received");let roots=unpack(&b,&output).unwrap();assert_eq!(roots.len(),2);assert_eq!(fs::read(output.join("carpeta").join("imagen.png")).unwrap(),b"image-data");assert_eq!(fs::read(output.join("doc.pdf")).unwrap(),b"pdf-data");fs::remove_dir_all(dir).unwrap();}
+ #[test]fn rejects_files_over_limit(){let dir=temp();let file=File::create(dir.join("too-large.pdf")).unwrap();file.set_len(MAX_FILE_BYTES as u64+1).unwrap();drop(file);assert!(pack(&[dir.join("too-large.pdf")]).is_err());fs::remove_dir_all(dir).unwrap();}
+ #[test]fn rejects_traversal_duplicates_and_windows_reserved_names(){let dir=temp();for bad in ["../escape","/absoluto","C:/escape","carpeta/../escape","NUL.txt","carpeta\\escape"]{let b=FileBundle{roots:vec!["carpeta".into()],entries:vec![FileEntry{path:bad.into(),folder:false,data:String::new()}]};let destination=dir.join("bad");assert!(unpack(&b,&destination).is_err(),"{bad}");assert!(!destination.exists());}let b=FileBundle{roots:vec!["a".into()],entries:vec![FileEntry{path:"a".into(),folder:false,data:String::new()},FileEntry{path:"A".into(),folder:false,data:String::new()}]};assert!(unpack(&b,&dir.join("duplicate")).is_err());fs::remove_dir_all(dir).unwrap();}
+}

@@ -1,6 +1,6 @@
 [package]
 name = "mascota-companero"
-version = "0.51.0"
+version = "0.52.0"
 description = "Bimu"
 authors = ["Mariano"]
 edition = "2021"
@@ -22,12 +22,19 @@ tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-single-instance = "2"
 sha2 = "0.10"
+spake2 = "0.4"
+snow = "0.10"
+hmac = "0.12"
+rand = "0.8"
 semver = "1"
 chrono = "0.4"
 chrono-tz = "0.10"
 base64 = "0.22"
+arboard = { version = "3.6", features = ["image-data"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(windows)'.dependencies]
+clipboard-win = "5.4"
 winreg = "0.55"
 windows = { version = "0.57", features = ["Foundation", "Media_Control", "Storage_Streams", "Win32_Foundation", "Win32_System_Com", "Win32_UI_Accessibility", "Win32_Media_Audio", "Win32_Media_Audio_Endpoints"] }
 
