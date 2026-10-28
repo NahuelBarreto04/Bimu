@@ -506,3 +506,32 @@ html[data-notch=peek] .notch-retract-button{right:77px}
 .audio-equalizer b{height:20px}
 
 .audio-equalizer b{background:var(--audio-base,#fff)}
+
+/* Shared surfaces derive from the selected notch color, with readable contrast. */
+html.desktop-root{--control-ink:#f6f6f8;--control-muted:#c4c1cd;--control-tint:#fff;--control-surface:color-mix(in srgb,rgb(var(--notch-rgb,9,10,13)) 86%,white);--control-hover:color-mix(in srgb,rgb(var(--notch-rgb,9,10,13)) 75%,white);--control-border:color-mix(in srgb,rgb(var(--notch-rgb,9,10,13)) 70%,white)}
+html.desktop-root[data-theme=light]{--control-ink:#181922;--control-muted:#4d4b59;--control-tint:#000;--control-surface:color-mix(in srgb,rgb(var(--notch-rgb,245,246,250)) 89%,black);--control-hover:color-mix(in srgb,rgb(var(--notch-rgb,245,246,250)) 80%,black);--control-border:color-mix(in srgb,rgb(var(--notch-rgb,245,246,250)) 70%,black)}
+.desktop.compact .notch-player .player-menu-arrow{background:var(--control-surface);color:var(--control-ink);border:1px solid var(--control-border)}
+.desktop.compact .notch-player .player-menu-arrow:hover{background:var(--control-hover);color:var(--control-ink)}
+.desktop.compact .notch-player .player-controls button{color:var(--control-ink)}
+.desktop.compact .notch-player .player-controls .lyrics-toggle{color:var(--control-muted)}
+.desktop.compact .notch-player .player-controls .lyrics-toggle[aria-pressed=true]{color:var(--control-ink)}
+.desktop.compact .notch-player .quick-mode,.desktop.compact .notch-player .quick-modes-heading button,.desktop.compact .notch-player .quick-modes-empty{background:var(--control-surface);border-color:var(--control-border);color:var(--control-ink)}
+.desktop.compact .notch-player .quick-mode:hover,.desktop.compact .notch-player .quick-modes-heading button:hover{background:var(--control-hover)}
+.desktop.compact .notch-player .quick-mode small{color:var(--control-muted)}
+.desktop.compact .notch-player .quick-mode-icon{background:var(--control-hover);color:var(--control-ink)}
+.desktop.compact .notch-player .weather-hours,.desktop.compact .notch-player .weather-setup input,.desktop.compact .notch-player .weather-setup form button,.desktop.compact .notch-player .weather-results button{background:var(--control-surface);border-color:var(--control-border);color:var(--control-ink)}
+.desktop.compact .notch-player .weather-hours>div,.desktop.compact .notch-player .weather-hours svg,.desktop.compact .notch-player .weather-heading button,.desktop.compact .notch-player .weather-refresh,.desktop.compact .notch-player .weather-detect{color:var(--control-ink)}
+.desktop.compact .notch-player .weather-hours small,.desktop.compact .notch-player .weather-setup>small,.desktop.compact .notch-player .weather-loading,.desktop.compact .notch-player .weather-now small{color:var(--control-muted)}
+.desktop.compact .notch-player .weather-results button:hover,.desktop.compact .notch-player .weather-setup form button:hover{background:var(--control-hover)}
+.quick-transparency input[type=range]{appearance:none;-webkit-appearance:none;height:20px;background:transparent;cursor:pointer}
+.quick-transparency input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:var(--control-border)}
+.quick-transparency input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;margin-top:-5px;border-radius:50%;background:var(--control-ink);border:2px solid rgb(var(--notch-rgb,9,10,13));box-shadow:0 0 0 1px var(--control-ink)}
+.quick-transparency input[type=range]:focus-visible{outline:2px solid var(--control-ink);outline-offset:3px;border-radius:6px}
+.desktop.compact .notch-player .shelf-empty{background:var(--control-surface);border-color:var(--control-border);color:var(--control-ink)}
+.desktop.compact .notch-player .shelf-empty-icon,.desktop.compact .notch-player .shelf-empty small,.desktop.compact .notch-player .shelf-open small,.desktop.compact .notch-player .shelf-heading span{color:var(--control-muted)}
+.desktop.compact .notch-player .shelf-open,.desktop.compact .notch-player .shelf-remove{color:var(--control-ink)}
+.desktop.compact .notch-player .shelf-remove{background:var(--control-surface)}
+.desktop.compact .notch-player .player-timeline{color:var(--control-muted)}
+.desktop.compact .notch-player .player-progress{background:var(--control-border)}
+.desktop.compact .notch-player .player-progress i{background:var(--control-ink)}
+html[data-theme=light] .desktop.compact .notch-player .weather-icon{color:#8a5600}
