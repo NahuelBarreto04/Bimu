@@ -290,8 +290,9 @@ pub fn start_reconnect(app:AppHandle){
     let listener=match TcpListener::bind("0.0.0.0:0"){Ok(x)=>x,Err(_)=>{thread::sleep(Duration::from_secs(2));continue}};
     let _=listener.set_nonblocking(true);let port=match listener.local_addr(){Ok(a)=>a.port(),Err(_)=>continue};
     let udp=match UdpSocket::bind("0.0.0.0:0"){Ok(s)=>s,Err(_)=>continue};let _=udp.set_broadcast(true);
-    let message=format!("bimu-trusted-v1:{}:{}",trust.tag(),port);let mut last=Instant::now()-Duration::from_secs(1);
-    while available() && crate::trusted_pairing::load(&app).ok().flatten().map(|x|x.key)==Some(trust.key){
+    let message=format!("bimu-trusted-v1:{}:{}",trust.tag(),port);let mut last=Instant::now()-Duration::from_secs(1);let mut checked=Instant::now();
+    while available(){
+     if checked.elapsed()>=Duration::from_secs(2){checked=Instant::now();if crate::trusted_pairing::load(&app).ok().flatten().map(|x|x.key)!=Some(trust.key){break}}
      if last.elapsed()>=Duration::from_millis(600){let _=udp.send_to(message.as_bytes(),(Ipv4Addr::BROADCAST,45949));last=Instant::now();}
      match listener.accept(){
       Ok((stream,SocketAddr::V4(addr))) if private_ip(*addr.ip())=>{
@@ -306,8 +307,9 @@ pub fn start_reconnect(app:AppHandle){
    },
    Role::Client=>{
     let udp=match UdpSocket::bind("0.0.0.0:45949"){Ok(s)=>s,Err(_)=>{thread::sleep(Duration::from_secs(2));continue}};
-    let _=udp.set_read_timeout(Some(Duration::from_millis(500)));let mut buf=[0u8;256];let prefix=format!("bimu-trusted-v1:{}:",trust.tag());
-    while available() && crate::trusted_pairing::load(&app).ok().flatten().map(|x|x.key)==Some(trust.key){
+    let _=udp.set_read_timeout(Some(Duration::from_millis(500)));let mut buf=[0u8;256];let prefix=format!("bimu-trusted-v1:{}:",trust.tag());let mut checked=Instant::now();
+    while available(){
+     if checked.elapsed()>=Duration::from_secs(2){checked=Instant::now();if crate::trusted_pairing::load(&app).ok().flatten().map(|x|x.key)!=Some(trust.key){break}}
      if let Ok((n,SocketAddr::V4(addr)))=udp.recv_from(&mut buf){
       if !private_ip(*addr.ip()){continue}let Ok(msg)=std::str::from_utf8(&buf[..n])else{continue};
       let Some(port)=msg.strip_prefix(&prefix).and_then(|p|p.parse::<u16>().ok()).filter(|p|*p!=0)else{continue};
