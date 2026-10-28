@@ -87,7 +87,12 @@ pub fn device_pairing_host(state:State<'_,DevicePairing>)->Result<PairStatus,Str
    if Instant::now()>=expiry{fail(&shared,generation,"El código venció. Generá uno nuevo.");return}
    match listener.accept(){
     Ok((stream,addr))=>{
-     if !matches!(addr,SocketAddr::V4(v) if private_ip(*v.ip())){continue}
+     if !matches!(addr,SocketAddr::V4(v) if private_ip(*v.ip())){
+      if let Ok(mut inner)=shared.0.lock(){if inner.generation==generation{
+       inner.status.message=Some(format!("Se rechazó una conexión desde {addr}: su dirección no figura como red local privada."));
+      }}
+      continue
+     }
      // Each code permits one attempt, including failed or stalled handshakes.
      update(&shared,generation,PairStatus{phase:"connecting".into(),message:Some("Verificando el código…".into()),..Default::default()});
      match pairing_transport::pair(stream,Role::Host,&code){

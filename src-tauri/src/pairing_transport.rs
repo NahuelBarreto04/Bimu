@@ -12,13 +12,21 @@ const MAX_HANDSHAKE: usize = 4096;
 const MAX_FRAME: usize = 65535;
 const MAX_PLAINTEXT: usize = MAX_FRAME - 16;
 const PROLOGUE: &[u8] = b"bimu-experimental-local-pairing-v1";
+fn read_error(stage: &str, error: std::io::Error) -> String {
+    let detail = match error.kind() {
+        std::io::ErrorKind::UnexpectedEof => "la otra PC cerró la conexión antes de completar el intercambio".to_owned(),
+        std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock => "se agotó el tiempo de espera".to_owned(),
+        _ => format!("error de red: {error}"),
+    };
+    format!("{stage}: {detail}")
+}
 fn read_frame(stream: &mut TcpStream, limit: usize) -> Result<Vec<u8>, String> {
     let mut header = [0u8; 2];
-    stream.read_exact(&mut header).map_err(|e| e.to_string())?;
+    stream.read_exact(&mut header).map_err(|e| read_error("cabecera", e))?;
     let len = u16::from_be_bytes(header) as usize;
-    if len == 0 || len > limit { return Err("invalid frame length".into()); }
+    if len == 0 || len > limit { return Err("tamaño de mensaje inválido".into()); }
     let mut frame = vec![0; len];
-    stream.read_exact(&mut frame).map_err(|e| e.to_string())?;
+    stream.read_exact(&mut frame).map_err(|e| read_error("contenido", e))?;
     Ok(frame)
 }
 fn write_frame(stream: &mut TcpStream, frame: &[u8]) -> Result<(), String> {
@@ -34,19 +42,19 @@ pub fn pair(mut stream: TcpStream, role: Role, code: &str) -> Result<SecureChann
     stream.set_read_timeout(Some(Duration::from_secs(5))).map_err(|e| e.to_string())?;
     stream.set_write_timeout(Some(Duration::from_secs(5))).map_err(|e| e.to_string())?;
     let (pending, message) = pairing_core::start(role, code).map_err(str::to_owned)?;
-    let peer_message = match role {
-        Role::Client => { write_frame(&mut stream, &message)?; read_frame(&mut stream, MAX_HANDSHAKE)? }
-        Role::Host => { let peer = read_frame(&mut stream, MAX_HANDSHAKE)?; write_frame(&mut stream, &message)?; peer }
-    };
+    let peer_message = (match role {
+        Role::Client => { write_frame(&mut stream, &message)?; read_frame(&mut stream, MAX_HANDSHAKE) }
+        Role::Host => { let peer = read_frame(&mut stream, MAX_HANDSHAKE)?; write_frame(&mut stream, &message)?; Ok(peer) }
+    }).map_err(|e| format!("intercambio inicial: {e}"))?;
     let (waiting, confirmation) = pending.finish(&peer_message).map_err(str::to_owned)?;
     let confirmed = match role {
         Role::Client => {
             write_frame(&mut stream, &confirmation)?;
-            let tag = read_frame(&mut stream, MAX_HANDSHAKE)?;
+            let tag = read_frame(&mut stream, MAX_HANDSHAKE).map_err(|e|format!("confirmación del código: {e}"))?;
             waiting.verify(&tag).map_err(|_| "El código no coincide o la verificación fue rechazada".to_string())?
         }
         Role::Host => {
-            let tag = read_frame(&mut stream, MAX_HANDSHAKE)?;
+            let tag = read_frame(&mut stream, MAX_HANDSHAKE).map_err(|e|format!("confirmación del código: {e}"))?;
             let key = waiting.verify(&tag).map_err(|_| "El código no coincide o la verificación fue rechazada".to_string())?;
             write_frame(&mut stream, &confirmation)?;
             key
@@ -69,11 +77,11 @@ pub fn pair(mut stream: TcpStream, role: Role, code: &str) -> Result<SecureChann
         Role::Client => {
             let n = state.write_message(&[], &mut output).map_err(|e| e.to_string())?;
             write_frame(&mut stream, &output[..n])?;
-            let reply = read_frame(&mut stream, MAX_HANDSHAKE)?;
+            let reply = read_frame(&mut stream, MAX_HANDSHAKE).map_err(|e|format!("canal cifrado: {e}"))?;
             state.read_message(&reply, &mut output).map_err(|e| e.to_string())?;
         }
         Role::Host => {
-            let request = read_frame(&mut stream, MAX_HANDSHAKE)?;
+            let request = read_frame(&mut stream, MAX_HANDSHAKE).map_err(|e|format!("canal cifrado: {e}"))?;
             state.read_message(&request, &mut output).map_err(|e| e.to_string())?;
             let n = state.write_message(&[], &mut output).map_err(|e| e.to_string())?;
             write_frame(&mut stream, &output[..n])?;
@@ -140,6 +148,22 @@ mod tests {
         thread::sleep(Duration::from_millis(150));
         let mut client = pair(stream, Role::Client, "012345").expect("client pairing");
         client.send(b"hola").unwrap();
+        server.join().unwrap();
+    }
+    #[test]
+    fn closed_peer_reports_the_failing_stage() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            read_frame(&mut stream, MAX_HANDSHAKE).unwrap();
+            drop(stream);
+        });
+        let error = match pair(TcpStream::connect(addr).unwrap(), Role::Client, "012345") {
+            Ok(_) => panic!("pairing should fail"), Err(error) => error,
+        };
+        assert!(error.contains("intercambio inicial"), "{error}");
+        assert!(error.contains("cerró la conexión"), "{error}");
         server.join().unwrap();
     }
     #[test]
