@@ -548,3 +548,25 @@ html[data-notch=idle] .desktop.compact .bimu-eyes-sleepy:not(.bimu-listening)::b
 .page-settings-list button:disabled{opacity:.3;cursor:default}
 .device-pairing h2{display:flex;align-items:center;gap:7px}.device-pairing p,.device-pairing small{color:var(--muted)}.device-pairing-create,.device-pairing-join,.device-pairing-state{display:grid;gap:8px;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--input)}.device-pairing-create strong,.device-pairing-join strong,.device-pairing-state strong{color:var(--ink);font-size:11px}.device-pairing-join label{display:grid;gap:4px;color:var(--muted);font-size:10px}.device-pairing-join input{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--ink)}.device-pairing button{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:rgba(var(--accent),.16);color:var(--ink);cursor:pointer}.device-pairing button:disabled{opacity:.45;cursor:default}.device-pairing-code{color:var(--ink);font-size:25px;font-weight:700;letter-spacing:.18em}.device-pairing-address{color:var(--ink);font-size:12px}.device-pairing-disconnect{display:flex;align-items:center;gap:6px;margin-top:12px}.device-pairing-error{color:#d87979!important;font-size:10px}
 .shelf-open:disabled{opacity:.5;cursor:not-allowed}
+/* Application discovery is loaded only when the collapsed section is opened. */
+.registered-applications{margin:14px 0;font-size:11px}
+.registered-applications>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--input);color:var(--ink);font-size:12px;font-weight:700;transition:border-color .18s ease,background .18s ease}
+.registered-applications>summary::-webkit-details-marker{display:none}
+.registered-applications>summary:after{content:'+';font-size:18px;font-weight:400;color:var(--muted)}
+.registered-applications[open]>summary:after{content:'−'}
+.registered-applications>summary:hover{border-color:rgba(var(--accent),.55)}
+.registered-applications>summary span{flex:1;text-align:right;color:var(--muted);font-size:9px;font-weight:400}
+.application-settings{margin-top:8px}
+.applications-discovery-heading,.registered-applications-heading{display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px;font-size:11px;color:var(--ink)}
+.applications-discovery-heading button{display:grid;place-items:center;padding:5px}
+.applications-search{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--input);color:var(--muted)}
+.applications-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--ink);font:inherit;user-select:text}
+.applications-discovery-list{max-height:190px;overflow-y:auto;overscroll-behavior:contain;margin:8px 0 12px;border:1px solid var(--line);border-radius:10px;background:var(--input)}
+.discovered-app{height:46px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line)}
+.discovered-app:last-child{border-bottom:0}.discovered-app-icon{display:grid;place-items:center;flex:none;width:28px;height:28px;border-radius:8px;background:rgba(var(--accent),.14);color:var(--ink)}
+.discovered-app strong{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--ink)}
+.application-settings .discovered-app button{display:flex;align-items:center;gap:3px;flex:none}.application-settings .discovered-app button:disabled{opacity:.65;cursor:default}
+.application-settings .applications-empty{margin:0;padding:18px;text-align:center}.registered-applications-heading span{color:var(--muted);font-size:10px;font-weight:400}
+.page-settings-list li{position:relative;transition:transform .19s cubic-bezier(.2,.8,.2,1),background .16s ease,border-color .16s ease,box-shadow .16s ease}
+.page-settings-list li.is-dragging{z-index:3;opacity:1;transition:box-shadow .16s ease,border-color .16s ease;box-shadow:0 10px 24px rgba(0,0,0,.28),0 3px 12px rgba(var(--accent),.2);border-color:rgba(var(--accent),.7)}
+@media (prefers-reduced-motion:reduce){.page-settings-list li{transition:none}}

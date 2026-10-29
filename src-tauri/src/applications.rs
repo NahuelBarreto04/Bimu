@@ -1,10 +1,15 @@
 use std::{fs,path::PathBuf,sync::Mutex,time::{SystemTime,UNIX_EPOCH}};
-use serde::Serialize;
+use serde::{Serialize,Deserialize};
+use sha2::{Digest,Sha256};
 use tauri::{AppHandle,State,Manager};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 #[derive(Default)]pub struct Applications(pub Mutex<Registry>);
-#[derive(Default)]pub struct Registry{entries:Vec<Entry>,loaded:bool,pending:Option<Pending>,counter:u64}
+#[derive(Default)]pub struct Registry{entries:Vec<Entry>,loaded:bool,pending:Option<Pending>,counter:u64,discovered:Vec<DiscoveredApp>,discovered_ids:Vec<(String,String)>}
+#[derive(Clone,Deserialize)]
+struct StartApp{#[serde(rename="Name")]name:String,#[serde(rename="AppID")]app_id:String}
+#[derive(Clone,Serialize)]#[serde(rename_all="camelCase")]
+pub struct DiscoveredApp{id:String,name:String,added:bool}
 struct Pending{id:u64,app_id:String}
 #[derive(Serialize)]pub struct Proposal{pub status:String,id:u64,name:String,target:String}
 use crate::application_intent::{normalized,requested};
@@ -14,7 +19,46 @@ fn load(app:&AppHandle,r:&mut Registry)->Result<(),String>{if r.loaded{return Ok
 fn save(app:&AppHandle,entries:&[Entry])->Result<(),String>{validate(entries)?;let shortcut_names:std::collections::HashSet<_>=crate::assistant::names(app)?.iter().map(|n|normalized(n)).collect();if entries.iter().any(|e|std::iter::once(&e.name).chain(&e.aliases).any(|n|shortcut_names.contains(&normalized(n)))){return Err("Ese nombre o alias ya pertenece a un atajo rápido.".into())}let path=config(app)?;let parent=path.parent().ok_or("Ruta de configuración inválida.")?;fs::create_dir_all(parent).map_err(|_|"No se pudo guardar la configuración.")?;let temp=path.with_extension("tmp");fs::write(&temp,serde_json::to_vec_pretty(entries).map_err(|_|"No se pudo preparar la configuración.")?).map_err(|_|"No se pudo guardar la configuración.")?;fs::rename(temp,path).map_err(|_|"No se pudo actualizar la configuración.")?;Ok(())}
 pub(crate) fn launch(app:&AppHandle,entry:&Entry)->Result<(),String>{
     if !available(entry){return Err(format!("{} no está instalada o no se encontró en la ruta registrada. Revisá Ajustes → Atajos rápidos.",entry.name));}
-    match &entry.target{Target::Spotify=>app.opener().open_url("spotify:",None::<&str>).map_err(|_|"Windows no pudo abrir Spotify.".into()),Target::Exe{path}=>std::process::Command::new(path).spawn().map(|_|()).map_err(|e|format!("Windows no pudo abrir {}: {}",entry.name,e))}
+    match &entry.target{Target::Spotify=>app.opener().open_url("spotify:",None::<&str>).map_err(|_|"Windows no pudo abrir Spotify.".into()),Target::Exe{path}=>std::process::Command::new(path).spawn().map(|_|()).map_err(|e|format!("Windows no pudo abrir {}: {}",entry.name,e)),Target::ShellApp{app_id}=>launch_shell(app_id)}
+}
+fn launch_shell(app_id:&str)->Result<(),String>{
+ if !crate::application_registry::valid_app_id(app_id){return Err("Identificador de aplicación inválido.".into())}
+ #[cfg(windows)]{
+  use std::os::windows::process::CommandExt;
+  let explorer=std::env::var_os("SystemRoot").map(PathBuf::from).unwrap_or_else(||PathBuf::from("C:\\Windows")).join("explorer.exe");
+  std::process::Command::new(explorer).arg(format!("shell:AppsFolder\\{app_id}")).creation_flags(0x08000000).spawn().map(|_|()).map_err(|_|"Windows no pudo abrir la aplicación.".into())
+ }
+ #[cfg(not(windows))]{let _=app_id;Err("Disponible en Windows.".into())}
+}
+fn discovery_id(app_id:&str)->String{let digest=Sha256::digest(app_id.as_bytes());format!("windows-{:x}",digest)}
+#[cfg(windows)]fn discover_windows()->Result<Vec<StartApp>,String>{
+ use std::os::windows::process::CommandExt;
+ let root=std::env::var_os("SystemRoot").map(PathBuf::from).unwrap_or_else(||PathBuf::from("C:\\Windows"));
+ let powershell=root.join("System32/WindowsPowerShell/v1.0/powershell.exe");
+ let output=std::process::Command::new(powershell).args(["-NoLogo","-NoProfile","-NonInteractive","-Command","[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new(); ConvertTo-Json -InputObject @(Get-StartApps | Select-Object Name,AppID) -Compress"]).creation_flags(0x08000000).output().map_err(|_|"No se pudieron buscar aplicaciones de Windows.")?;
+ if !output.status.success()||output.stdout.len()>4*1024*1024{return Err("No se pudieron obtener las aplicaciones de Windows.".into())}
+ serde_json::from_slice(&output.stdout).map_err(|_|"Windows devolvió una lista de aplicaciones inválida.".into())
+}
+#[cfg(not(windows))]fn discover_windows()->Result<Vec<StartApp>,String>{Err("Disponible en Windows.".into())}
+#[tauri::command]pub async fn apps_discover(app:AppHandle,state:State<'_,Applications>)->Result<Vec<DiscoveredApp>,String>{
+ let list=tauri::async_runtime::spawn_blocking(discover_windows).await.map_err(|_|"No se pudo buscar aplicaciones.")??;
+ let mut r=state.inner().0.lock().map_err(|_|"No se pudieron consultar las aplicaciones.")?;load(&app,&mut r)?;
+ let mut seen=std::collections::HashSet::new();let mut found=Vec::new();
+ for item in list.into_iter().take(10000){let name=item.name.trim().to_string();let app_id=item.app_id.trim();
+  if name.is_empty()||name.len()>100||name.chars().any(char::is_control)||!crate::application_registry::valid_app_id(app_id)||!seen.insert(app_id.to_lowercase()){continue}
+  let id=discovery_id(app_id);let added=r.entries.iter().any(|e|(e.id==id||normalized(&e.name)==normalized(&name)||e.aliases.iter().any(|a|normalized(a)==normalized(&name)))&&available(e));
+  found.push((DiscoveredApp{id,name,added},app_id.to_string()));
+ }
+ found.sort_by_key(|(a,_)|a.name.to_lowercase());r.discovered=found.iter().map(|(a,_)|a.clone()).collect();r.discovered_ids=found.into_iter().map(|(a,id)|(a.id,id)).collect();Ok(r.discovered.clone())
+}
+#[tauri::command]pub fn apps_add_discovered(id:String,app:AppHandle,state:State<'_,Applications>)->Result<Vec<AppInfo>,String>{
+ let mut r=state.inner().0.lock().map_err(|_|"No se pudo registrar la aplicación.")?;load(&app,&mut r)?;
+ let item=r.discovered.iter().find(|item|item.id==id).cloned().ok_or("Volvé a buscar las aplicaciones e intentá nuevamente.")?;
+ let app_id=r.discovered_ids.iter().find(|(key,_)|*key==id).map(|(_,value)|value.clone()).ok_or("Aplicación no encontrada.")?;
+ let mut entries=r.entries.clone();
+ if let Some(existing)=entries.iter_mut().find(|e|e.id==id||normalized(&e.name)==normalized(&item.name)||e.aliases.iter().any(|a|normalized(a)==normalized(&item.name)){if available(existing){return Err("Esa aplicación ya está registrada.".into())}existing.target=Target::ShellApp{app_id};}
+ else{entries.push(Entry{id:id.clone(),name:item.name,aliases:vec![],remember:false,target:Target::ShellApp{app_id}})}save(&app,&entries)?;r.entries=entries;
+ if let Some(item)=r.discovered.iter_mut().find(|item|item.id==id){item.added=true}Ok(r.entries.iter().map(view).collect())
 }
 #[tauri::command]pub fn apps_list(app:AppHandle,state:State<'_,Applications>)->Result<Vec<AppInfo>,String>{let mut r=state.inner().0.lock().map_err(|_|"No se pudo consultar las aplicaciones.")?;load(&app,&mut r)?;Ok(r.entries.iter().map(view).collect())}
 #[tauri::command]pub fn apps_request(text:String,app:AppHandle,state:State<'_,Applications>)->Result<Option<Proposal>,String>{
