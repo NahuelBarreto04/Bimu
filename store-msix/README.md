@@ -1,9 +1,12 @@
-# Bimu: paquete MSIX experimental
+# Paquetes MSIX de Bimu
 
-Este paquete es solo para pruebas en una PC propia. La firma de prueba se genera de nuevo en GitHub Actions en cada compilación: no es una firma de Microsoft ni sirve para distribuir la aplicación. No se incluye la clave privada. El certificado público solo debe instalarse tras verificar que el artefacto provenga de la ejecución esperada.
+La compilación experimental crea dos archivos distintos:
 
-Antes de instalar: cerrá Bimu, respaldá sus datos y no actives el inicio automático ni el instalador de actualizaciones desde la versión experimental. El paquete todavía no implementa las adaptaciones de inicio automático ni actualizaciones de Store. Puede usar datos separados o compartirlos según la virtualización de Windows; no se ha verificado migración.
+- Bimu-experimental.msix: firmado con un certificado temporal para pruebas privadas. Bimu-test.cer contiene la clave pública de esa firma, nunca la clave privada. El certificado se crea de nuevo en cada ejecución y debe retirarse después de las pruebas.
+- Bimu-Store-sin-firmar.msix: paquete para validar y presentar en Partner Center. No se puede instalar directamente como el paquete de prueba y no incluye el certificado temporal.
 
-Para una prueba aislada en Windows, descargá el artefacto Bimu-MSIX-experimental de la ejecución de esta rama y verificá el SHA-256. Instalá el certificado público temporal de prueba en Trusted People del equipo solo si confiás en el origen; eso concede confianza a paquetes firmados con ese certificado. Luego instalá el MSIX. Retirá la aplicación y el certificado de prueba al terminar. No compartas este paquete con usuarios finales.
+La compilación por sí sola no garantiza la aceptación de Microsoft ni la compatibilidad de todas las funciones. No enviar el paquete a certificación hasta revisar la ficha, los datos de privacidad, las capacidades, la instalación y actualización desde Store. Microsoft firma el paquete para distribuirlo desde su tienda.
 
-Para Store falta verificar la identidad, los recursos, los requisitos y certificación, adaptar inicio y actualizaciones y probar el portapapeles, archivos y vínculo en equipos reales.
+Para una prueba aislada descargá Bimu-MSIX-experimental de la ejecución esperada, compará su hash con SHA256.txt, y solo si confiás en el origen instalá temporalmente Bimu-test.cer en Trusted People del equipo. Cerrá la instalación existente y respaldá los datos antes de probar. Quitá el paquete y el certificado temporal al terminar. Nunca compartir la firma de prueba como una firma de Microsoft.
+
+Marian probó en una PC la instalación, configuración preservada, inicio activado y desactivado y el mensaje de actualizaciones de Store. Siguen pendientes la prueba de actualización real desde Store y la revisión de portapapeles, archivos y vinculación entre dos equipos bajo MSIX.
