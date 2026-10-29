@@ -1,6 +1,6 @@
 [package]
 name = "mascota-companero"
-version = "0.54.0"
+version = "0.54.1"
 description = "Bimu"
 authors = ["Mariano"]
 edition = "2021"

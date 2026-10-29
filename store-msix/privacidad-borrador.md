@@ -4,7 +4,7 @@ Estado: no publicado. Este texto se basa en la revisión de la versión experime
 
 ## Responsable y contacto
 
-Bimu es desarrollado por Mariano Arias. Para consultas sobre esta política o solicitudes relacionadas con datos de Bimu, el contacto propuesto es https://github.com/marianoarias1/Bimu/issues. Las incidencias de GitHub son públicas: no incluyas contraseñas, documentos privados ni otra información sensible. Antes de publicar, el responsable debe confirmar un canal privado de contacto.
+Bimu es desarrollado por Mariano Arias. Para consultas sobre esta política o solicitudes relacionadas con datos de Bimu, podés escribir a marianoariasiwngh@outlook.com. Para soporte general también podés utilizar https://github.com/marianoarias1/Bimu/issues. Las incidencias de GitHub son públicas: no incluyas contraseñas, documentos privados ni otra información sensible.
 
 ## Alcance
 
@@ -49,4 +49,4 @@ La transmisión entre equipos vinculados usa un canal autenticado y cifrado y la
 
 ## Pendiente antes de publicar
 
-Confirmar un canal privado de contacto y revisar almacenamiento, retención, uso de servicios, seguridad y derechos aplicables con asesoramiento adecuado. Comprobar si la experiencia de la aplicación y sus permisos de sincronización cumplen los requisitos de consentimiento y privacidad de Microsoft Store. No publicar este borrador como política definitiva hasta completar dicha revisión.
+Revisar almacenamiento, retención, uso de servicios, seguridad y derechos aplicables con asesoramiento adecuado. Comprobar si la experiencia de la aplicación y sus permisos de sincronización cumplen los requisitos de consentimiento y privacidad de Microsoft Store. No publicar este borrador como política definitiva hasta completar dicha revisión.
