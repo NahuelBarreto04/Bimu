@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0a10">
+<meta name="description" content="Política de privacidad de Bimu para Windows.">
+<title>Política de privacidad — Bimu</title>
+<link rel="icon" href="assets/bimu-icon.webp">
+<link rel="stylesheet" href="styles.css">
+<style>
+.privacy{max-width:800px;padding:62px 0 100px}
+.privacy h1{font-size:clamp(38px,5vw,60px)}
+.privacy h2{font-size:24px;letter-spacing:-.035em;margin:46px 0 15px}
+.privacy p,.privacy li{color:var(--muted);font-size:15px;line-height:1.85}
+.privacy ul{padding-left:22px}.privacy li{margin:9px 0}
+.privacy a{color:#d1c1ff;text-decoration:underline;text-underline-offset:3px}
+.privacy-lead{font-size:16px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="header shell"><a class="brand" href="./" aria-label="Bimu, inicio"><img src="assets/bimu-icon.webp" alt=""> bimu<span>.</span></a><nav aria-label="Navegación"><a href="./">Volver al inicio</a><a class="nav-download" href="./#descargar">Descargar <span>↗</span></a></nav></header>
+<main class="shell privacy">
+<p class="eyebrow">BIMU PARA WINDOWS</p>
+<h1>Política de <em>privacidad.</em></h1>
+<h2>Responsable y contacto</h2>
+<p>Bimu es desarrollado por Mariano Arias. Para consultas sobre esta política o solicitudes relacionadas con datos de Bimu, podés escribir a <a href="mailto:marianoariasiwngh@outlook.com">marianoariasiwngh@outlook.com</a>. Para soporte general también podés utilizar <a href="https://github.com/marianoarias1/Bimu/issues">GitHub Issues</a>. Las incidencias de GitHub son públicas: no incluyas contraseñas, documentos privados ni otra información sensible.</p>
+<h2>Alcance</h2>
+<p>Esta política describe la aplicación Bimu para Windows. Las plataformas de terceros, incluidos Microsoft Store, GitHub y los proveedores indicados a continuación, tienen sus propias políticas.</p>
+<h2>Datos usados en el equipo</h2>
+<ul><li>Portapapeles: al activar el historial, Bimu puede leer y mostrar texto, imágenes y referencias a archivos copiados. El historial se mantiene durante la sesión, se puede pausar y sus elementos se pueden eliminar o vaciar. Los archivos recibidos de otro equipo pueden guardarse en el disco por separado y vaciar el historial no garantiza borrarlos.</li><li>Archivos a mano y atajos: Bimu guarda información como nombres y rutas de los elementos y las acciones que configurás para permitirte volver a abrirlos. Los archivos que compartís o recibís pueden contener información personal.</li><li>Preferencias: Bimu almacena opciones como la apariencia, páginas visibles, configuración de inicio y ubicación seleccionada para el clima.</li><li>Música: Bimu lee información de la sesión de reproducción proporcionada por Windows, como título, artista y estado, para mostrar el reproductor.</li><li>Dispositivos: si vinculás equipos, Bimu utiliza nombres e información de red del dispositivo y guarda información de la vinculación para permitir la reconexión. En Windows protege la credencial persistente de vinculación mediante DPAPI, asociada al usuario.</li></ul>
+<h2>Sincronización entre equipos</h2>
+<p>Al vincular dos equipos, Bimu los descubre en la red local y puede sincronizar automáticamente contenido compatible del portapapeles y compartir información y archivos de Archivos a mano. Esos datos se envían al otro equipo vinculado, que puede conservar copias locales. La conexión usa autenticación y cifrado durante la transmisión.</p>
+<p>Pausar el historial del portapapeles no necesariamente detiene la sincronización si la conexión entre equipos sigue activa. Para detener el intercambio entre ellos, desvinculalos o cerrá Bimu en uno de los equipos. Los permisos y la seguridad de los dos equipos y de la red también influyen en la protección del contenido.</p>
+<h2>Servicios externos</h2>
+<p>Cuando usás estas funciones, Bimu hace solicitudes a servicios de terceros, que reciben la dirección IP de la conexión y los datos necesarios para responder:</p>
+<ul><li>Ubicación aproximada: si elegís detectarla, se consulta ipapi.co utilizando tu conexión. Alternativamente podés buscar una ciudad manualmente.</li><li>Clima: se consulta Open-Meteo con el texto de la ciudad buscada o con las coordenadas de la ubicación seleccionada.</li><li>Letras: se consulta LRCLIB con el título y artista de la canción.</li><li>Actualizaciones: la instalación distribuida por GitHub consulta GitHub para comprobar o descargar versiones. La versión instalada como paquete utiliza Microsoft Store para sus actualizaciones.</li></ul>
+<p>Las solicitudes están sujetas a las políticas y prácticas de cada proveedor. Bimu no controla el tratamiento que esos proveedores hagan de la información que reciben.</p>
+<h2>Conservación y controles</h2>
+<p>Podés pausar y vaciar el historial, quitar elementos de Archivos a mano, modificar tus preferencias y desvincular equipos desde Bimu. La desvinculación elimina la credencial persistente de vinculación en ese equipo; no implica borrar automáticamente todas las copias de archivos ya recibidas en cualquiera de los equipos. Revisá las carpetas de datos de Bimu y las copias que hayas guardado si querés eliminarlas. La desinstalación puede comportarse de forma distinta según el método de instalación, por lo que no se promete que elimine todos los datos.</p>
+<h2>Sitio web y distribución</h2>
+<p>El sitio de Bimu usa GitHub Pages para alojar su contenido, carga tipografías desde Google Fonts y consulta GitHub para localizar la última descarga. Estos servicios reciben datos técnicos de la solicitud, incluida la dirección IP, según sus respectivas políticas. La descarga desde Microsoft Store está sujeta también a las condiciones y a la política de privacidad de Microsoft.</p>
+<h2>Seguridad y cambios</h2>
+<p>La transmisión entre equipos vinculados usa un canal autenticado y cifrado y la credencial persistente se protege con DPAPI. Esto no garantiza seguridad absoluta ni cifra necesariamente todos los archivos almacenados. Esta política debe actualizarse si cambia el tratamiento de datos.</p>
+</main>
+<footer class="shell footer"><a class="brand" href="./">bimu<span>.</span></a><p>Un pequeño espacio, grandes momentos.</p><a href="https://github.com/marianoarias1/Bimu">Ver proyecto en GitHub ↗</a></footer>
+</body></html>
