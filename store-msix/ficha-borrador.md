@@ -21,8 +21,8 @@ Bimu reúne tus herramientas cotidianas en un notch minimalista en el borde supe
 
 ## Material pendiente
 
-- Capturas reales de la versión MSIX, verificando que coincidan con la app. Las imágenes generadas usadas en la web son ilustrativas y no sustituyen capturas fieles.
+- Marian aportó capturas reales de la versión MSIX. Revisar y seleccionar hasta diez, comprobando permisos de contenido y datos visibles. Las imágenes generadas usadas en la web son ilustrativas y no sustituyen capturas fieles.
 - Política de privacidad pública y datos de contacto del responsable. Revisar el código y los servicios antes de publicarla; no afirmar que no se recopilan o envían datos sin verificar.
-- Revisión de la funcionalidad de portapapeles, archivos y vínculo en dos equipos con MSIX.
+- Marian confirmó en dos equipos la vinculación inicial, reconexión, desvinculación, sincronización de archivos del portapapeles y Archivos a mano con MSIX.
 - Clasificación por edades, mercados, categoría, idioma y notas de certificación en Partner Center.
 - Comprobación de la actualización real distribuida por Microsoft Store.
