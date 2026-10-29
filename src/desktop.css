@@ -588,6 +588,8 @@ html.desktop-root *::-webkit-scrollbar-corner{background:transparent}
 .quick-modes-carousel .quick-mode:hover{box-shadow:0 3px 10px rgba(0,0,0,.12)}
 /* Flat player controls and a compact theme-colored progress wave. */
 .desktop.compact .notch-player .player-controls .player-action{position:relative;display:grid;place-items:center;overflow:hidden;width:24px;height:24px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--control-ink);transition:background .16s ease}
+/* Balance the player's 48px/36px side padding against the notch center. */
+html:not([data-lyrics=true]) .desktop.compact .notch-player .player-controls .player-action{left:-6px}
 .desktop.compact .notch-player .player-controls .player-action.player-toggle{background:var(--control-surface)}
 .desktop.compact .notch-player .player-controls .player-action:hover:not(:disabled){background:var(--control-hover)}
 .player-action-icon{position:relative;display:grid;place-items:center;transition:transform .18s ease}
