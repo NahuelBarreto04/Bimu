@@ -5,6 +5,13 @@ use crate::application_intent::{normalized,requested};
 #[serde(tag="kind",rename_all="camelCase")]
 pub enum Action{App{#[serde(rename="appId")]app_id:String,#[serde(default,rename="profileDirectory",skip_serializing_if="Option::is_none")]profile_directory:Option<String>},Url{url:String,#[serde(default,rename="browserId")]browser_id:Option<String>,#[serde(default,rename="profileDirectory",skip_serializing_if="Option::is_none")]profile_directory:Option<String>},Folder{path:PathBuf}}
 #[derive(Clone,Serialize,Deserialize)]pub struct Shortcut{pub id:String,pub name:String,pub aliases:Vec<String>,pub remember:bool,pub actions:Vec<Action>}
+/// Reorder only an exact permutation, preserving every configured shortcut.
+pub fn reorder_shortcuts(items:Vec<Shortcut>, ids:&[String])->Result<Vec<Shortcut>,String>{
+ if items.len()!=ids.len(){return Err("La lista cambió; actualizá los atajos e intentá nuevamente.".into())}
+ let mut remaining=items;let mut result=Vec::with_capacity(ids.len());
+ for id in ids{let index=remaining.iter().position(|item|&item.id==id).ok_or("El orden de atajos no es válido.")?;result.push(remaining.remove(index));}
+ if !remaining.is_empty(){return Err("El orden de atajos no es válido.".into())}Ok(result)
+}
 pub fn shortcut_matches(shortcut:&Shortcut,text:&str)->bool{let n=normalized(text);let n=n.strip_prefix("hola bimu ").or_else(||n.strip_prefix("bimu ")).unwrap_or(&n);let n=n.strip_prefix("por favor ").unwrap_or(n);let n=n.strip_suffix(" por favor").unwrap_or(n);std::iter::once(&shortcut.name).chain(&shortcut.aliases).any(|s|normalized(s)==n||requested(text).as_ref()==Some(&normalized(s)))}
 pub fn validate_shortcuts(items:&[Shortcut],app_names:&[String])->Result<(),String>{
  if items.len()>30{return Err("Podés guardar hasta 30 atajos.".into())}
@@ -87,3 +94,9 @@ pub fn parse_chrome_profiles(bytes:&[u8])->Result<Vec<ChromeProfile>,String>{
  Ok(state.profile.info_cache.into_iter().filter(|(id,_)|valid_profile_id(id)).map(|(id,entry)|ChromeProfile{name:if entry.name.is_empty(){id.clone()}else{entry.name.chars().take(100).collect()},id}).take(100).collect())
 }
 #[cfg(test)]mod profile_tests{use super::*;#[test]fn old_actions_still_deserialize(){for json in [r#"{"kind":"app","appId":"chrome"}"#,r#"{"kind":"url","url":"https://gmail.com","browserId":"chrome"}"#]{let action:Action=serde_json::from_str(json).unwrap();match action{Action::App{profile_directory,..}|Action::Url{profile_directory,..}=>assert!(profile_directory.is_none()),_=>panic!()}}}#[test]fn reads_only_safe_profile_metadata(){let p=parse_chrome_profiles(br#"{"profile":{"info_cache":{"Default":{"name":"Personal"},"Profile 2":{"name":"Trabajo"},"../evil":{"name":"Mal"}}},"other":{"secret":"never returned"}}"#).unwrap();assert_eq!(p.len(),2);assert_eq!(p[1],ChromeProfile{id:"Profile 2".into(),name:"Trabajo".into()});for id in ["..","../Default",r"C:\Profile","--user-data-dir=x",""]{assert!(!valid_profile_id(id))}}}
+
+#[cfg(test)] mod reorder_tests{
+ use super::*;
+ fn item(id:&str)->Shortcut{Shortcut{id:id.into(),name:id.into(),aliases:vec![],remember:false,actions:vec![Action::App{app_id:"test".into(),profile_directory:None}]}}
+ #[test]fn preserves_entries_and_rejects_invalid_orders(){let original=vec![item("a"),item("b"),item("c")];let result=reorder_shortcuts(original.clone(),&["c".into(),"a".into(),"b".into()]).unwrap();assert_eq!(result.iter().map(|s|s.id.as_str()).collect::<Vec<_>>(),vec!["c","a","b"]);assert!(reorder_shortcuts(original.clone(),&["a".into(),"a".into(),"c".into()]).is_err());assert!(reorder_shortcuts(original.clone(),&["a".into(),"b".into()]).is_err());assert!(reorder_shortcuts(original,&["a".into(),"b".into(),"z".into()]).is_err());}
+}

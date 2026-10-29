@@ -570,3 +570,19 @@ html[data-notch=idle] .desktop.compact .bimu-eyes-sleepy:not(.bimu-listening)::b
 .page-settings-list li{position:relative;transition:transform .19s cubic-bezier(.2,.8,.2,1),background .16s ease,border-color .16s ease,box-shadow .16s ease}
 .page-settings-list li.is-dragging{z-index:3;opacity:1;transition:box-shadow .16s ease,border-color .16s ease;box-shadow:0 10px 24px rgba(0,0,0,.28),0 3px 12px rgba(var(--accent),.2);border-color:rgba(var(--accent),.7)}
 @media (prefers-reduced-motion:reduce){.page-settings-list li{transition:none}}
+/* A consistent, theme-aware scrollbar across Bimu's own scrollable views. */
+html.desktop-root{--bimu-scroll-thumb:color-mix(in srgb, var(--bimu-swatch, #a78bfa) 55%, var(--ink) 45%);--bimu-scroll-hover:color-mix(in srgb, var(--bimu-swatch, #a78bfa) 35%, var(--ink) 65%)}
+html.desktop-root,html.desktop-root *{scrollbar-width:thin;scrollbar-color:var(--bimu-scroll-thumb) transparent}
+html.desktop-root *::-webkit-scrollbar{width:5px;height:5px}
+html.desktop-root *::-webkit-scrollbar-track{background:transparent}
+html.desktop-root *::-webkit-scrollbar-thumb{background:var(--bimu-scroll-thumb);border-radius:999px}
+html.desktop-root *::-webkit-scrollbar-thumb:hover{background:var(--bimu-scroll-hover)}
+html.desktop-root *::-webkit-scrollbar-corner{background:transparent}
+.shortcut-order{margin:16px 0 8px}.shortcut-order>strong{display:block;font-size:11px;color:var(--ink)}.shortcut-order>small{display:block;margin-top:4px;font-size:9px;color:var(--muted)}
+.shortcut-order-list{margin:8px 0 0}.shortcut-order-list .page-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quick-modes-carousel{display:flex;align-items:center;gap:5px;min-width:0}
+.quick-modes-carousel .quick-modes-list{flex:1;min-width:0;scroll-snap-type:x proximity;padding:1px 1px 4px}
+.quick-modes-carousel .quick-mode{scroll-snap-align:start;transition:background .16s ease,border-color .16s ease,box-shadow .16s ease}
+.quick-modes-carousel .quick-mode:hover{box-shadow:0 3px 10px rgba(0,0,0,.12)}
+.desktop.compact .notch-player .quick-modes-arrow{display:grid;place-items:center;flex:none;width:22px;height:26px;padding:0;border:1px solid var(--control-border);border-radius:8px;background:var(--control-surface);color:var(--control-ink)}
+.desktop.compact .notch-player .quick-modes-arrow:hover:not(:disabled){background:var(--control-hover)}

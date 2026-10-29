@@ -1,11 +1,11 @@
 import React,{useState} from 'react'
 import {invoke,isTauri} from '@tauri-apps/api/core'
-import {Pin,Crosshair,Power,PanelsTopLeft,Download} from 'lucide-react'
+import {Pin,Crosshair,Power,PanelsTopLeft,MonitorSmartphone,Zap,Download} from 'lucide-react'
 import {NativeServices} from './NativeServices'
 import {ShortcutSettings} from './AssistantPanels'
 import {PageSettings} from './PageSettings'
 import {DevicePairingSettings} from './DevicePairingSettings'
-const SECTIONS=[['app','General',Pin],['pages','Páginas',PanelsTopLeft],['devices','Dispositivos',PanelsTopLeft],['apps','Atajos rápidos',PanelsTopLeft],['updates','Actualizaciones',Download]]
+const SECTIONS=[['app','General',Pin],['pages','Páginas',PanelsTopLeft],['devices','Dispositivos',MonitorSmartphone],['apps','Atajos rápidos',Zap],['updates','Actualizaciones',Download]]
 export function SettingsPanels({dock,setHovered,config,onConfig,pinned,setPinned,safe,apps,actions,startup,avoidOverlap,setAvoidOverlap,pages,setPages,initialSection='app'}){
  const [section,setSection]=useState(SECTIONS.some(s=>s[0]===initialSection)?initialSection:'app')
  return <section className="settings-view"><div className="page-heading"><h1>Ajustes avanzados</h1><p>Configurá Bimu a tu manera.</p></div><nav className="settings-menu" aria-label="Secciones de ajustes">{SECTIONS.map(([id,label,Icon])=><button key={id} className={section===id?'selected':''} aria-current={section===id?'page':undefined} onClick={()=>setSection(id)}><Icon size={16}/><span>{label}</span></button>)}</nav><div className="settings-content" role="region" aria-label={SECTIONS.find(item=>item[0]===section)[1]}>
