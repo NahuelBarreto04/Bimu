@@ -18,7 +18,8 @@ export function PageSettings({pages,setPages}){
   const delta=event.clientY-active.startY
   if(!active.started&&Math.abs(delta)<4)return
   active.started=true
-  let index=active.rows.findIndex(row=>event.clientY<row.mid)
+  const center=active.rows[active.origin].mid+delta
+  let index=active.rows.findIndex((row,i)=>i===active.rows.length-1||center<(row.mid+active.rows[i+1].mid)/2)
   if(index<0)index=active.rows.length-1
   active.target=active.rows[index]?.id||active.id
   setMotion({id:active.id,delta,target:active.target,origin:active.origin,step:active.step})
