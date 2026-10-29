@@ -586,3 +586,17 @@ html.desktop-root *::-webkit-scrollbar-corner{background:transparent}
 .quick-modes-carousel .quick-mode:hover{box-shadow:0 3px 10px rgba(0,0,0,.12)}
 .desktop.compact .notch-player .quick-modes-arrow{display:grid;place-items:center;flex:none;width:22px;height:26px;padding:0;border:1px solid var(--control-border);border-radius:8px;background:var(--control-surface);color:var(--control-ink)}
 .desktop.compact .notch-player .quick-modes-arrow:hover:not(:disabled){background:var(--control-hover)}
+/* Compact glass controls; the highlight is local to the hovered button. */
+.desktop.compact .notch-player .glass-control{position:relative;display:grid;place-items:center;overflow:hidden;isolation:isolate;width:24px;height:24px;padding:0;border:1px solid color-mix(in srgb,var(--control-ink) 24%,transparent);border-radius:50%;background:linear-gradient(150deg,color-mix(in srgb,var(--control-ink) 14%,var(--control-surface)),var(--control-surface));color:var(--control-ink);box-shadow:inset 0 1px 0 color-mix(in srgb,var(--control-ink) 24%,transparent),0 2px 5px #0002;transition:border-color .16s,box-shadow .16s,background .16s}
+.desktop.compact .notch-player .glass-control::before{content:'';position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at var(--glass-x,50%) var(--glass-y,10%),color-mix(in srgb,var(--control-ink) 34%,transparent),transparent 65%);opacity:0;transition:opacity .16s;pointer-events:none}
+.desktop.compact .notch-player .glass-control:hover:not(:disabled)::before,.desktop.compact .notch-player .glass-control:focus-visible::before{opacity:1}
+.desktop.compact .notch-player .glass-control:hover:not(:disabled){border-color:color-mix(in srgb,var(--control-ink) 38%,transparent);background:linear-gradient(150deg,color-mix(in srgb,var(--control-ink) 19%,var(--control-surface)),var(--control-hover))}
+.glass-control-icon{position:relative;display:grid;place-items:center;transition:transform .18s ease}
+.player-controls .glass-control-previous:hover .glass-control-icon{transform:translateX(-2px)}
+.player-controls .glass-control-next:hover .glass-control-icon{transform:translateX(2px)}
+.glass-icon-previous{animation:bimu-skip-prev .34s ease}.glass-icon-next{animation:bimu-skip-next .34s ease}
+@keyframes bimu-skip-prev{0%{transform:translateX(0);opacity:1}45%{transform:translateX(-12px);opacity:0}46%{transform:translateX(12px);opacity:0}100%{transform:translateX(0);opacity:1}}
+@keyframes bimu-skip-next{0%{transform:translateX(0);opacity:1}45%{transform:translateX(12px);opacity:0}46%{transform:translateX(-12px);opacity:0}100%{transform:translateX(0);opacity:1}}
+.desktop.compact .notch-player .player-menu-arrow.glass-control{position:absolute;width:20px;height:20px;transform:translateY(-50%)}
+.desktop-root .notch-player .player-menu-arrow.glass-control:active:not(:disabled){transform:translateY(-50%)}
+@media(prefers-reduced-motion:reduce){.glass-control-icon,.desktop.compact .notch-player .glass-control,.desktop.compact .notch-player .glass-control::before{transition:none}.glass-icon-previous,.glass-icon-next{animation:none}.player-controls .glass-control:hover .glass-control-icon{transform:none}}
