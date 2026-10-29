@@ -53,8 +53,14 @@ jobs:
           Export-Certificate -Cert $cert -FilePath msix-output\Bimu-test.cer | Out-Null
           & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint msix-output\Bimu-experimental.msix
           if ($LASTEXITCODE -ne 0) { throw 'MSIX signing failed' }
-          & $signtool verify /pa msix-output\Bimu-experimental.msix
-          if ($LASTEXITCODE -ne 0) { Write-Host 'Test certificate is not trusted by this runner, as expected.' }
+          # Trust the short-lived public certificate only on this disposable runner.
+          $trusted = Import-Certificate -FilePath msix-output\Bimu-test.cer -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople'
+          try {
+            & $signtool verify /pa msix-output\Bimu-experimental.msix
+            if ($LASTEXITCODE -ne 0) { throw 'Test package signature verification failed' }
+          } finally {
+            Remove-Item -LiteralPath $trusted.PSPath -ErrorAction SilentlyContinue
+          }
           Get-FileHash msix-output\Bimu-experimental.msix -Algorithm SHA256 | Format-List | Out-File msix-output\SHA256.txt
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
