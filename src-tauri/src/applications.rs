@@ -56,7 +56,7 @@ fn discovery_id(app_id:&str)->String{let digest=Sha256::digest(app_id.as_bytes()
  let item=r.discovered.iter().find(|item|item.id==id).cloned().ok_or("Volvé a buscar las aplicaciones e intentá nuevamente.")?;
  let app_id=r.discovered_ids.iter().find(|(key,_)|*key==id).map(|(_,value)|value.clone()).ok_or("Aplicación no encontrada.")?;
  let mut entries=r.entries.clone();
- if let Some(existing)=entries.iter_mut().find(|e|e.id==id||normalized(&e.name)==normalized(&item.name)||e.aliases.iter().any(|a|normalized(a)==normalized(&item.name)){if available(existing){return Err("Esa aplicación ya está registrada.".into())}existing.target=Target::ShellApp{app_id};}
+ if let Some(existing)=entries.iter_mut().find(|e|e.id==id||normalized(&e.name)==normalized(&item.name)||e.aliases.iter().any(|a|normalized(a)==normalized(&item.name))){if available(existing){return Err("Esa aplicación ya está registrada.".into())}existing.target=Target::ShellApp{app_id};}
  else{entries.push(Entry{id:id.clone(),name:item.name,aliases:vec![],remember:false,target:Target::ShellApp{app_id}})}save(&app,&entries)?;r.entries=entries;
  if let Some(item)=r.discovered.iter_mut().find(|item|item.id==id){item.added=true}Ok(r.entries.iter().map(view).collect())
 }
