@@ -570,3 +570,41 @@ html[data-notch=idle] .desktop.compact .bimu-eyes-sleepy:not(.bimu-listening)::b
 .page-settings-list li{position:relative;transition:transform .19s cubic-bezier(.2,.8,.2,1),background .16s ease,border-color .16s ease,box-shadow .16s ease}
 .page-settings-list li.is-dragging{z-index:3;opacity:1;transition:box-shadow .16s ease,border-color .16s ease;box-shadow:0 10px 24px rgba(0,0,0,.28),0 3px 12px rgba(var(--accent),.2);border-color:rgba(var(--accent),.7)}
 @media (prefers-reduced-motion:reduce){.page-settings-list li{transition:none}}
+/* A consistent, theme-aware scrollbar across Bimu's own scrollable views. */
+html.desktop-root{--bimu-scroll-thumb:color-mix(in srgb, var(--bimu-swatch, #a78bfa) 55%, var(--ink) 45%);--bimu-scroll-hover:color-mix(in srgb, var(--bimu-swatch, #a78bfa) 35%, var(--ink) 65%)}
+html.desktop-root,html.desktop-root *{scrollbar-width:thin;scrollbar-color:var(--bimu-scroll-thumb) transparent}
+html.desktop-root *::-webkit-scrollbar{width:5px;height:5px}
+html.desktop-root *::-webkit-scrollbar-track{background:transparent}
+html.desktop-root *::-webkit-scrollbar-thumb{background:var(--bimu-scroll-thumb);border-radius:999px}
+html.desktop-root *::-webkit-scrollbar-thumb:hover{background:var(--bimu-scroll-hover)}
+html.desktop-root *::-webkit-scrollbar-corner{background:transparent}
+.shortcut-order{margin:16px 0 8px}.shortcut-order>strong{display:block;font-size:11px;color:var(--ink)}.shortcut-order>small{display:block;margin-top:4px;font-size:9px;color:var(--muted)}
+.shortcut-order-list{margin:8px 0 0}.shortcut-order-list .page-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quick-modes-carousel{display:flex;align-items:center;gap:5px;min-width:0}
+.quick-modes-carousel .quick-modes-list{flex:1;min-width:0;scroll-snap-type:x proximity;padding:1px 1px 4px;overscroll-behavior-x:contain;touch-action:pan-y}
+.quick-modes-carousel .quick-modes-list.is-dragging{scroll-snap-type:none;cursor:grabbing;user-select:none}
+.quick-modes-carousel .quick-mode{width:155px}
+.quick-modes-carousel .quick-mode{scroll-snap-align:start;transition:background .16s ease,border-color .16s ease,box-shadow .16s ease}
+.quick-modes-carousel .quick-mode:hover{box-shadow:0 3px 10px rgba(0,0,0,.12)}
+/* Flat player controls and a compact theme-colored progress wave. */
+.desktop.compact .notch-player .player-controls .player-action{position:relative;display:grid;place-items:center;overflow:hidden;width:24px;height:24px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--control-ink);transition:background .16s ease}
+/* Balance the player's 48px/36px side padding against the notch center. */
+html:not([data-lyrics=true]) .desktop.compact .notch-player .player-controls .player-action{left:-6px}
+.desktop.compact .notch-player .player-controls .player-action.player-toggle{background:var(--control-surface)}
+.desktop.compact .notch-player .player-controls .player-action:hover:not(:disabled){background:var(--control-hover)}
+.player-action-icon{position:relative;display:grid;place-items:center;transition:transform .18s ease}
+.player-controls .player-action-previous:hover .player-action-icon{transform:translateX(-2px)}
+.player-controls .player-action-next:hover .player-action-icon{transform:translateX(2px)}
+.player-icon-previous{animation:bimu-skip-prev .34s ease}.player-icon-next{animation:bimu-skip-next .34s ease}
+@keyframes bimu-skip-prev{0%{transform:translateX(0);opacity:1}45%{transform:translateX(-12px);opacity:0}46%{transform:translateX(12px);opacity:0}100%{transform:translateX(0);opacity:1}}
+@keyframes bimu-skip-next{0%{transform:translateX(0);opacity:1}45%{transform:translateX(12px);opacity:0}46%{transform:translateX(-12px);opacity:0}100%{transform:translateX(0);opacity:1}}
+.desktop.compact .notch-player .player-menu-arrow.player-action{position:absolute;display:grid;place-items:center;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:var(--control-surface);color:var(--control-ink);transform:translateY(-50%)}
+.desktop.compact .notch-player .player-menu-arrow.player-action:hover{background:var(--control-hover)}
+.desktop-root .notch-player .player-menu-arrow.player-action:active:not(:disabled){transform:translateY(-50%)}
+.desktop.compact .notch-player .player-progress.player-wave{display:flex;align-items:center;height:10px;overflow:hidden;border-radius:5px;background:transparent}
+.desktop.compact .notch-player .player-progress.player-wave::after{content:'';flex:1;min-width:0;height:3px;border-radius:2px;background:var(--control-border)}
+.desktop.compact .notch-player .player-progress.player-wave i{position:relative;flex:none;display:block;height:10px;overflow:hidden;border-radius:3px;background:transparent;transition:width .3s linear}
+.player-wave i::before{content:'';position:absolute;inset:0;background:var(--control-ink);mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='100' viewBox='0 0 24 10'%3E%3Cpath d='M-6 5 C-4 1.7 -2 1.7 0 5 S4 8.3 6 5 S10 1.7 12 5 S16 8.3 18 5 S22 1.7 24 5 S28 8.3 30 5' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");mask-repeat:repeat-x;mask-size:24px 10px;mask-position:0 center}
+.player-wave.is-playing i::before{animation:bimu-wave 1.2s linear infinite}
+@keyframes bimu-wave{to{mask-position:24px center}}
+@media(prefers-reduced-motion:reduce){.player-action-icon,.desktop.compact .notch-player .player-controls .player-action{transition:none}.player-icon-previous,.player-icon-next,.player-wave.is-playing i::before{animation:none}.player-controls .player-action:hover .player-action-icon{transform:none}.desktop.compact .notch-player .player-progress.player-wave i{transition:none}}
