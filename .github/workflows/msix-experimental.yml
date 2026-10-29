@@ -1,0 +1,70 @@
+name: MSIX experimental
+on:
+  pull_request:
+    paths:
+      - 'store-msix/**'
+      - '.github/workflows/msix-experimental.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+      - run: npm run desktop:build -- --no-bundle
+      - name: Build and sign test package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdk = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Directory | Sort-Object Name -Descending | Where-Object { Test-Path (Join-Path $_.FullName 'x64\makeappx.exe') } | Select-Object -First 1
+          if (-not $sdk) { throw 'Windows SDK tools not found' }
+          $makeappx = Join-Path $sdk.FullName 'x64\makeappx.exe'
+          $signtool = Join-Path $sdk.FullName 'x64\signtool.exe'
+          New-Item -ItemType Directory -Force msix-stage\Assets, msix-output | Out-Null
+          Copy-Item src-tauri\target\release\Bimu.exe msix-stage\Bimu.exe
+          Copy-Item store-msix\AppxManifest.xml msix-stage\AppxManifest.xml
+          Add-Type -AssemblyName System.Drawing
+          $source = [System.Drawing.Image]::FromFile((Resolve-Path src-tauri\icons\icon.png))
+          try {
+            foreach ($asset in @(@('StoreLogo.png',50),@('Square150x150Logo.png',150),@('Square44x44Logo.png',44))) {
+              $bmp = New-Object System.Drawing.Bitmap ($asset[1], $asset[1])
+              $graphics = [System.Drawing.Graphics]::FromImage($bmp)
+              $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+              $graphics.DrawImage($source, 0, 0, $asset[1], $asset[1])
+              $bmp.Save((Join-Path (Resolve-Path msix-stage\Assets) $asset[0]), [System.Drawing.Imaging.ImageFormat]::Png)
+              $graphics.Dispose(); $bmp.Dispose()
+            }
+          } finally { $source.Dispose() }
+          & $makeappx pack /d msix-stage /p msix-output\Bimu-experimental.msix /o
+          if ($LASTEXITCODE -ne 0) { throw 'MSIX packing failed' }
+          # Keep a separate unsigned package for Partner Center; never upload the test certificate as a Store asset.
+          Copy-Item msix-output\Bimu-experimental.msix msix-output\Bimu-Store-sin-firmar.msix
+          $cert = New-SelfSignedCertificate -Type Custom -Subject 'CN=45BDCCA5-1378-44FC-BCC9-0A78BB87144A' -KeyUsage DigitalSignature -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3') -CertStoreLocation 'Cert:\CurrentUser\My' -NotAfter (Get-Date).AddDays(30)
+          Export-Certificate -Cert $cert -FilePath msix-output\Bimu-test.cer | Out-Null
+          & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint msix-output\Bimu-experimental.msix
+          if ($LASTEXITCODE -ne 0) { throw 'MSIX signing failed' }
+          # Trust the short-lived public certificate only on this disposable runner.
+          $trusted = Import-Certificate -FilePath msix-output\Bimu-test.cer -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople'
+          try {
+            & $signtool verify /pa msix-output\Bimu-experimental.msix
+            if ($LASTEXITCODE -ne 0) { throw 'Test package signature verification failed' }
+          } finally {
+            Remove-Item -LiteralPath $trusted.PSPath -ErrorAction SilentlyContinue
+          }
+          Get-FileHash msix-output\Bimu-experimental.msix, msix-output\Bimu-Store-sin-firmar.msix -Algorithm SHA256 | Format-List | Out-File msix-output\SHA256.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Bimu-MSIX-experimental
+          path: msix-output/*
